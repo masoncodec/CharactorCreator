@@ -47,22 +47,29 @@
         <h1>Welcome to Character Creator</h1>
     </header>
 
-    <div>
-        <!-- Upload button currently does not work. We will need to figure out how. -->
-        <!-- <form action="http://www.example.com/upload.php" method="post"> -->
-            <p>Upload your character in JSON format:</p>
-            <input type="file" name="character-file" /><br />
-            <input type="submit" value="Upload" />
-        <!-- </form> -->
-
-        <!-- Rework how this is labeled -->
-        <!-- <form action="http://www.example.com/add.php"> -->
-            <button><img src="images/add.gif" alt="add"
-              width="10" height="10" /> Add</button> 
-            <input type="hidden" name="bookmark"
-              value="lyrics" />
-        <!-- </form> -->
-    </div>
+    <main>
+        <div class="form-container">
+            <!-- TODO SEPARATE THESE BUTTONS IN DISPLAY -->
+            <div class="file-group">
+                <!-- Upload button currently does not work. We will need to figure out how. -->
+                <!-- <form action="http://www.example.com/upload.php" method="post"> --> 
+                <p>Upload your character in JSON format:</p>
+                <input type="file" name="character-file" /><br />
+                <input type="submit" value="Upload" />
+                <!-- </form> -->
+            </div>
+    
+            <div class="button-group">
+                <!-- Rework how this is labeled -->
+                <!-- <form action="http://www.example.com/add.php"> -->
+                <button><img src="images/add.gif" alt="add"
+                    width="10" height="10" /> Add</button> 
+                <input type="hidden" name="bookmark"
+                    value="lyrics" />
+                <!-- </form> -->
+            </div>
+        </div>
+    </main>
 
     <footer>
         <p>&copy; 2025 Chaos Incarnate Studios. All rights reserved.</p>
