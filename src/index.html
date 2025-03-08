@@ -48,17 +48,7 @@
     </header>
 
     <main>
-        <div class="form-container">
-            <!-- TODO SEPARATE THESE BUTTONS IN DISPLAY -->
-            <div class="file-group">
-                <!-- Upload button currently does not work. We will need to figure out how. -->
-                <!-- <form action="http://www.example.com/upload.php" method="post"> --> 
-                <p>Upload your character in JSON format:</p>
-                <input type="file" name="character-file" /><br />
-                <input type="submit" value="Upload" />
-                <!-- </form> -->
-            </div>
-    
+        <div class="left-section">
             <div class="button-group">
                 <!-- Rework how this is labeled -->
                 <!-- <form action="http://www.example.com/add.php"> -->
@@ -69,12 +59,24 @@
                 <!-- </form> -->
             </div>
         </div>
+        <div class="right-section">
+            <!-- TODO SEPARATE THESE BUTTONS IN DISPLAY -->
+            <div class="file-group">
+                <!-- Upload button currently does not work. We will need to figure out how. -->
+                <!-- <form action="http://www.example.com/upload.php" method="post"> --> 
+                <p>Upload your character in JSON format:</p>
+                <div class="file-controls">
+                    <input type="file" name="character-file" /><br />
+                    <input type="submit" value="Upload" />
+                </div>
+                <!-- </form> -->
+            </div>
+        </div>
     </main>
 
     <footer>
         <p>&copy; 2025 Chaos Incarnate Studios. All rights reserved.</p>
     </footer>
-    
 
     <!-- <footer>
         <p>&copy; 2023 Your Company Name. All rights reserved.</p>

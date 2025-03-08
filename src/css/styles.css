@@ -1,10 +1,12 @@
-html, body{
+/* Ensure the html and body take up the full height of the viewport */
+html, body {
     height: 100%;
     margin: 0;
     padding: 0;
 }
 
-body{
+/* Make the body a flex container with a column layout */
+body {
     display: flex;
     flex-direction: column;
     font-family: Arial, Helvetica, sans-serif;
@@ -12,41 +14,50 @@ body{
     color: beige;
 }
 
+/* Style the header */
 header {
     font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
     text-align: center;
     padding: 20px;
-    background-color: #333;
+    background-color: #333; /* Optional: Add a background color */
 }
-/* TODO: figure out margin-top % */
-/* div {
-    margin-top: 25%;
-} */
 
+/* Make the main content area take up the remaining space */
 main {
-    flex: 1;
+    flex: 1; /* This makes the main content grow to fill the available space */
     display: flex;
-    justify-content: center;
-    align-items: center;
+    justify-content: space-around; /* Evenly space left and right sections */
+    align-items: center; /* Center vertically */
+    padding: 20px; /* Add padding for spacing */
+}
+/* TODO ALIGN THE "ADD BUTTON AND SUBMIT JSON */
+/* Left section (button) */
+.left-section {
+    display: flex;
+    justify-content: center; /* Center the button horizontally */
+    align-items: center; /* Center vertically */
 }
 
-/* Style the form container */
-.form-container {
+/* Right section (file upload) */
+.right-section {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    padding: 20px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    background-color: #444; /* Optional: Add a background color */
+    justify-content: center; /* Center the file upload horizontally */
+    align-items: center; /* Center vertically */
 }
 
 /* Style the file group */
 .file-group {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column; /* Stack text and controls vertically */
+    align-items: flex-start; /* Align items to the left */
+    gap: 10px; /* Add space between text and controls */
+}
+
+/* Style the file controls (file input and upload button) */
+.file-controls {
+    display: flex;
+    align-items: center; /* Align file input and button vertically */
+    gap: 10px; /* Add space between file input and button */
 }
 
 /* Style the button group */
