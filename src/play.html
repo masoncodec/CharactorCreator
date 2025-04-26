@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Narrative TTRPG | Play</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="play-area">
+        <a href="index.html" class="home-link">← Return to Home</a>
+        
+        <!-- Character Panel -->
+        <div class="panel character-sheet">
+            <h2>Character Sheet</h2>
+            <div id="characterDetails"></div>
+        </div>
+
+        <!-- Narrative Panel -->
+        <div class="panel narrative-panel">
+            <h2>The Story Unfolds...</h2>
+            <div id="narrativeContent">Start your adventure here!</div>
+        </div>
+
+        <!-- Tools Panel -->
+        <div class="panel tools-panel">
+            <h2>Tools</h2>
+            <div class="dice-container">
+                <button id="rollD20">Roll D20</button>
+                <div id="diceResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/play.js"></script>
+</body>
+</html>
