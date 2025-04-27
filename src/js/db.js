@@ -60,13 +60,31 @@ function exportCharacter() {
     return getCurrentCharacter().then(character => {
         if (!character) return null;
         
-        // Create clean export object without internal DB fields
-        const exportData = {
-            name: character.name,
-            role: character.role,
-            // Add other character properties you want to export
-            createdAt: character.createdAt || new Date().toISOString()
-        };
+        // Create a deep copy of the character without the id
+        const exportData = JSON.parse(JSON.stringify(character));
+        
+        // Remove internal DB fields
+        delete exportData.id;
+        
+        // Ensure we have all important fields
+        if (!exportData.stats) {
+            exportData.stats = {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10
+            };
+        }
+        
+        if (!exportData.health) {
+            exportData.health = {
+                current: 10,
+                max: 10,
+                temporary: 0
+            };
+        }
         
         const json = JSON.stringify(exportData, null, 2);
         const blob = new Blob([json], { type: 'application/json' });
@@ -89,20 +107,40 @@ function importCharacter(file) {
             try {
                 const character = JSON.parse(event.target.result);
                 
-                // Remove the id if it exists to avoid duplicate key errors
+                // Remove the id if it exists
                 if (character.id) {
                     delete character.id;
                 }
                 
-                // Add timestamp
-                character.createdAt = new Date().toISOString();
+                // Set default values for required fields if missing
+                if (!character.name) character.name = "Unnamed Character";
+                if (!character.role) character.role = "Adventurer";
                 
-                // Validate required fields
-                if (!character.name || !character.role) {
-                    throw new Error('Character missing required fields (name, role)');
+                // Ensure stats exist
+                if (!character.stats) {
+                    character.stats = {
+                        strength: 10,
+                        dexterity: 10,
+                        constitution: 10,
+                        intelligence: 10,
+                        wisdom: 10,
+                        charisma: 10
+                    };
                 }
                 
-                // Save the cleaned character
+                // Ensure health exists
+                if (!character.health) {
+                    character.health = {
+                        current: 10,
+                        max: 10,
+                        temporary: 0
+                    };
+                }
+                
+                // Set creation date
+                character.createdAt = new Date().toISOString();
+                
+                // Save the character
                 saveCharacter(character).then(id => {
                     resolve({ ...character, id });
                 }).catch(err => {
@@ -168,6 +206,37 @@ function getActiveCharacter() {
     });
 }
 
+function updateCharacterHealth(id, healthUpdate) {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            
+            const getRequest = store.get(id);
+            
+            getRequest.onsuccess = function() {
+                const character = getRequest.result;
+                if (!character) {
+                    reject('Character not found');
+                    return;
+                }
+                
+                character.health = {
+                    ...character.health,
+                    ...healthUpdate
+                };
+                
+                const putRequest = store.put(character);
+                
+                putRequest.onsuccess = () => resolve(character);
+                putRequest.onerror = () => reject('Error updating health');
+            };
+            
+            getRequest.onerror = () => reject('Error finding character');
+        });
+    });
+}
+
 // Make functions available globally
 window.db = {
     saveCharacter,
@@ -177,5 +246,6 @@ window.db = {
     getAllCharacters,
     deleteCharacter,
     setActiveCharacter,
-    getActiveCharacter
+    getActiveCharacter,
+    updateCharacterHealth
 };

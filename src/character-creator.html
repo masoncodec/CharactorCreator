@@ -12,29 +12,69 @@
 
         <h2>Create Your Character</h2>
         <form id="characterForm">
-            <div class="form-group">
-                <label for="characterName">Name:</label>
-                <input type="text" id="characterName" required>
+            <div class="form-section">
+                <h3>Basic Information</h3>
+                <div class="form-group">
+                    <label for="characterName">Character Name:</label>
+                    <input type="text" id="characterName" required>
+                </div>
+                <div class="form-group">
+                    <label for="characterRole">Class/Role:</label>
+                    <input type="text" id="characterRole" required>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="characterRole">Role:</label>
-                <input type="text" id="characterRole" required>
+        
+            <div class="form-section">
+                <h3>Attributes</h3>
+                <div class="stats-grid">
+                    <div class="form-group">
+                        <label for="statStrength">Strength</label>
+                        <input type="number" id="statStrength" min="1" max="20" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="statDexterity">Dexterity</label>
+                        <input type="number" id="statDexterity" min="1" max="20" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="statConstitution">Constitution</label>
+                        <input type="number" id="statConstitution" min="1" max="20" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="statIntelligence">Intelligence</label>
+                        <input type="number" id="statIntelligence" min="1" max="20" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="statWisdom">Wisdom</label>
+                        <input type="number" id="statWisdom" min="1" max="20" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="statCharisma">Charisma</label>
+                        <input type="number" id="statCharisma" min="1" max="20" value="10">
+                    </div>
+                </div>
             </div>
-
-            <!-- Character JSON Import -->
-            <div class="form-group">
-                <label for="importCharacter">Import Character:</label>
-                <input type="file" id="importCharacter" accept=".json">
-                <p class="hint">Upload a previously exported character.json file</p>
+        
+            <div class="form-section">
+                <h3>Additional Information</h3>
+                <div class="form-group">
+                    <label for="characterBio">Background/Bio:</label>
+                    <textarea id="characterBio" rows="4"></textarea>
+                </div>
             </div>
-
             <!-- navigation -->
             <div class="form-group">
                 <a href="character-selector.html" class="btn btn-secondary">Back to Characters</a>
             </div>
 
-            <button type="submit" class="btn btn-primary">Start Playing</button>
+            <button type="submit" class="btn btn-primary">Create Character</button>
         </form>
+
+        <!-- Character JSON Import -->
+        <div class="form-group">
+            <label for="importCharacter">Import Character:</label>
+            <input type="file" id="importCharacter" accept=".json">
+            <p class="hint">Upload a previously exported character.json file</p>
+        </div>
     </div>
 
     <script src="js/db.js"></script>

@@ -6,9 +6,46 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (character) {
             characterDetails.innerHTML = `
-                <h3>${character.name}</h3>
-                <p>Role: ${character.role}</p>
-                <a href="character-selector.html" class="btn-change-character">Change Character</a>
+                <div class="character-header">
+                    <h3>${character.name}</h3>
+                    <p class="character-role">${character.role}</p>
+                </div>
+                
+                <div class="character-stats">
+                    <h4>Attributes</h4>
+                    <div class="stats-grid">
+                        ${Object.entries(character.stats).map(([stat, value]) => `
+                            <div class="stat">
+                                <label>${stat.charAt(0).toUpperCase() + stat.slice(1)}</label>
+                                <div class="stat-value">${value}</div>
+                                <div class="stat-modifier">${Math.floor((value - 10) / 2)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="character-health">
+                    <h4>Health</h4>
+                    <div class="health-bar">
+                        <div class="health-current" style="width: ${(character.health.current / character.health.max) * 100}%"></div>
+                    </div>
+                    <div class="health-numbers">
+                        ${character.health.current} / ${character.health.max}
+                        ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}
+                    </div>
+                </div>
+                
+                ${character.bio ? `
+                <div class="character-bio">
+                    <h4>Background</h4>
+                    <p>${character.bio}</p>
+                </div>
+                ` : ''}
+                
+                <div class="character-notes">
+                    <h4>Notes</h4>
+                    <textarea placeholder="Add session notes here..."></textarea>
+                </div>
             `;
         } else {
             characterDetails.innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
@@ -36,12 +73,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
+            // Log the exported data for debugging
+            console.log('Exporting character:', exportData.data);
+            
             const a = document.createElement('a');
             a.href = exportData.url;
             a.download = exportData.filename;
             a.click();
             
-            // Clean up
             setTimeout(function() {
                 URL.revokeObjectURL(exportData.url);
             }, 100);

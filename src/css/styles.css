@@ -164,7 +164,29 @@ body {
 }
 
 .character-actions {
-    margin-top: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #444;
+}
+
+.button-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.button-group .btn {
+    flex: 1;
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* Ensure links styled as buttons look consistent */
+.button-group a.btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
 }
 
 .btn-secondary {
@@ -271,4 +293,104 @@ body {
 
 .error {
     color: #ff6b6b;
+}
+
+.character-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #444;
+}
+
+.character-role {
+    font-style: italic;
+    color: #aaa;
+}
+
+.form-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #444;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.stat {
+    background: #1A1A1A;
+    padding: 0.75rem;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.stat label {
+    display: block;
+    font-size: 0.9rem;
+    color: #FFD700;
+    margin-bottom: 0.25rem;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.stat-modifier {
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+.character-health {
+    margin: 1.5rem 0;
+}
+
+.health-bar {
+    height: 20px;
+    background: #1A1A1A;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+}
+
+.health-current {
+    height: 100%;
+    background: #B22222;
+    transition: width 0.3s;
+}
+
+.health-numbers {
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.character-bio {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #1A1A1A;
+    border-radius: 4px;
+}
+
+.character-bio p {
+    white-space: pre-wrap;
+}
+
+.character-notes textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 0.75rem;
+    background: #1A1A1A;
+    border: 1px solid #444;
+    color: white;
+    border-radius: 4px;
+    resize: vertical;
+    margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
