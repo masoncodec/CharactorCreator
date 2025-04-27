@@ -122,10 +122,60 @@ function importCharacter(file) {
     });
 }
 
+function getAllCharacters() {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.getAll();
+            
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject('Error getting characters');
+        });
+    });
+}
+
+function deleteCharacter(id) {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.delete(id);
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject('Error deleting character');
+        });
+    });
+}
+
+function setActiveCharacter(id) {
+    localStorage.setItem('activeCharacterId', id);
+}
+
+function getActiveCharacter() {
+    const activeId = localStorage.getItem('activeCharacterId');
+    if (!activeId) return null;
+    
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.get(Number(activeId));
+            
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject('Error getting active character');
+        });
+    });
+}
+
 // Make functions available globally
 window.db = {
     saveCharacter,
     getCurrentCharacter,
     exportCharacter,
-    importCharacter
+    importCharacter,
+    getAllCharacters,
+    deleteCharacter,
+    setActiveCharacter,
+    getActiveCharacter
 };

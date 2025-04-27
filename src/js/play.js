@@ -1,16 +1,17 @@
 // Initialize play page
 document.addEventListener('DOMContentLoaded', function() {
-    // Load saved character
-    db.getCurrentCharacter().then(function(character) {
+    //Load active character
+    db.getActiveCharacter().then(function(character) {
         const characterDetails = document.getElementById('characterDetails');
         
         if (character) {
             characterDetails.innerHTML = `
                 <h3>${character.name}</h3>
                 <p>Role: ${character.role}</p>
+                <a href="character-selector.html" class="btn-change-character">Change Character</a>
             `;
         } else {
-            characterDetails.innerHTML = '<p>No character found. <a href="character-creator.html">Create one first</a></p>';
+            characterDetails.innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
         }
     }).catch(function(err) {
         console.error('Error loading character:', err);

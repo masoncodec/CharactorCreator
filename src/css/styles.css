@@ -193,3 +193,82 @@ body {
     border-radius: 4px;
     display: none;
 }
+
+/* Character Manager Styles */
+.character-manager {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: #2D2D2D;
+    border-radius: 8px;
+}
+
+.characters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.character-card {
+    background: #1A1A1A;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #444;
+    transition: transform 0.2s;
+}
+
+.character-card:hover {
+    transform: translateY(-5px);
+    border-color: #FFD700;
+}
+
+.character-card h3 {
+    color: #FFD700;
+    margin-bottom: 0.5rem;
+}
+
+.character-card p {
+    margin-bottom: 0.5rem;
+}
+
+.meta {
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+.card-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.btn-select {
+    background: #B22222;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    flex: 1;
+}
+
+.btn-delete {
+    background: #444;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.no-characters, .error {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem;
+    color: #aaa;
+}
+
+.error {
+    color: #ff6b6b;
+}
