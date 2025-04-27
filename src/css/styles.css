@@ -162,3 +162,34 @@ body {
         font-size: 2rem;
     }
 }
+
+.character-actions {
+    margin-top: 1rem;
+}
+
+.btn-secondary {
+    background: #2D2D2D;
+    color: white;
+    border: 1px solid #FFD700;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.form-group input[type="file"] {
+    padding: 0.5rem;
+}
+
+.hint {
+    font-size: 0.8rem;
+    color: #aaa;
+    margin-top: 0.25rem;
+}
+
+.error-message {
+    color: #ff6b6b;
+    margin-top: 1rem;
+    padding: 0.5rem;
+    border: 1px solid #ff6b6b;
+    border-radius: 4px;
+    display: none;
+}

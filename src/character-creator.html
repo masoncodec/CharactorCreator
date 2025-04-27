@@ -20,10 +20,19 @@
                 <label for="characterRole">Role:</label>
                 <input type="text" id="characterRole" required>
             </div>
+
+            <!-- Character JSON Import -->
+            <div class="form-group">
+                <label for="importCharacter">Import Character:</label>
+                <input type="file" id="importCharacter" accept=".json">
+                <p class="hint">Upload a previously exported character.json file</p>
+            </div>
+
             <button type="submit" class="btn btn-primary">Start Playing</button>
         </form>
     </div>
 
+    <script src="js/db.js"></script>
     <script src="js/character.js"></script>
 </body>
 </html>
