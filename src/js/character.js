@@ -4,76 +4,86 @@ document.addEventListener('DOMContentLoaded', () => {
         assignedAttributes: new Map(), // attribute -> die
         
         init() {
+            // Event delegation for button clicks
             document.querySelector('.dice-assignment-table').addEventListener('click', (e) => {
-                const button = e.target.closest('button');
+                const button = e.target.closest('button[data-die]');
                 if (!button) return;
-                
-                const attributeRow = button.closest('tr');
-                const attribute = attributeRow.dataset.attribute;
+
+                const row = button.closest('tr');
+                const attribute = row.dataset.attribute;
                 const die = button.dataset.die;
                 
-                this.handleSelection(attribute, die, button);
+                this.processSelection(attribute, die, button);
             });
-            
+
+            // Form submission handler
             document.getElementById('characterForm').addEventListener('submit', (e) => {
-                if (!this.validateSelections()) {
+                if (!this.validateAssignments()) {
                     e.preventDefault();
                     alert('Please assign each die type to exactly one attribute');
                 }
             });
         },
-        
-        handleSelection(attribute, die, button) {
-            // Toggle selection
-            if (this.assignedAttributes.get(attribute) === die) {
-                // Deselect
-                this.selectedDice.delete(die);
-                this.assignedAttributes.delete(attribute);
+
+        processSelection(attribute, die, button) {
+            const currentAssignment = this.assignedAttributes.get(attribute);
+            
+            if (currentAssignment === die) {
+                // Toggle off existing selection
+                this.clearAssignment(attribute, die);
                 button.classList.remove('selected');
             } else {
-                // Check if die is available
+                // Check if new die is available
                 if (this.selectedDice.has(die)) {
                     alert('This die type is already assigned to another attribute');
                     return;
                 }
-                
-                // Remove previous assignment for this attribute
-                const previousDie = this.assignedAttributes.get(attribute);
-                if (previousDie) {
-                    this.selectedDice.delete(previousDie);
-                    this.updateDieButton(attributeRow, previousDie, false);
+
+                // Clear previous assignment if exists
+                if (currentAssignment) {
+                    this.clearAssignment(attribute, currentAssignment);
                 }
-                
-                // Assign new selection
+
+                // Set new assignment
                 this.selectedDice.set(die, attribute);
                 this.assignedAttributes.set(attribute, die);
                 button.classList.add('selected');
             }
-            
-            this.updateDieAvailability();
-            this.updateRowStates();
+
+            this.updateDieStates();
+            this.updateRowValidation();
         },
-        
-        updateDieAvailability() {
-            document.querySelectorAll('[data-die]').forEach(button => {
+
+        clearAssignment(attribute, die) {
+            this.selectedDice.delete(die);
+            this.assignedAttributes.delete(attribute);
+            // Remove visual selection
+            document.querySelector(`tr[data-attribute="${attribute}"] button[data-die="${die}"]`)
+                ?.classList.remove('selected');
+        },
+
+        updateDieStates() {
+            document.querySelectorAll('button[data-die]').forEach(button => {
                 const die = button.dataset.die;
-                button.disabled = this.selectedDice.has(die) && 
-                              this.selectedDice.get(die) !== button.closest('tr').dataset.attribute;
+                const isAssigned = this.selectedDice.has(die);
+                const isCurrentAttribute = this.selectedDice.get(die) === button.closest('tr').dataset.attribute;
+                
+                button.disabled = isAssigned && !isCurrentAttribute;
             });
         },
-        
-        updateRowStates() {
-            document.querySelectorAll('[data-attribute]').forEach(row => {
-                row.classList.toggle('error', !this.assignedAttributes.has(row.dataset.attribute));
+
+        updateRowValidation() {
+            document.querySelectorAll('tr[data-attribute]').forEach(row => {
+                row.classList.toggle('invalid', !this.assignedAttributes.has(row.dataset.attribute));
             });
         },
-        
-        validateSelections() {
+
+        validateAssignments() {
             return this.selectedDice.size === 6 && 
                    this.assignedAttributes.size === 6;
         },
-        
-        getDiceAssignments() {
+
+        getAssignments() {
             return Object.fromEntries(this.assignedAttributes);
         }
     };
