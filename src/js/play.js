@@ -8,19 +8,27 @@ document.addEventListener('DOMContentLoaded', function() {
             characterDetails.innerHTML = `
                 <div class="character-header">
                     <h3>${character.name}</h3>
+                    <p class="character-module">${character.module || 'Crescendo'}</p>
                     <p class="character-role">${character.role}</p>
                 </div>
                 
                 <div class="character-stats">
                     <h4>Attributes</h4>
-                    <div class="stats-grid">
-                        ${Object.entries(character.stats).map(([stat, value]) => `
-                            <div class="stat">
-                                <label>${stat.charAt(0).toUpperCase() + stat.slice(1)}</label>
-                                <div class="stat-value">${value}</div>
-                                <div class="stat-modifier">${Math.floor((value - 10) / 2)}</div>
+                    <div class="dice-assignments">
+                        ${Object.entries(character.attributes).map(([attr, die]) => `
+                            <div class="dice-assignment" data-attribute="${attr}" data-dice="${die}">
+                                <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
+                                <div class="die-type">${die.toUpperCase()}</div>
+                                <button class="btn-roll">Roll</button>
+                                <div class="roll-result"></div>
                             </div>
                         `).join('')}
+                        <div class="dice-assignment" data-dice="d100">
+                            <label>Luck</label>
+                            <div class="die-type">D100</div>
+                            <button class="btn-roll">Roll</button>
+                            <div class="roll-result"></div>
+                        </div>
                     </div>
                 </div>
                 
@@ -87,6 +95,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }).catch(function(err) {
             console.error('Export failed:', err);
             alert('Export failed: ' + err);
+        });
+    });
+
+    // Rolling logic
+    document.querySelectorAll('.btn-roll').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const assignment = this.closest('.dice-assignment');
+            const dieType = assignment.getAttribute('data-dice');
+            const result = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
+            
+            const resultEl = assignment.querySelector('.roll-result');
+            resultEl.textContent = result;
+            resultEl.classList.add('visible');
+            
+            setTimeout(() => resultEl.classList.remove('visible'), 2000);
         });
     });
 });

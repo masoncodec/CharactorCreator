@@ -25,32 +25,89 @@
             </div>
         
             <div class="form-section">
-                <h3>Attributes</h3>
-                <div class="stats-grid">
-                    <div class="form-group">
-                        <label for="statStrength">Strength</label>
-                        <input type="number" id="statStrength" min="1" max="20" value="10">
-                    </div>
-                    <div class="form-group">
-                        <label for="statDexterity">Dexterity</label>
-                        <input type="number" id="statDexterity" min="1" max="20" value="10">
-                    </div>
-                    <div class="form-group">
-                        <label for="statConstitution">Constitution</label>
-                        <input type="number" id="statConstitution" min="1" max="20" value="10">
-                    </div>
-                    <div class="form-group">
-                        <label for="statIntelligence">Intelligence</label>
-                        <input type="number" id="statIntelligence" min="1" max="20" value="10">
-                    </div>
-                    <div class="form-group">
-                        <label for="statWisdom">Wisdom</label>
-                        <input type="number" id="statWisdom" min="1" max="20" value="10">
-                    </div>
-                    <div class="form-group">
-                        <label for="statCharisma">Charisma</label>
-                        <input type="number" id="statCharisma" min="1" max="20" value="10">
-                    </div>
+                <h3>Attribute Dice Assignment</h3>
+                <div class="dice-assignment-container">
+                    <table class="dice-assignment-table">
+                        <thead>
+                            <tr>
+                                <th>Attribute</th>
+                                <th>D4</th>
+                                <th>D6</th>
+                                <th>D8</th>
+                                <th>D10</th>
+                                <th>D12</th>
+                                <th>D20</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Passion -->
+                            <tr data-attribute="passion">
+                                <td>Passion</td>
+                                <td><button type="button" data-die="d4"></button></td>
+                                <td><button type="button" data-die="d6"></button></td>
+                                <td><button type="button" data-die="d8"></button></td>
+                                <td><button type="button" data-die="d10"></button></td>
+                                <td><button type="button" data-die="d12"></button></td>
+                                <td><button type="button" data-die="d20"></button></td>
+                            </tr>
+
+                            <!-- Rhythm -->
+                            <tr data-attribute="rhythm">
+                                <td>Rhythm</td>
+                                <td><button type="button" data-die="d4"></button></td>
+                                <td><button type="button" data-die="d6"></button></td>
+                                <td><button type="button" data-die="d8"></button></td>
+                                <td><button type="button" data-die="d10"></button></td>
+                                <td><button type="button" data-die="d12"></button></td>
+                                <td><button type="button" data-die="d20"></button></td>
+                            </tr>
+
+                            <!-- Stamina -->
+                            <tr data-attribute="stamina">
+                                <td>Stamina</td>
+                                <td><button type="button" data-die="d4"></button></td>
+                                <td><button type="button" data-die="d6"></button></td>
+                                <td><button type="button" data-die="d8"></button></td>
+                                <td><button type="button" data-die="d10"></button></td>
+                                <td><button type="button" data-die="d12"></button></td>
+                                <td><button type="button" data-die="d20"></button></td>
+                            </tr>
+
+                            <!-- Fame -->
+                            <tr data-attribute="fame">
+                                <td>Fame</td>
+                                <td><button type="button" data-die="d4"></button></td>
+                                <td><button type="button" data-die="d6"></button></td>
+                                <td><button type="button" data-die="d8"></button></td>
+                                <td><button type="button" data-die="d10"></button></td>
+                                <td><button type="button" data-die="d12"></button></td>
+                                <td><button type="button" data-die="d20"></button></td>
+                            </tr>
+
+                            <!-- Style -->
+                            <tr data-attribute="style">
+                                <td>Style</td>
+                                <td><button type="button" data-die="d4"></button></td>
+                                <td><button type="button" data-die="d6"></button></td>
+                                <td><button type="button" data-die="d8"></button></td>
+                                <td><button type="button" data-die="d10"></button></td>
+                                <td><button type="button" data-die="d12"></button></td>
+                                <td><button type="button" data-die="d20"></button></td>
+                            </tr>
+
+                            <!-- Harmony -->
+                            <tr data-attribute="harmony">
+                                <td>Harmony</td>
+                                <td><button type="button" data-die="d4"></button></td>
+                                <td><button type="button" data-die="d6"></button></td>
+                                <td><button type="button" data-die="d8"></button></td>
+                                <td><button type="button" data-die="d10"></button></td>
+                                <td><button type="button" data-die="d12"></button></td>
+                                <td><button type="button" data-die="d20"></button></td>
+                            </tr>
+                            <!-- Repeat for other attributes -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         

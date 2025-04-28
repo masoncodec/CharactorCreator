@@ -67,14 +67,17 @@ function exportCharacter() {
         delete exportData.id;
         
         // Ensure we have all important fields
-        if (!exportData.stats) {
-            exportData.stats = {
-                strength: 10,
-                dexterity: 10,
-                constitution: 10,
-                intelligence: 10,
-                wisdom: 10,
-                charisma: 10
+        if (!character.module) character.module = 'Crescendo'; // Default
+
+        if (!character.attributes) {
+            // Set default assignments if missing
+            character.attributes = {
+                passion: 'd8',
+                rhythm: 'd6',
+                stamina: 'd10',
+                fame: 'd4',
+                style: 'd12',
+                harmony: 'd20'
             };
         }
         
@@ -113,19 +116,25 @@ function importCharacter(file) {
                 }
                 
                 // Set default values for required fields if missing
+                if (!character.module) character.module = 'Crescendo';
                 if (!character.name) character.name = "Unnamed Character";
                 if (!character.role) character.role = "Adventurer";
                 
                 // Ensure stats exist
-                if (!character.stats) {
-                    character.stats = {
-                        strength: 10,
-                        dexterity: 10,
-                        constitution: 10,
-                        intelligence: 10,
-                        wisdom: 10,
-                        charisma: 10
+                if (!character.attributes) {
+                    // Set default assignments if missing
+                    character.attributes = {
+                        passion: 'd8',
+                        rhythm: 'd6',
+                        stamina: 'd10',
+                        fame: 'd4',
+                        style: 'd12',
+                        harmony: 'd20'
                     };
+
+                }
+                if (!character.luck) {
+                    character.luck = 'd100';
                 }
                 
                 // Ensure health exists

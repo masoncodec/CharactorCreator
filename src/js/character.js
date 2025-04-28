@@ -1,46 +1,82 @@
-document.getElementById('characterForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const character = {
-        name: document.getElementById('characterName').value,
-        role: document.getElementById('characterRole').value,
-        stats: {
-            strength: parseInt(document.getElementById('statStrength').value),
-            dexterity: parseInt(document.getElementById('statDexterity').value),
-            constitution: parseInt(document.getElementById('statConstitution').value),
-            intelligence: parseInt(document.getElementById('statIntelligence').value),
-            wisdom: parseInt(document.getElementById('statWisdom').value),
-            charisma: parseInt(document.getElementById('statCharisma').value)
+document.addEventListener('DOMContentLoaded', () => {
+    const diceManager = {
+        selectedDice: new Map(), // die -> attribute
+        assignedAttributes: new Map(), // attribute -> die
+        
+        init() {
+            document.querySelector('.dice-assignment-table').addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (!button) return;
+                
+                const attributeRow = button.closest('tr');
+                const attribute = attributeRow.dataset.attribute;
+                const die = button.dataset.die;
+                
+                this.handleSelection(attribute, die, button);
+            });
+            
+            document.getElementById('characterForm').addEventListener('submit', (e) => {
+                if (!this.validateSelections()) {
+                    e.preventDefault();
+                    alert('Please assign each die type to exactly one attribute');
+                }
+            });
         },
-        health: {
-            current: 10 + Math.floor((parseInt(document.getElementById('statConstitution').value) - 10) / 2),
-            max: 10 + Math.floor((parseInt(document.getElementById('statConstitution').value) - 10) / 2),
-            temporary: 0
+        
+        handleSelection(attribute, die, button) {
+            // Toggle selection
+            if (this.assignedAttributes.get(attribute) === die) {
+                // Deselect
+                this.selectedDice.delete(die);
+                this.assignedAttributes.delete(attribute);
+                button.classList.remove('selected');
+            } else {
+                // Check if die is available
+                if (this.selectedDice.has(die)) {
+                    alert('This die type is already assigned to another attribute');
+                    return;
+                }
+                
+                // Remove previous assignment for this attribute
+                const previousDie = this.assignedAttributes.get(attribute);
+                if (previousDie) {
+                    this.selectedDice.delete(previousDie);
+                    this.updateDieButton(attributeRow, previousDie, false);
+                }
+                
+                // Assign new selection
+                this.selectedDice.set(die, attribute);
+                this.assignedAttributes.set(attribute, die);
+                button.classList.add('selected');
+            }
+            
+            this.updateDieAvailability();
+            this.updateRowStates();
         },
-        inventory: [],
-        abilities: [],
-        bio: document.getElementById('characterBio').value,
-        createdAt: new Date().toISOString()
+        
+        updateDieAvailability() {
+            document.querySelectorAll('[data-die]').forEach(button => {
+                const die = button.dataset.die;
+                button.disabled = this.selectedDice.has(die) && 
+                              this.selectedDice.get(die) !== button.closest('tr').dataset.attribute;
+            });
+        },
+        
+        updateRowStates() {
+            document.querySelectorAll('[data-attribute]').forEach(row => {
+                row.classList.toggle('error', !this.assignedAttributes.has(row.dataset.attribute));
+            });
+        },
+        
+        validateSelections() {
+            return this.selectedDice.size === 6 && 
+                   this.assignedAttributes.size === 6;
+        },
+        
+        getDiceAssignments() {
+            return Object.fromEntries(this.assignedAttributes);
+        }
     };
-    
-    db.saveCharacter(character).then(function() {
-        window.location.href = 'character-selector.html';
-    }).catch(function(err) {
-        alert('Failed to save character: ' + err);
-    });
-});
 
-// Add import functionality
-document.getElementById('importCharacter').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    db.importCharacter(file).then(function() {
-        window.location.href = 'play.html';
-    }).catch(function(err) {
-        alert('Failed to import character: ' + err);
-    });
-    
-    // Reset input
-    e.target.value = '';
+    diceManager.init();
 });
