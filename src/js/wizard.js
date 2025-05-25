@@ -114,7 +114,7 @@ class CharacterWizard {
 
         item.classList.toggle('disabled', !canAccess);
         item.classList.toggle('active', index === this.currentPage);
-        item.classList.toggle('completed', isCompleted && index < this.currentPage); 
+        item.classList.toggle('completed', isCompleted); 
         
         if (!canAccess) {
           const reason = this.getNavigationBlockReason(index);
