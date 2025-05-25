@@ -170,16 +170,15 @@ class CharacterWizard {
           
           case 'attributes':
             const tableBody = document.querySelector('.dice-assignment-table tbody');
-            
-            // Only regenerate table if empty or module changed
+  
             if (!tableBody.innerHTML || this.state.moduleChanged) {
-              tableBody.innerHTML = '';
-              
-              if (this.state.module) {
+                tableBody.innerHTML = '';
+                
+                if (this.state.module) {
                 this.MODULE_SYSTEM[this.state.module].attributes.forEach(attr => {
-                  const row = document.createElement('tr');
-                  row.dataset.attribute = attr.toLowerCase();
-                  row.innerHTML = `
+                    const row = document.createElement('tr');
+                    row.dataset.attribute = attr.toLowerCase();
+                    row.innerHTML = `
                     <td>${attr}</td>
                     <td><button type="button" data-die="d4">D4</button></td>
                     <td><button type="button" data-die="d6">D6</button></td>
@@ -187,30 +186,43 @@ class CharacterWizard {
                     <td><button type="button" data-die="d10">D10</button></td>
                     <td><button type="button" data-die="d12">D12</button></td>
                     <td><button type="button" data-die="d20">D20</button></td>
-                  `;
-                  tableBody.appendChild(row);
+                    `;
+                    tableBody.appendChild(row);
                 });
-              }
-              this.state.moduleChanged = false; // Reset flag
-          }
+                }
+                this.state.moduleChanged = false;
+            }
           
           // Dice manager setup (unchanged from your original)
           const diceManager = {
-            selectedDice: new Map(), // die -> attribute
-                    assignedAttributes: new Map(), // attribute -> die
-                    
-                    init() {
-                        document.querySelector('.dice-assignment-table').addEventListener('click', (e) => {
-                            const button = e.target.closest('button[data-die]');
-                            if (!button) return;
-
-                            const row = button.closest('tr');
-                            const attribute = row.dataset.attribute;
-                            const die = button.dataset.die;
-                            
-                            this.processSelection(attribute, die, button);
-                        });
-                    },
+            selectedDice: new Map(),
+            assignedAttributes: new Map(),
+            
+            init() {
+              // Clear existing state
+              this.selectedDice.clear();
+              this.assignedAttributes.clear();
+              
+              // Restore from wizard state
+              Object.entries(this.wizard.state.attributes).forEach(([attr, die]) => {
+                this.selectedDice.set(die, attr);
+                this.assignedAttributes.set(attr, die);
+              });
+          
+              document.querySelector('.dice-assignment-table').addEventListener('click', (e) => {
+                const button = e.target.closest('button[data-die]');
+                if (!button) return;
+          
+                const row = button.closest('tr');
+                const attribute = row.dataset.attribute;
+                const die = button.dataset.die;
+                
+                this.processSelection(attribute, die, button);
+              });
+          
+              // Update button states after restoration
+              this.updateDieStates();
+            },
 
                     processSelection(attribute, die, button) {
                         const currentAssignment = this.assignedAttributes.get(attribute);
@@ -482,11 +494,11 @@ class CharacterWizard {
                     const btn = document.querySelector(`tr[data-attribute="${attr}"] button[data-die="${die}"]`);
                     if (btn) {
                     btn.classList.add('selected');
-                    btn.textContent = die.toUpperCase(); // Explicitly set text
+                    btn.textContent = die.toUpperCase();
                     }
                 });
                 
-                // Ensure all buttons have labels (for unselected ones)
+                // Ensure all buttons have labels
                 document.querySelectorAll('.dice-assignment-table button[data-die]').forEach(btn => {
                     if (!btn.textContent.trim()) {
                     btn.textContent = btn.dataset.die.toUpperCase();
