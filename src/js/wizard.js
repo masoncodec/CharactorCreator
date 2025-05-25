@@ -612,6 +612,10 @@ class CharacterWizard {
         destiny: this.state.destiny,
         attributes: this.state.attributes,
         bio: this.state.info.bio,
+        //TODO: figure this shit out lol
+        health: { current: 10, max: 10, temporary: 0 },
+        inventory: [],
+        abilities: [],
         createdAt: new Date().toISOString()
       };
       console.log('CharacterWizard.finishWizard: Character object prepared for saving:', character);
