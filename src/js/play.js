@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="character-header">
                     <h3>${character.name}</h3>
                     <p class="character-module">${character.module || 'Crescendo'}</p>
-                    <p class="character-role">${character.role}</p>
+                    <p class="character-role">${character.destiny}</p>
                 </div>
                 
                 <div class="character-stats">
