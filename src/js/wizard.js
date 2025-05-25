@@ -87,10 +87,13 @@ class CharacterWizard {
     // Navigation control
     updateNav() {
       this.navItems.forEach((item, index) => {
+        const page = this.pages[index];
         const canAccess = this.canAccessPage(index);
+        const isCompleted = this.isPageCompleted(page); // Check for completion
+
         item.classList.toggle('disabled', !canAccess);
         item.classList.toggle('active', index === this.currentPage);
-        item.classList.toggle('completed', index < this.currentPage);
+        item.classList.toggle('completed', isCompleted); // Only completed if truly completed
         
         if (!canAccess) {
           item.title = this.getNavigationBlockReason(index);
@@ -224,56 +227,57 @@ class CharacterWizard {
               this.updateDieStates();
             },
 
-                    processSelection(attribute, die, button) {
-                        const currentAssignment = this.assignedAttributes.get(attribute);
-                        
-                        if (currentAssignment === die) {
-                            // Toggle off existing selection
-                            this.clearAssignment(attribute, die);
-                            button.classList.remove('selected');
-                        } else {
-                            // Check if new die is available
-                            if (this.selectedDice.has(die)) {
-                                alert('This die type is already assigned to another attribute');
-                                return;
-                            }
-
-                            // Clear previous assignment if exists
-                            if (currentAssignment) {
-                                this.clearAssignment(attribute, currentAssignment);
-                            }
-
-                            // Set new assignment
-                            this.selectedDice.set(die, attribute);
-                            this.assignedAttributes.set(attribute, die);
-                            button.classList.add('selected');
-                        }
-
-                        this.updateDieStates();
-                        this.updateState();
-                    },
-
-                    clearAssignment(attribute, die) {
-                        this.selectedDice.delete(die);
-                        this.assignedAttributes.delete(attribute);
-                        document.querySelector(`tr[data-attribute="${attribute}"] button[data-die="${die}"]`)
-                            ?.classList.remove('selected');
-                    },
-
-                    updateDieStates() {
-                        document.querySelectorAll('button[data-die]').forEach(button => {
-                            const die = button.dataset.die;
-                            const isAssigned = this.selectedDice.has(die);
-                            const isCurrentAttribute = this.selectedDice.get(die) === button.closest('tr').dataset.attribute;
-                            
-                            button.disabled = isAssigned && !isCurrentAttribute;
-                        });
-                    },
-
-                    updateState() {
-                        // Update wizard state
-                        this.wizard.state.attributes = Object.fromEntries(this.assignedAttributes);
+            processSelection(attribute, die, button) {
+                const currentAssignment = this.assignedAttributes.get(attribute);
+                
+                if (currentAssignment === die) {
+                    // Toggle off existing selection
+                    this.clearAssignment(attribute, die);
+                    button.classList.remove('selected');
+                } else {
+                    // Check if new die is available
+                    if (this.selectedDice.has(die)) {
+                        alert('This die type is already assigned to another attribute');
+                        return;
                     }
+
+                    // Clear previous assignment if exists
+                    if (currentAssignment) {
+                        this.clearAssignment(attribute, currentAssignment);
+                    }
+
+                    // Set new assignment
+                    this.selectedDice.set(die, attribute);
+                    this.assignedAttributes.set(attribute, die);
+                    button.classList.add('selected');
+                }
+
+                this.updateDieStates();
+                this.updateState();
+                this.wizard.updateNav(); // Crucial: update navigation after attribute changes
+            },
+
+            clearAssignment(attribute, die) {
+                this.selectedDice.delete(die);
+                this.assignedAttributes.delete(attribute);
+                document.querySelector(`tr[data-attribute="${attribute}"] button[data-die="${die}"]`)
+                    ?.classList.remove('selected');
+            },
+
+            updateDieStates() {
+                document.querySelectorAll('button[data-die]').forEach(button => {
+                    const die = button.dataset.die;
+                    const isAssigned = this.selectedDice.has(die);
+                    const isCurrentAttribute = this.selectedDice.get(die) === button.closest('tr').dataset.attribute;
+                    
+                    button.disabled = isAssigned && !isCurrentAttribute;
+                });
+            },
+
+            updateState() {
+                // Update wizard state
+                this.wizard.state.attributes = Object.fromEntries(this.assignedAttributes);
+            }
           };
           diceManager.wizard = this;
           diceManager.init();
@@ -282,9 +286,11 @@ class CharacterWizard {
         case 'info':
           document.getElementById('characterName').addEventListener('input', (e) => {
             this.state.info.name = e.target.value;
+            this.updateNav(); // Update navigation on name change
           });
           document.getElementById('characterBio').addEventListener('input', (e) => {
             this.state.info.bio = e.target.value;
+            this.updateNav(); // Update navigation on bio change (if bio contributes to completion)
           });
           break;
       }
@@ -339,6 +345,26 @@ class CharacterWizard {
       }
     }
   
+    // New method to check if a page is truly completed
+    isPageCompleted(page) {
+        switch(page) {
+            case 'module':
+                return !!this.state.module;
+            case 'destiny':
+                return !!this.state.module && !!this.state.destiny;
+            case 'attributes':
+                if (!this.state.module) return false;
+                const requiredAttrs = this.MODULE_SYSTEM[this.state.module].attributes;
+                return requiredAttrs.every(attr => 
+                    this.state.attributes[attr.toLowerCase()]
+                );
+            case 'info':
+                return !!this.state.info.name?.trim(); // Assuming only name is required for completion
+            default:
+                return false;
+        }
+    }
+
     // Navigation methods
     goToPage(page) {
       const pageIndex = this.pages.indexOf(page);
@@ -365,23 +391,25 @@ class CharacterWizard {
   
     // Validation system
     validateCurrentPage() {
-    //   const validations = {
-    //     module: () => !!this.state.module,
-    //     destiny: () => !!this.state.module && !!this.state.destiny,
-    //     attributes: () => {
-    //       if (!this.state.module) return false;
-    //       const requiredAttrs = this.MODULE_SYSTEM[this.state.module].attributes;
-    //       return requiredAttrs.every(attr => 
-    //         this.state.attributes[attr.toLowerCase()]
-    //       );
-    //     },
-    //     info: () => !!this.state.info.name?.trim()
-    //   };
+      // Re-enable this logic if you want to prevent users from progressing
+      // before a page is valid.
+      const validations = {
+        module: () => !!this.state.module,
+        destiny: () => !!this.state.module && !!this.state.destiny,
+        attributes: () => {
+          if (!this.state.module) return false;
+          const requiredAttrs = this.MODULE_SYSTEM[this.state.module].attributes;
+          return requiredAttrs.every(attr => 
+            this.state.attributes[attr.toLowerCase()]
+          );
+        },
+        info: () => !!this.state.info.name?.trim()
+      };
   
-    //   if (!validations[this.pages[this.currentPage]]()) {
-    //     this.showPageError();
-    //     return false;
-    //   }
+      if (validations[this.pages[this.currentPage]] && !validations[this.pages[this.currentPage]]()) {
+        this.showPageError();
+        return false;
+      }
       return true;
     }
   
@@ -494,14 +522,15 @@ class CharacterWizard {
                     const btn = document.querySelector(`tr[data-attribute="${attr}"] button[data-die="${die}"]`);
                     if (btn) {
                     btn.classList.add('selected');
-                    btn.textContent = die.toUpperCase();
+                    // btn.textContent = die.toUpperCase(); // This might override the default label if not assigned
                     }
                 });
                 
-                // Ensure all buttons have labels
+                // Ensure all buttons have labels (re-apply them based on data-die)
                 document.querySelectorAll('.dice-assignment-table button[data-die]').forEach(btn => {
-                    if (!btn.textContent.trim()) {
-                    btn.textContent = btn.dataset.die.toUpperCase();
+                    // Only set text content if it's currently empty, otherwise leave it as is or if it's not selected.
+                    if (!btn.classList.contains('selected') || !btn.textContent.trim()) {
+                       btn.textContent = btn.dataset.die.toUpperCase();
                     }
                 });
                 break;
