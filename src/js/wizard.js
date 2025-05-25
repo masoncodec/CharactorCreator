@@ -170,9 +170,13 @@ class CharacterWizard {
           });
           break;
           
-        case 'attributes':
+          case 'attributes':
             const tableBody = document.querySelector('.dice-assignment-table tbody');
-  
+            
+            // Clear existing event listeners to prevent duplication
+            const table = document.querySelector('.dice-assignment-table');
+            table.replaceWith(table.cloneNode(true)); // This effectively removes all event listeners
+            
             // Only re-render the table if it's empty or module changed
             if (!tableBody.innerHTML || this.state.moduleChanged) {
                 tableBody.innerHTML = ''; // Clear existing content
@@ -195,29 +199,25 @@ class CharacterWizard {
                 }
                 this.state.moduleChanged = false; // Reset the flag
             }
-          
-            // Dice Manager object
-            // Define diceManager as a property of the CharacterWizard instance if it needs to persist
-            // across page loads, but for now, re-initializing it each time is fine if handled correctly.
-            // Let's ensure it's properly initialized every time the attributes page is loaded.
+            
             const diceManager = {
-                wizard: this, // Reference to the CharacterWizard instance
-                selectedDice: new Map(), // Maps die (e.g., 'd4') to attribute (e.g., 'strength')
-                assignedAttributes: new Map(), // Maps attribute (e.g., 'strength') to die (e.g., 'd4')
-                _hasEventListener: false, // Flag to prevent multiple listeners
+                wizard: this,
+                selectedDice: new Map(),
+                assignedAttributes: new Map(),
                 
                 init() {
-                    // 1. Clear internal state
+                    // Clear internal state
                     this.selectedDice.clear();
                     this.assignedAttributes.clear();
-
-                    // 2. Clear all previous UI selections and disabled states
+        
+                    // Clear all previous UI selections and disabled states
                     document.querySelectorAll('.dice-assignment-table button').forEach(btn => {
                         btn.classList.remove('selected');
-                        btn.disabled = false; // Ensure all are enabled initially
+                        btn.disabled = false;
+                        btn.textContent = btn.dataset.die.toUpperCase(); // Ensure text is set
                     });
                     
-                    // 3. Restore selections from wizard state and apply 'selected' class
+                    // Restore selections from wizard state
                     Object.entries(this.wizard.state.attributes).forEach(([attr, die]) => {
                         this.selectedDice.set(die, attr);
                         this.assignedAttributes.set(attr, die);
@@ -227,90 +227,80 @@ class CharacterWizard {
                         }
                     });
                 
-                    // 4. Attach event listener only once
-                    if (!this._hasEventListener) {
-                        document.querySelector('.dice-assignment-table').addEventListener('click', (e) => {
-                            const button = e.target.closest('button[data-die]');
-                            if (!button) return;
-                    
-                            const row = button.closest('tr');
-                            const attribute = row.dataset.attribute;
-                            const die = button.dataset.die;
-                            
-                            this.processSelection(attribute, die, button);
-                        });
-                        this._hasEventListener = true;
-                    }
+                    // Attach event listener
+                    document.querySelector('.dice-assignment-table').addEventListener('click', (e) => {
+                        const button = e.target.closest('button[data-die]');
+                        if (!button) return;
                 
-                    // 5. Update disabled states based on the restored assignments
-                    this.updateDieStates(); 
+                        const row = button.closest('tr');
+                        const attribute = row.dataset.attribute;
+                        const die = button.dataset.die;
+                        
+                        this.processSelection(attribute, die, button);
+                    });
+                
+                    this.updateDieStates();
                 },
-
+        
                 processSelection(attribute, die, button) {
                     const currentAssignmentForAttribute = this.assignedAttributes.get(attribute);
                     
                     if (currentAssignmentForAttribute === die) {
-                        // If the same button is clicked, unassign it
+                        // Unassign if clicking the same button
                         this.clearAssignment(attribute, die);
                         button.classList.remove('selected');
                     } else {
-                        // Check if the selected die type is already assigned to another attribute
+                        // Check if die is already assigned to another attribute
                         if (this.selectedDice.has(die)) {
                             alert('This die type is already assigned to another attribute');
                             return;
                         }
-
-                        // Clear any previous assignment for the current attribute
+        
+                        // Clear previous assignment for this attribute if exists
                         if (currentAssignmentForAttribute) {
                             this.clearAssignment(attribute, currentAssignmentForAttribute);
                         }
-
-                        // Assign the new die to the attribute
+        
+                        // Assign the new die
                         this.selectedDice.set(die, attribute);
                         this.assignedAttributes.set(attribute, die);
                         button.classList.add('selected');
                     }
-
+        
                     this.updateDieStates();
                     this.updateState();
-                    this.wizard.updateNav(); // Re-evaluate navbar completion
+                    this.wizard.updateNav();
                 },
-
+        
                 clearAssignment(attribute, die) {
                     this.selectedDice.delete(die);
                     this.assignedAttributes.delete(attribute);
-                    // Remove 'selected' class from the button
-                    document.querySelector(`tr[data-attribute="${attribute}"] button[data-die="${die}"]`)
-                        ?.classList.remove('selected');
+                    const btn = document.querySelector(`tr[data-attribute="${attribute}"] button[data-die="${die}"]`);
+                    if (btn) btn.classList.remove('selected');
                 },
-
+        
                 updateDieStates() {
-                    // Iterate over ALL die buttons
                     document.querySelectorAll('.dice-assignment-table button[data-die]').forEach(button => {
                         const die = button.dataset.die;
                         const rowAttribute = button.closest('tr').dataset.attribute;
+                        const currentAssignment = this.assignedAttributes.get(rowAttribute);
                         
-                        // A button should be disabled if:
-                        // 1. Its die type is currently assigned to *another* attribute.
-                        const isAssignedToAnother = this.selectedDice.has(die) && this.selectedDice.get(die) !== rowAttribute;
+                        // Enable button if:
+                        // 1. It's the currently assigned die for this attribute, OR
+                        // 2. The die isn't assigned to any attribute
+                        button.disabled = !(currentAssignment === die || !this.selectedDice.has(die));
                         
-                        // Set the disabled state
-                        button.disabled = isAssignedToAnother;
-
-                        // Ensure button text content is correct after re-rendering, if needed.
-                        // It should already be set by the HTML partial, but this provides a fallback.
-                        if (!button.textContent.trim()) {
-                            button.textContent = die.toUpperCase();
-                        }
+                        // Always ensure button text is correct
+                        button.textContent = die.toUpperCase();
                     });
                 },
-
+        
                 updateState() {
-                    // Update the main wizard state with current attribute assignments
                     this.wizard.state.attributes = Object.fromEntries(this.assignedAttributes);
                 }
             };
-            diceManager.init(); // Initialize the dice manager logic when attributes page content is ready
+            
+            diceManager.init();
             break;
           
         case 'info':
