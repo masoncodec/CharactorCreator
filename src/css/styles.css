@@ -628,3 +628,202 @@ body {
 .dice-assignment-table tr.error {
     background-color: rgba(178, 34, 34, 0.1);
 }
+
+.wizard-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.wizard-nav {
+    display: flex;
+    background: #2D2D2D;
+    padding: 1rem;
+}
+
+.nav-item {
+    padding: 0.5rem 1rem;
+    margin-right: 1rem;
+    cursor: pointer;
+}
+
+.nav-item.active {
+    border-bottom: 2px solid #B22222;
+}
+
+.nav-item.completed {
+    color: #FFD700;
+}
+
+.wizard-content {
+    display: flex;
+    flex: 1;
+}
+
+.selector-panel, .informer-panel {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+.wizard-controls {
+    padding: 1rem;
+    background: #1A1A1A;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Home Button Styling */
+.header-controls {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: #2D2D2D;
+    border-bottom: 1px solid #444;
+}
+
+.btn-home {
+    color: #FFD700;
+    text-decoration: none;
+    font-size: 1.1rem;
+    margin-right: 2rem;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.btn-home:hover {
+    background: rgba(178, 34, 34, 0.2);
+}
+
+/* Active Navigation State */
+.nav-item.active {
+    background: #B22222;
+    color: white;
+}
+
+.nav-item.completed:not(.active) {
+    color: #FFD700;
+}
+
+.nav-item:not(.active):not(.completed):hover {
+    background: #3D3D3D;
+}
+
+/* Add to styles.css */
+.module-option.selected,
+.dice-assignment button.selected {
+    background: #B22222;
+    border-color: #FFD700;
+}
+
+#roleInfo {
+    transition: all 0.3s;
+}
+
+#roleInfo h4 {
+    color: #FFD700;
+    margin-bottom: 0.5rem;
+}
+
+/* Add to styles.css */
+.wizard-container.complete .nav-item {
+    opacity: 0.7;
+}
+
+.wizard-container.complete .nav-item.completed {
+    opacity: 1;
+    color: #4CAF50; /* Green for completion */
+}
+
+/* Error highlighting */
+.error-highlight {
+    animation: pulseError 1s;
+    box-shadow: 0 0 0 2px #B22222;
+}
+
+@keyframes pulseError {
+    0% { box-shadow: 0 0 0 0 rgba(178, 34, 34, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(178, 34, 34, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(178, 34, 34, 0); }
+}
+
+.error-highlight {
+    animation: pulseError 1s;
+    position: relative;
+}
+
+.error-highlight::after {
+    content: "";
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border: 2px solid #B22222;
+    border-radius: 4px;
+    pointer-events: none;
+    animation: pulseError 2s infinite;
+}
+
+@keyframes pulseError {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+/* For select elements */
+select.error-highlight {
+    border-color: #B22222;
+}
+
+/* Dice selection styles */
+.dice-assignment-table button {
+    width: 50px;
+    height: 40px;
+    border: 2px solid #444;
+    border-radius: 4px;
+    background: #1A1A1A;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.dice-assignment-table button.selected {
+    background: #B22222;
+    border-color: #FFD700;
+    font-weight: bold;
+}
+
+.dice-assignment-table button:disabled:not(.selected) {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.dice-assignment-table button:not(:disabled):hover {
+    background: #2D2D2D;
+}
+
+/* Navigation */
+.wizard-nav .disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    position: relative;
+  }
+  
+  .wizard-nav .disabled::after {
+    content: "🔒";
+    position: absolute;
+    right: 5px;
+  }
+  
+  .error-highlight {
+    animation: pulse-error 2s;
+    border-color: red !important;
+  }
+  
+  @keyframes pulse-error {
+    0% { box-shadow: 0 0 0 0 rgba(255,0,0,0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255,0,0,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); }
+  }

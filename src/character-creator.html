@@ -3,138 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Character</title>
+    <title>Character Creator</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <div class="character-creator">
-        <a href="index.html" class="home-link">← Return to Home</a>
-
-        <h2>Create Your Character</h2>
-        <form id="characterForm">
-            <div class="form-section">
-                <h3>Basic Information</h3>
-                <div class="form-group">
-                    <label for="characterName">Character Name:</label>
-                    <input type="text" id="characterName" required>
+        <!-- Add Home Button at top -->
+        <div class="header-controls">
+            <a href="index.html" class="btn-home">← Home</a>
+            <h2>Create Your Character</h2>
+        </div>
+    
+        <!-- Rest of your existing wizard container -->
+        <div class="wizard-container">
+            <!-- Navigation -->
+            <nav class="wizard-nav">
+                <div class="nav-item" data-page="module">Module</div>
+                <div class="nav-item" data-page="destiny">Destiny</div>
+                <div class="nav-item" data-page="attributes">Attributes</div>
+                <div class="nav-item" data-page="info">Basic Info</div>
+            </nav>
+    
+            <div class="wizard-content">
+                <!-- Left Panel -->
+                <div class="selector-panel" id="selectorPanel">
+                    <!-- Dynamic content loaded here -->
                 </div>
-                <div class="form-group">
-                    <label for="characterRole">Class/Role:</label>
-                    <input type="text" id="characterRole" required>
-                </div>
-            </div>
-        
-            <div class="form-section">
-                <h3>Attribute Dice Assignment</h3>
-                <div class="dice-assignment-container">
-                    <table class="dice-assignment-table">
-                        <thead>
-                            <tr>
-                                <th>Attribute</th>
-                                <th>D4</th>
-                                <th>D6</th>
-                                <th>D8</th>
-                                <th>D10</th>
-                                <th>D12</th>
-                                <th>D20</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Passion -->
-                            <tr data-attribute="passion">
-                                <td>Passion</td>
-                                <td><button type="button" data-die="d4"></button></td>
-                                <td><button type="button" data-die="d6"></button></td>
-                                <td><button type="button" data-die="d8"></button></td>
-                                <td><button type="button" data-die="d10"></button></td>
-                                <td><button type="button" data-die="d12"></button></td>
-                                <td><button type="button" data-die="d20"></button></td>
-                            </tr>
-
-                            <!-- Rhythm -->
-                            <tr data-attribute="rhythm">
-                                <td>Rhythm</td>
-                                <td><button type="button" data-die="d4"></button></td>
-                                <td><button type="button" data-die="d6"></button></td>
-                                <td><button type="button" data-die="d8"></button></td>
-                                <td><button type="button" data-die="d10"></button></td>
-                                <td><button type="button" data-die="d12"></button></td>
-                                <td><button type="button" data-die="d20"></button></td>
-                            </tr>
-
-                            <!-- Stamina -->
-                            <tr data-attribute="stamina">
-                                <td>Stamina</td>
-                                <td><button type="button" data-die="d4"></button></td>
-                                <td><button type="button" data-die="d6"></button></td>
-                                <td><button type="button" data-die="d8"></button></td>
-                                <td><button type="button" data-die="d10"></button></td>
-                                <td><button type="button" data-die="d12"></button></td>
-                                <td><button type="button" data-die="d20"></button></td>
-                            </tr>
-
-                            <!-- Fame -->
-                            <tr data-attribute="fame">
-                                <td>Fame</td>
-                                <td><button type="button" data-die="d4"></button></td>
-                                <td><button type="button" data-die="d6"></button></td>
-                                <td><button type="button" data-die="d8"></button></td>
-                                <td><button type="button" data-die="d10"></button></td>
-                                <td><button type="button" data-die="d12"></button></td>
-                                <td><button type="button" data-die="d20"></button></td>
-                            </tr>
-
-                            <!-- Style -->
-                            <tr data-attribute="style">
-                                <td>Style</td>
-                                <td><button type="button" data-die="d4"></button></td>
-                                <td><button type="button" data-die="d6"></button></td>
-                                <td><button type="button" data-die="d8"></button></td>
-                                <td><button type="button" data-die="d10"></button></td>
-                                <td><button type="button" data-die="d12"></button></td>
-                                <td><button type="button" data-die="d20"></button></td>
-                            </tr>
-
-                            <!-- Harmony -->
-                            <tr data-attribute="harmony">
-                                <td>Harmony</td>
-                                <td><button type="button" data-die="d4"></button></td>
-                                <td><button type="button" data-die="d6"></button></td>
-                                <td><button type="button" data-die="d8"></button></td>
-                                <td><button type="button" data-die="d10"></button></td>
-                                <td><button type="button" data-die="d12"></button></td>
-                                <td><button type="button" data-die="d20"></button></td>
-                            </tr>
-                            <!-- Repeat for other attributes -->
-                        </tbody>
-                    </table>
+    
+                <!-- Right Panel -->
+                <div class="informer-panel" id="informerPanel">
+                    <!-- Dynamic help content loaded here -->
                 </div>
             </div>
-        
-            <div class="form-section">
-                <h3>Additional Information</h3>
-                <div class="form-group">
-                    <label for="characterBio">Background/Bio:</label>
-                    <textarea id="characterBio" rows="4"></textarea>
-                </div>
+    
+            <!-- Navigation Buttons -->
+            <div class="wizard-controls">
+                <button id="prevBtn" disabled>Previous</button>
+                <button id="nextBtn">Next</button>
             </div>
-            <!-- navigation -->
-            <div class="form-group">
-                <a href="character-selector.html" class="btn btn-secondary">Back to Characters</a>
-            </div>
-
-            <button type="submit" class="btn btn-primary">Create Character</button>
-        </form>
-
-        <!-- Character JSON Import -->
-        <div class="form-group">
-            <label for="importCharacter">Import Character:</label>
-            <input type="file" id="importCharacter" accept=".json">
-            <p class="hint">Upload a previously exported character.json file</p>
         </div>
     </div>
 
+    <div id="completionMessage" style="display:none;">
+        <h3>Character Created Successfully!</h3>
+        <p>Redirecting to character selection...</p>
+    </div>
+
     <script src="js/db.js"></script>
-    <script src="js/character.js"></script>
+    <script src="js/wizard.js"></script>
 </body>
 </html>
