@@ -32,6 +32,69 @@ const MODULE_SYSTEM = {
       }
     }
   };
+
+  const FLAW_DATA = {
+    'overconfidence': {
+      id: 'overconfidence',
+      displayName: 'Overconfidence',
+      description: 'You underestimate threats.',
+      effect: 'Disadvantage on Perception checks against hidden dangers.'
+    },
+    'code-of-honor': {
+      id: 'code-of-honor',
+      displayName: 'Code of Honor',
+      description: 'You refuse to fight dirty or engage in underhanded tactics.',
+      effect: 'Cannot gain advantage from stealth or surprise attacks; must always announce intentions in combat.'
+    },
+    'greed': {
+      id: 'greed',
+      displayName: 'Greed',
+      description: 'You can\'t resist valuable loot, even if it means danger.',
+      effect: 'Disadvantage on saving throws against effects that tempt with riches; compulsion to steal valuable items if unattended.'
+    },
+    'dogmatic': {
+      id: 'dogmatic',
+      displayName: 'Dogmatic',
+      description: 'You strictly follow your doctrine, unwilling to compromise.',
+      effect: 'Cannot lie or deceive; disadvantage on social checks when dealing with those of opposing beliefs.'
+    },
+    'perfectionist': {
+      id: 'perfectionist',
+      displayName: 'Perfectionist',
+      description: 'You obsess over mistakes, making recovery difficult.',
+      effect: 'Disadvantage on checks to recover from negative statuses (e.g., "Shaken," "Demoralized") if the status was caused by your own error.'
+    },
+    'ego': {
+      id: 'ego',
+      displayName: 'Ego',
+      description: 'You crave the spotlight and recognition.',
+      effect: 'Disadvantage on group performance checks unless you are the primary focus; unwilling to share credit.'
+    },
+    'vulnerable': {
+      id: 'vulnerable',
+      displayName: 'Vulnerable',
+      description: 'You take criticism and negativity hard.',
+      effect: 'Disadvantage on Fame checks for 24 hours after receiving negative feedback or failing a public performance.'
+    },
+    'impulsive': {
+      id: 'impulsive',
+      displayName: 'Impulsive',
+      description: 'You rush into things without thinking.',
+      effect: 'Disadvantage on patience checks; cannot take the "Wait" action in combat.'
+    },
+    'naive': {
+        id: 'naive',
+        displayName: 'Naive',
+        description: 'You trust others too easily and are often unsuspecting.',
+        effect: 'Disadvantage on Insight checks to detect deception.'
+    },
+    'vengeful': {
+        id: 'vengeful',
+        displayName: 'Vengeful',
+        description: 'You hold grudges and seek retribution.',
+        effect: 'Compulsion to pursue vengeance against those who have wronged you, even if it\'s not practical.'
+    }
+  };
   
   const DESTINY_DATA = {
     // ===== HIGH FANTASY DESTINIES =====
@@ -43,11 +106,7 @@ const MODULE_SYSTEM = {
         effect: '6 + INT',
         value: 6
       },
-      flaw: {
-        title: 'Overconfidence',
-        description: 'You underestimate threats',
-        effect: 'Disadvantage on Perception vs danger'
-      },
+      flaws: ['overconfidence', 'dogmatic', 'naive'], // Now a list of flaw IDs
       tags: [
         { id: 'magic', display: 'Magic', color: '#8a2be2', icon: '🔮' },
         { id: 'support', display: 'Support', color: '#20b2aa', icon: '🌟' }
@@ -66,11 +125,7 @@ const MODULE_SYSTEM = {
         effect: '10 + CON',
         value: 10
       },
-      flaw: {
-        title: 'Code of Honor',
-        description: 'You refuse to fight dirty',
-        effect: 'Cannot gain advantage from stealth'
-      },
+      flaws: ['code-of-honor', 'overconfidence', 'dogmatic'], // Now a list of flaw IDs
       tags: [
         { id: 'melee', display: 'Melee', color: '#b22222', icon: '⚔️' },
         { id: 'defense', display: 'Defense', color: '#1e90ff', icon: '🛡️' }
@@ -89,11 +144,7 @@ const MODULE_SYSTEM = {
         effect: '8 + DEX',
         value: 8
       },
-      flaw: {
-        title: 'Greed',
-        description: 'You can\'t resist valuable loot',
-        effect: 'Disadvantage on resisting theft'
-      },
+      flaws: ['greed', 'impulsive', 'vengeful'], // Now a list of flaw IDs
       tags: [
         { id: 'stealth', display: 'Stealth', color: '#696969', icon: '👤' },
         { id: 'trap', display: 'Traps', color: '#ff8c00', icon: '⚠️' }
@@ -112,11 +163,7 @@ const MODULE_SYSTEM = {
         effect: '9 + WIS',
         value: 9
       },
-      flaw: {
-        title: 'Dogmatic',
-        description: 'You strictly follow doctrine',
-        effect: 'Cannot lie or deceive'
-      },
+      flaws: ['dogmatic', 'naive', 'overconfidence'], // Now a list of flaw IDs
       tags: [
         { id: 'healing', display: 'Healing', color: '#32cd32', icon: '❤️' },
         { id: 'holy', display: 'Holy', color: '#ffd700', icon: '✝️' }
@@ -137,11 +184,7 @@ const MODULE_SYSTEM = {
         effect: '7 + HARMONY',
         value: 7
       },
-      flaw: {
-        title: 'Perfectionist',
-        description: 'You obsess over mistakes',
-        effect: 'Disadvantage on recovery checks'
-      },
+      flaws: ['perfectionist', 'ego', 'vulnerable'], // Now a list of flaw IDs
       tags: [
         { id: 'keys', display: 'Keys', color: '#000000', icon: '🎹' },
         { id: 'solo', display: 'Solo', color: '#ffffff', icon: '🎼' }
@@ -160,11 +203,7 @@ const MODULE_SYSTEM = {
         effect: '8 + STYLE',
         value: 8
       },
-      flaw: {
-        title: 'Ego',
-        description: 'You crave the spotlight',
-        effect: 'Disadvantage on group performance checks'
-      },
+      flaws: ['ego', 'impulsive', 'perfectionist'], // Now a list of flaw IDs
       tags: [
         { id: 'strings', display: 'Strings', color: '#ff4500', icon: '🎸' },
         { id: 'lead', display: 'Lead', color: '#ffd700', icon: '🌟' }
@@ -183,11 +222,7 @@ const MODULE_SYSTEM = {
         effect: '6 + PASSION',
         value: 6
       },
-      flaw: {
-        title: 'Vulnerable',
-        description: 'You take criticism hard',
-        effect: 'Disadvantage on Fame checks after failure'
-      },
+      flaws: ['vulnerable', 'perfectionist', 'ego'], // Now a list of flaw IDs
       tags: [
         { id: 'vocals', display: 'Vocals', color: '#ff69b4', icon: '🎤' },
         { id: 'lyrics', display: 'Lyrics', color: '#9370db', icon: '📝' }
@@ -206,11 +241,7 @@ const MODULE_SYSTEM = {
         effect: '9 + RHYTHM',
         value: 9
       },
-      flaw: {
-        title: 'Impulsive',
-        description: 'You rush into things',
-        effect: 'Disadvantage on patience checks'
-      },
+      flaws: ['impulsive', 'dogmatic', 'greed'], // Now a list of flaw IDs
       tags: [
         { id: 'percussion', display: 'Percussion', color: '#8b4513', icon: '🥁' },
         { id: 'tempo', display: 'Tempo', color: '#0000ff', icon: '⏱️' }
@@ -223,7 +254,7 @@ const MODULE_SYSTEM = {
     }
   };
   
-  const ABILITY_DATA = {
+const ABILITY_DATA = {
     // ===== HIGH FANTASY ABILITIES =====
     'spellcaster': {
       name: 'Spellcaster',
@@ -593,6 +624,7 @@ const MODULE_SYSTEM = {
       }
     }
 };
+
 
 class CharacterWizard {
     constructor(db) {
