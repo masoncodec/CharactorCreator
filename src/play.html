@@ -14,7 +14,18 @@
         <!-- Character Panel -->
         <div class="panel character-sheet">
             <h2>Character Sheet</h2>
-            <div id="characterDetails"></div>
+            <div id="characterDetails">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            
+            <!-- Character Management -->
+            <div class="character-actions">
+                <!-- Export Character -->
+                <button id="exportCharacter" class="btn btn-secondary">Export</button>
+                <!-- Character Selector -->
+                <a href="character-selector.html" class="btn btn-secondary">Change</a>
+            </div>
+
         </div>
 
         <!-- Narrative Panel -->
@@ -33,6 +44,7 @@
         </div>
     </div>
 
+    <script src="js/db.js"></script>
     <script src="js/play.js"></script>
 </body>
 </html>
