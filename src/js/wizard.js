@@ -1259,11 +1259,8 @@ class CharacterWizard {
           });
         });
 
-        this.state.abilities.forEach(abilityState => {
-            if (ABILITY_DATA[abilityState.id] && ABILITY_DATA[abilityState.id].options) { // Only for abilities that actually have options
-                this.updateAbilityOptionCheckboxes(abilityState.id, abilityState);
-            }
-        });
+        // Ensure all ability option states are refreshed after rendering
+        this.refreshAbilityOptionStates(); 
     }
   
     getTypeIcon(type) {
@@ -1329,6 +1326,7 @@ class CharacterWizard {
         
         const abilityState = this.state.abilities.find(a => a.id === abilityId);
         const currentSelections = abilityState ? abilityState.selections : [];
+        const isParentAbilityCurrentlySelected = !!abilityState; // Check if the parent ability is in the state
 
         return `
         <div class="ability-options">
@@ -1338,7 +1336,9 @@ class CharacterWizard {
                 <input type="checkbox"
                     ${currentSelections.some(s => s.id === option.id) ? 'checked' : ''}
                     data-ability="${abilityId}"
-                    data-option="${option.id}">
+                    data-option="${option.id}"
+                    ${!isParentAbilityCurrentlySelected ? 'disabled' : ''} // Initially disable if parent is not selected
+                >
                 ${option.name}: ${this.renderAbilityDescription(option)}
             </label>
             `).join('')}
@@ -1347,70 +1347,61 @@ class CharacterWizard {
     }
   
     handleTierSelection(tier, abilityId) {
-        // Remove any existing abilities from this tier
-        this.state.abilities = this.state.abilities.filter(a => {
-          const ability = ABILITY_DATA[a.id];
-          return !DESTINY_DATA[this.state.destiny].levelUnlocks.some(
-            u => u.level == tier && u.ability === a.id
-          );
+        console.log(`CharacterWizard.handleTierSelection: Handling selection for Tier ${tier}, Ability: ${abilityId}`);
+        // First, create a new array excluding any existing ability from this specific tier.
+        // This ensures only one ability per tier is active in the state.
+        this.state.abilities = this.state.abilities.filter(ability => {
+            return ability.tier !== parseInt(tier); // Keep abilities that are NOT from the current tier
         });
-  
-        // Add new selection
+
+        // Now, add the newly selected ability for this tier.
         this.state.abilities.push({
-          id: abilityId,
-          tier: parseInt(tier),
-          selections: []
+            id: abilityId,
+            tier: parseInt(tier),
+            selections: [] // Reset selections for the newly chosen ability in this tier
         });
-  
+        console.log(`CharacterWizard.handleTierSelection: State after update:`, this.state.abilities);
+        
+        // After updating state, refresh all ability option states globally to reflect changes
+        this.refreshAbilityOptionStates(); 
+
         this.updateNav();
-    }
-  
-    updateAbilityOptionCheckboxes(abilityId, abilityState) {
-        const abilityDef = ABILITY_DATA[abilityId];
-        if (!abilityDef || !abilityDef.options || abilityDef.maxChoices === undefined) {
-            return; // No options or maxChoices to enforce
-        }
-    
-        const currentSelectionsCount = abilityState.selections.length;
-        const abilityOptionsContainer = document.querySelector(`.ability[data-ability-id="${abilityId}"] .ability-options`);
-    
-        if (!abilityOptionsContainer) return; // Container not found
-    
-        abilityOptionsContainer.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-            const optionId = checkbox.dataset.option;
-            const isCurrentlySelected = abilityState.selections.some(s => s.id === optionId);
-    
-            // Disable if max choices reached AND this option is NOT currently selected
-            if (currentSelectionsCount >= abilityDef.maxChoices && !isCurrentlySelected) {
-                checkbox.disabled = true;
-            } else {
-                checkbox.disabled = false;
-            }
-        });
     }
     
     // Modified handleAbilityOptionSelection function
     handleAbilityOptionSelection(abilityId, optionId, isSelected, checkboxElement) {
         const abilityState = this.state.abilities.find(a => a.id === abilityId);
-        if (!abilityState) return;
+        if (!abilityState) {
+            console.warn(`CharacterWizard.handleAbilityOptionSelection: Parent ability '${abilityId}' not found in state.`);
+            // If parent ability is not selected, this option should ideally be disabled anyway.
+            // As a fallback for direct interaction, ensure it's unchecked if clicked
+            checkboxElement.checked = false;
+            this.refreshAbilityOptionStates(); // Re-sync UI
+            return;
+        }
     
         const abilityDef = ABILITY_DATA[abilityId];
         
         if (isSelected) {
-            // Only prevent adding if maxChoices is reached and the option is not already selected
-            if (abilityDef.maxChoices && abilityState.selections.length >= abilityDef.maxChoices) {
-                // Revert checkbox state as it was just checked by the user
-                checkboxElement.checked = false;
-                return; // Stop further processing
+            // Check maxChoices before adding
+            if (abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null && abilityState.selections.length >= abilityDef.maxChoices) {
+                checkboxElement.checked = false; // Revert checkbox state
+                alert(`You can only select up to ${abilityDef.maxChoices} option(s) for ${abilityDef.name}.`);
+                this.refreshAbilityOptionStates(); // Ensure UI is consistent after alert
+                return; 
             }
-            abilityState.selections.push({ id: optionId });
+            // Add option if not already present
+            if (!abilityState.selections.some(s => s.id === optionId)) {
+                abilityState.selections.push({ id: optionId });
+            }
         } else {
+            // Remove option
             abilityState.selections = abilityState.selections.filter(s => s.id !== optionId);
         }
     
-        // After state update, update the disabled status of checkboxes
-        this.updateAbilityOptionCheckboxes(abilityId, abilityState);
-        this.updateNav();
+        // After state update, refresh the disabled status of ALL checkboxes globally
+        this.refreshAbilityOptionStates(); 
+        this.updateInformer('destiny'); 
     }
   
     // Sub-change 1.3: Update validateDestinyCompletion to check for selectedFlaw
@@ -1691,30 +1682,27 @@ class CharacterWizard {
                         roleSelect.value = this.state.destiny;
                         console.log(`CharacterWizard.restoreState (destiny): Destiny dropdown set to "${this.state.destiny}".`);
                     }
-                    // Re-render destiny details (including flaw selection) and abilities section using the current state.
-                    this.renderDestinyDetails(); // Sub-change 1.3
+                    this.renderDestinyDetails(); 
                     this.renderAbilitiesSection(); 
                     console.log(`CharacterWizard.restoreState (destiny): Re-rendered destiny details and abilities section to reflect stored abilities selections.`);
 
-                    // Restore selected flaw in the dynamically rendered dropdown (Sub-change 1.3)
                     const flawSelect = document.getElementById('characterFlaw');
                     if (flawSelect && this.state.selectedFlaw) {
                         flawSelect.value = this.state.selectedFlaw;
                         console.log(`CharacterWizard.restoreState (destiny): Flaw dropdown set to "${this.state.selectedFlaw}".`);
                     }
+                    this.refreshAbilityOptionStates(); // Ensure option states are correct after rendering and state restoration
                 } else {
-                    // If no destiny is currently selected in the state (e.g., after a module change that cleared it),
-                    // ensure the UI reflects this.
                     if (roleSelect) {
-                        roleSelect.value = ""; // Explicitly set to "Select a Destiny" or equivalent empty value
+                        roleSelect.value = ""; 
                     }
-                    // Clear out any existing DOM elements for destiny details and abilities
                     const destinyDetailsContainer = document.querySelector('.destiny-details');
-                    if (destinyDetailsContainer) destinyDetailsContainer.remove(); // Use remove()
+                    if (destinyDetailsContainer) destinyDetailsContainer.remove(); 
                     
                     const abilitiesSectionContainer = document.querySelector('.abilities-section');
-                    if (abilitiesSectionContainer) abilitiesSectionContainer.remove(); // Use remove()
+                    if (abilitiesSectionContainer) abilitiesSectionContainer.remove(); 
                     console.log(`CharacterWizard.restoreState (destiny): No destiny in state. Cleared destiny details and abilities section.`);
+                    this.refreshAbilityOptionStates(); // Also refresh to clear any lingering UI state if destiny was cleared
                 }
                 break;
                 
@@ -1736,6 +1724,62 @@ class CharacterWizard {
                 }
                 break;
         }
+    }
+
+    refreshAbilityOptionStates() {
+        console.log('CharacterWizard.refreshAbilityOptionStates: Updating all ability option disabled states. Current state.abilities:', this.state.abilities);
+        // CHANGE THIS LINE: Select .ability instead of .ability-container
+        document.querySelectorAll('.ability').forEach(abilityContainer => {
+            const abilityId = abilityContainer.dataset.abilityId;
+            const abilityData = ABILITY_DATA[abilityId];
+            
+            // Find if this ability is selected in the wizard's state
+            const abilityState = this.state.abilities.find(a => a.id === abilityId);
+            const isParentAbilityCurrentlySelected = !!abilityState; // True if abilityId is in state.abilities
+            console.log(`  Ability Container: ${abilityId}, isParentAbilityCurrentlySelected: ${isParentAbilityCurrentlySelected}`);
+    
+            const optionsContainer = abilityContainer.querySelector('.ability-options');
+            // Proceed only if options container exists and ability data defines options
+            if (optionsContainer && abilityData && abilityData.options) {
+                optionsContainer.querySelectorAll('input[type="checkbox"]').forEach(optionCheckbox => {
+                    const optionId = optionCheckbox.dataset.option;
+                    // Check if this specific option is selected in the state
+                    const isOptionSelected = abilityState ? abilityState.selections.some(s => s.id === optionId) : false;
+    
+                    let shouldBeDisabled = false;
+    
+                    if (!isParentAbilityCurrentlySelected) {
+                        shouldBeDisabled = true;
+                        // If the parent ability is NOT selected, ensure the option is unchecked and disabled
+                        if (optionCheckbox.checked) {
+                            optionCheckbox.checked = false;
+                            // Also clean up the state if for some reason this option was still selected
+                            if (abilityState) {
+                                abilityState.selections = abilityState.selections.filter(s => s.id !== optionId);
+                            }
+                            console.log(`    Option '${optionId}': Unchecked and disabled because parent not selected.`);
+                        } else {
+                            console.log(`    Option '${optionId}': Disabled because parent not selected.`);
+                        }
+                    } else {
+                        // Parent ability IS selected, now apply maxChoices logic
+                        const currentSelectionsCount = abilityState.selections.length;
+                        const maxChoices = abilityData.maxChoices;
+    
+                        // If maxChoices is defined and reached, disable options that are NOT currently selected
+                        if (maxChoices !== undefined && maxChoices !== null && currentSelectionsCount >= maxChoices && !isOptionSelected) {
+                            shouldBeDisabled = true;
+                            console.log(`    Option '${optionId}': Disabling because max choices (${maxChoices}) reached and not selected.`);
+                        } else {
+                            // This is the case where the option should be enabled
+                            console.log(`    Option '${optionId}': Enabling (parent selected, max choices not reached or is selected).`);
+                        }
+                    }
+                    optionCheckbox.disabled = shouldBeDisabled; // Apply the final disabled state
+                });
+            }
+        });
+        this.updateNav();
     }
 }
   
