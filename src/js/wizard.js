@@ -124,7 +124,6 @@ const MODULE_SYSTEM = {
       description: 'Master of magical energies through rigorous study.',
       health: {
         title: 'Frail',
-        effect: '6', // MODIFIED: Changed from '6 + INT' to '6'
         value: 6
       },
       flaws: ['overconfidence', 'arrogance'],
@@ -143,7 +142,6 @@ const MODULE_SYSTEM = {
       description: 'Noble warrior sworn to protect the realm.',
       health: {
         title: 'Sturdy',
-        effect: '10', // MODIFIED: Changed from '10 + CON' to '10'
         value: 10
       },
       flaws: ['code-of-honor', 'naive-idealism'],
@@ -162,7 +160,6 @@ const MODULE_SYSTEM = {
       description: 'Stealthy opportunist who thrives in shadows.',
       health: {
         title: 'Agile',
-        effect: '8', // MODIFIED: Changed from '8 + DEX' to '8'
         value: 8
       },
       flaws: ['greed', 'recklessness'],
@@ -181,7 +178,6 @@ const MODULE_SYSTEM = {
       description: 'Holy warrior who channels divine power.',
       health: {
         title: 'Resilient',
-        effect: '9', // MODIFIED: Changed from '9 + WIS' to '9'
         value: 9
       },
       flaws: ['dogmatic', 'zealotry'],
@@ -202,7 +198,6 @@ const MODULE_SYSTEM = {
       description: 'Keyboard master with technical precision.',
       health: {
         title: 'Artistic',
-        effect: '7', // MODIFIED: Changed from '7 + HARMONY' to '7'
         value: 7
       },
       flaws: ['perfectionist', 'stage-fright'],
@@ -221,7 +216,6 @@ const MODULE_SYSTEM = {
       description: 'Stage-dominating riff machine.',
       health: {
         title: 'Charismatic',
-        effect: '8', // MODIFIED: Changed from '8 + STYLE' to '8'
         value: 8
       },
       flaws: ['ego', 'rivalry'],
@@ -240,7 +234,6 @@ const MODULE_SYSTEM = {
       description: 'Voice that moves audiences to tears.',
       health: {
         title: 'Emotive',
-        effect: '6', // MODIFIED: Changed from '6 + PASSION' to '6'
         value: 6
       },
       flaws: ['vulnerable', 'melodrama'],
@@ -259,7 +252,6 @@ const MODULE_SYSTEM = {
       description: 'The band\'s heartbeat and tempo-keeper.',
       health: {
         title: 'Enduring',
-        effect: '9', // MODIFIED: Changed from '9 + RHYTHM' to '9'
         value: 9
       },
       flaws: ['impulsive', 'distraction'],
@@ -1077,7 +1069,7 @@ class CharacterWizard {
                 <h3>${destiny.displayName}</h3>
                 <p>${destiny.description}</p>
                 <div class="stats">
-                  <div><strong>Health:</strong> ${destiny.health.title} (${destiny.health.effect})</div>
+                  <div><strong>Health:</strong> ${destiny.health.title} (${destiny.health.value})</div>
                 </div>
                 <div class="tags">${this.renderTags(destiny.tags)}</div>
                 ${selectedFlaw ? `
