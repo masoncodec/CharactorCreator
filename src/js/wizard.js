@@ -1258,6 +1258,12 @@ class CharacterWizard {
             );
           });
         });
+
+        this.state.abilities.forEach(abilityState => {
+            if (ABILITY_DATA[abilityState.id] && ABILITY_DATA[abilityState.id].options) { // Only for abilities that actually have options
+                this.updateAbilityOptionCheckboxes(abilityState.id, abilityState);
+            }
+        });
     }
   
     getTypeIcon(type) {
@@ -1318,10 +1324,11 @@ class CharacterWizard {
         return desc;
     }
   
-    renderAbilityOptions(ability, abilityId) { // Accept ability (definition) and abilityId (string)
+    renderAbilityOptions(ability, abilityId) {
         if (!ability.options) return '';
         
-        const currentSelections = this.state.abilities[abilityId] || [];
+        const abilityState = this.state.abilities.find(a => a.id === abilityId);
+        const currentSelections = abilityState ? abilityState.selections : [];
 
         return `
         <div class="ability-options">
@@ -1358,25 +1365,51 @@ class CharacterWizard {
         this.updateNav();
     }
   
+    updateAbilityOptionCheckboxes(abilityId, abilityState) {
+        const abilityDef = ABILITY_DATA[abilityId];
+        if (!abilityDef || !abilityDef.options || abilityDef.maxChoices === undefined) {
+            return; // No options or maxChoices to enforce
+        }
+    
+        const currentSelectionsCount = abilityState.selections.length;
+        const abilityOptionsContainer = document.querySelector(`.ability[data-ability-id="${abilityId}"] .ability-options`);
+    
+        if (!abilityOptionsContainer) return; // Container not found
+    
+        abilityOptionsContainer.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            const optionId = checkbox.dataset.option;
+            const isCurrentlySelected = abilityState.selections.some(s => s.id === optionId);
+    
+            // Disable if max choices reached AND this option is NOT currently selected
+            if (currentSelectionsCount >= abilityDef.maxChoices && !isCurrentlySelected) {
+                checkbox.disabled = true;
+            } else {
+                checkbox.disabled = false;
+            }
+        });
+    }
+    
+    // Modified handleAbilityOptionSelection function
     handleAbilityOptionSelection(abilityId, optionId, isSelected, checkboxElement) {
         const abilityState = this.state.abilities.find(a => a.id === abilityId);
         if (!abilityState) return;
-  
+    
         const abilityDef = ABILITY_DATA[abilityId];
         
         if (isSelected) {
-          // Check max choices
-          if (abilityDef.maxChoices && 
-              abilityState.selections.length >= abilityDef.maxChoices) {
-            checkboxElement.checked = false; // Prevent selection if max choices reached
-            alert(`You can only choose ${abilityDef.maxChoices} option(s) for ${abilityDef.name}.`);
-            return;
-          }
-          abilityState.selections.push({ id: optionId });
+            // Only prevent adding if maxChoices is reached and the option is not already selected
+            if (abilityDef.maxChoices && abilityState.selections.length >= abilityDef.maxChoices) {
+                // Revert checkbox state as it was just checked by the user
+                checkboxElement.checked = false;
+                return; // Stop further processing
+            }
+            abilityState.selections.push({ id: optionId });
         } else {
-          abilityState.selections = abilityState.selections.filter(s => s.id !== optionId);
+            abilityState.selections = abilityState.selections.filter(s => s.id !== optionId);
         }
-  
+    
+        // After state update, update the disabled status of checkboxes
+        this.updateAbilityOptionCheckboxes(abilityId, abilityState);
         this.updateNav();
     }
   
