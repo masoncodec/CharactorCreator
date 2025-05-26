@@ -1,3 +1,313 @@
+// ======================
+// DATA STRUCTURES
+// ======================
+
+const MODULE_SYSTEM = {
+    'high-fantasy': {
+      name: 'High Fantasy',
+      destinies: ['wizard', 'knight', 'rogue', 'cleric'],
+      attributes: ['Strength', 'Dexterity', 'Constitution', 'Wisdom', 'Intelligence', 'Charisma'],
+      descriptions: {
+        module: 'Classic medieval fantasy adventuring with swords, sorcery, and epic quests.',
+        destinies: {
+          wizard: 'Arcane spellcaster who manipulates magical energies through rigorous study.',
+          knight: 'Noble warrior sworn to protect the realm with martial prowess.',
+          rogue: 'Stealthy opportunist who thrives in shadows and urban environments.',
+          cleric: 'Divine agent who channels holy power to heal and smite.'
+        }
+      }
+    },
+    'crescendo': {
+      name: 'Crescendo',
+      destinies: ['pianist', 'guitarist', 'singer', 'drummer'],
+      attributes: ['Passion', 'Rhythm', 'Stamina', 'Fame', 'Style', 'Harmony'],
+      descriptions: {
+        module: 'Musical storytelling game about fame, artistry, and creative struggles.',
+        destinies: {
+          pianist: 'Keyboard virtuoso with technical precision and emotional depth.',
+          guitarist: 'String instrument master who commands the stage with riffs and solos.',
+          singer: 'Vocal artist who connects with audiences through raw emotion.',
+          drummer: 'Rhythmic backbone who drives the band\'s energy and tempo.'
+        }
+      }
+    }
+  };
+  
+  const DESTINY_DATA = {
+    // ===== HIGH FANTASY DESTINIES =====
+    'wizard': {
+      displayName: 'Arcane Wizard',
+      description: 'Master of magical energies through rigorous study.',
+      health: {
+        title: 'Frail',
+        effect: '6 + INT',
+        value: 6
+      },
+      flaw: {
+        title: 'Overconfidence',
+        description: 'You underestimate threats',
+        effect: 'Disadvantage on Perception vs danger'
+      },
+      tags: [
+        { id: 'magic', display: 'Magic', color: '#8a2be2', icon: '🔮' },
+        { id: 'support', display: 'Support', color: '#20b2aa', icon: '🌟' }
+      ],
+      levelUnlocks: [
+        { level: 1, ability: 'spellcaster' },
+        { level: 3, ability: 'arcane-intellect' },
+        { level: 5, ability: 'spell-mastery' }
+      ]
+    },
+    'knight': {
+      displayName: 'Chivalric Knight',
+      description: 'Noble warrior sworn to protect the realm.',
+      health: {
+        title: 'Sturdy',
+        effect: '10 + CON',
+        value: 10
+      },
+      flaw: {
+        title: 'Code of Honor',
+        description: 'You refuse to fight dirty',
+        effect: 'Cannot gain advantage from stealth'
+      },
+      tags: [
+        { id: 'melee', display: 'Melee', color: '#b22222', icon: '⚔️' },
+        { id: 'defense', display: 'Defense', color: '#1e90ff', icon: '🛡️' }
+      ],
+      levelUnlocks: [
+        { level: 1, ability: 'armored-warrior' },
+        { level: 3, ability: 'fealty' },
+        { level: 5, ability: 'shield-bash' }
+      ]
+    },
+    'rogue': {
+      displayName: 'Shadow Rogue',
+      description: 'Stealthy opportunist who thrives in shadows.',
+      health: {
+        title: 'Agile',
+        effect: '8 + DEX',
+        value: 8
+      },
+      flaw: {
+        title: 'Greed',
+        description: 'You can\'t resist valuable loot',
+        effect: 'Disadvantage on resisting theft'
+      },
+      tags: [
+        { id: 'stealth', display: 'Stealth', color: '#696969', icon: '👤' },
+        { id: 'trap', display: 'Traps', color: '#ff8c00', icon: '⚠️' }
+      ],
+      levelUnlocks: [
+        { level: 1, ability: 'backstab' },
+        { level: 3, ability: 'lockpick' },
+        { level: 5, ability: 'poison-mastery' }
+      ]
+    },
+    'cleric': {
+      displayName: 'Divine Cleric',
+      description: 'Holy warrior who channels divine power.',
+      health: {
+        title: 'Resilient',
+        effect: '9 + WIS',
+        value: 9
+      },
+      flaw: {
+        title: 'Dogmatic',
+        description: 'You strictly follow doctrine',
+        effect: 'Cannot lie or deceive'
+      },
+      tags: [
+        { id: 'healing', display: 'Healing', color: '#32cd32', icon: '❤️' },
+        { id: 'holy', display: 'Holy', color: '#ffd700', icon: '✝️' }
+      ],
+      levelUnlocks: [
+        { level: 1, ability: 'divine-smite' },
+        { level: 3, ability: 'lay-on-hands' },
+        { level: 5, ability: 'turn-undead' }
+      ]
+    },
+  
+    // ===== CRESCENDO DESTINIES =====
+    'pianist': {
+      displayName: 'Virtuoso Pianist',
+      description: 'Keyboard master with technical precision.',
+      health: {
+        title: 'Artistic',
+        effect: '7 + HARMONY',
+        value: 7
+      },
+      flaw: {
+        title: 'Perfectionist',
+        description: 'You obsess over mistakes',
+        effect: 'Disadvantage on recovery checks'
+      },
+      tags: [
+        { id: 'keys', display: 'Keys', color: '#000000', icon: '🎹' },
+        { id: 'solo', display: 'Solo', color: '#ffffff', icon: '🎼' }
+      ],
+      levelUnlocks: [
+        { level: 1, ability: 'virtuoso' },
+        { level: 3, ability: 'improvisation' },
+        { level: 5, ability: 'grand-finale' }
+      ]
+    },
+    'guitarist': {
+      displayName: 'Lead Guitarist',
+      description: 'Stage-dominating riff machine.',
+      health: {
+        title: 'Charismatic',
+        effect: '8 + STYLE',
+        value: 8
+      },
+      flaw: {
+        title: 'Ego',
+        description: 'You crave the spotlight',
+        effect: 'Disadvantage on group performance checks'
+      },
+      tags: [
+        { id: 'strings', display: 'Strings', color: '#ff4500', icon: '🎸' },
+        { id: 'lead', display: 'Lead', color: '#ffd700', icon: '🌟' }
+      ],
+      levelUnlocks: [
+        { level: 1, ability: 'power-chord' },
+        { level: 3, ability: 'face-melter' },
+        { level: 5, ability: 'feedback-loop' }
+      ]
+    },
+    'singer': {
+      displayName: 'Soulful Singer',
+      description: 'Voice that moves audiences to tears.',
+      health: {
+        title: 'Emotive',
+        effect: '6 + PASSION',
+        value: 6
+      },
+      flaw: {
+        title: 'Vulnerable',
+        description: 'You take criticism hard',
+        effect: 'Disadvantage on Fame checks after failure'
+      },
+      tags: [
+        { id: 'vocals', display: 'Vocals', color: '#ff69b4', icon: '🎤' },
+        { id: 'lyrics', display: 'Lyrics', color: '#9370db', icon: '📝' }
+      ],
+      levelUnlocks: [
+        { level: 1, ability: 'high-note' },
+        { level: 3, ability: 'crowd-hush' },
+        { level: 5, ability: 'golden-voice' }
+      ]
+    },
+    'drummer': {
+      displayName: 'Rhythmic Drummer',
+      description: 'The band\'s heartbeat and tempo-keeper.',
+      health: {
+        title: 'Enduring',
+        effect: '9 + RHYTHM',
+        value: 9
+      },
+      flaw: {
+        title: 'Impulsive',
+        description: 'You rush into things',
+        effect: 'Disadvantage on patience checks'
+      },
+      tags: [
+        { id: 'percussion', display: 'Percussion', color: '#8b4513', icon: '🥁' },
+        { id: 'tempo', display: 'Tempo', color: '#0000ff', icon: '⏱️' }
+      ],
+      levelUnlocks: [
+        { level: 1, ability: 'double-kick' },
+        { level: 3, ability: 'fill-master' },
+        { level: 5, ability: 'metronome-sense' }
+      ]
+    }
+  };
+  
+  const ABILITY_DATA = {
+    // ===== HIGH FANTASY ABILITIES =====
+    'spellcaster': {
+      name: 'Spellcaster',
+      type: ['Spell', 'Combat'],
+      description: 'Choose ${maxChoices} spells from your spellbook.',
+      maxChoices: 3,
+      options: ['fireball', 'shield', 'mage-hand', 'lightning-bolt'],
+      tier: 1
+    },
+    'arcane-intellect': {
+      name: 'Arcane Intellect',
+      type: ['Passive'],
+      description: 'Learn spells from scrolls by spending ${cost.gold} gold.',
+      cost: { gold: 50, item: 'spell-scroll' },
+      tier: 2
+    },
+    'armored-warrior': {
+      name: 'Armored Warrior',
+      type: ['Combat', 'Passive'],
+      description: 'Gain +${bonus} to Constitution when wearing heavy armor.',
+      bonus: 3,
+      tier: 1
+    },
+    'fealty': {
+      name: 'Fealty',
+      type: ['Social', 'Passive'],
+      description: 'Advantage on Charisma checks in your lord\'s domain.',
+      tier: 2
+    },
+    'backstab': {
+      name: 'Backstab',
+      type: ['Combat'],
+      description: 'Deal ${damage}x damage when attacking from stealth.',
+      damage: 2,
+      cost: { stamina: 10 },
+      tier: 1
+    },
+    'divine-smite': {
+      name: 'Divine Smite',
+      type: ['Holy', 'Combat'],
+      description: 'Channel holy energy to deal ${damage} + WIS radiant damage.',
+      damage: 5,
+      cost: { faith: 1 },
+      tier: 1
+    },
+  
+    // ===== CRESCENDO ABILITIES =====
+    'virtuoso': {
+      name: 'Virtuoso',
+      type: ['Performance', 'Passive'],
+      description: 'Gain +${bonus} to technical skill checks.',
+      bonus: 2,
+      tier: 1
+    },
+    'improvisation': {
+      name: 'Improvisation',
+      type: ['Performance'],
+      description: 'Reroll a failed performance check once per session.',
+      cost: { inspiration: 1 },
+      tier: 2
+    },
+    'power-chord': {
+      name: 'Power Chord',
+      type: ['Performance', 'Combat'],
+      description: 'Deal ${damage} sonic damage to nearby enemies.',
+      damage: 4,
+      cost: { stamina: 15 },
+      tier: 1
+    },
+    'high-note': {
+      name: 'High Note',
+      type: ['Performance'],
+      description: 'Automatically succeed on a vocal check (once per session).',
+      tier: 1
+    },
+    'double-kick': {
+      name: 'Double Kick',
+      type: ['Performance', 'Combat'],
+      description: 'Gain an extra action during drum solos.',
+      cost: { stamina: 20 },
+      tier: 1
+    }
+};
+
 class CharacterWizard {
     constructor(db) {
       this.currentPage = 0;
@@ -15,38 +325,6 @@ class CharacterWizard {
       console.log('CharacterWizard: Initializing wizard.');
       this.init();
     }
-  
-    // Module system data
-    MODULE_SYSTEM = {
-      'high-fantasy': {
-        name: 'High Fantasy',
-        destinies: ['Wizard', 'Knight', 'Rogue', 'Cleric'],
-        attributes: ['Strength', 'Dexterity', 'Constitution', 'Wisdom', 'Intelligence', 'Charisma'],
-        descriptions: {
-          module: 'Classic medieval fantasy adventuring with swords, sorcery, and epic quests.',
-          destinies: {
-            wizard: 'Arcane spellcaster who manipulates magical energies through rigorous study.',
-            knight: 'Noble warrior sworn to protect the realm with martial prowess.',
-            rogue: 'Stealthy opportunist who thrives in shadows and urban environments.',
-            cleric: 'Divine agent who channels holy power to heal and smite.'
-          }
-        }
-      },
-      'crescendo': {
-        name: 'Crescendo',
-        destinies: ['Pianist', 'Guitarist', 'Singer', 'Drummer'],
-        attributes: ['Passion', 'Rhythm', 'Stamina', 'Fame', 'Style', 'Harmony'],
-        descriptions: {
-          module: 'Musical storytelling game about fame, artistry, and creative struggles.',
-          destinies: {
-            pianist: 'Keyboard virtuoso with technical precision and emotional depth.',
-            guitarist: 'String instrument master who commands the stage with riffs and solos.',
-            singer: 'Vocal artist who connects with audiences through raw emotion.',
-            drummer: 'Rhythmic backbone who drives the band\'s energy and tempo.'
-          }
-        }
-      }
-    };
   
     init() {
       console.log('CharacterWizard.init: Setting up global event listeners.');
