@@ -32,70 +32,92 @@ const MODULE_SYSTEM = {
       }
     }
   };
-
+  
+  // Sub-change 1.1: FLAW_DATA structure - Removed id_name
   const FLAW_DATA = {
     'overconfidence': {
-      id: 'overconfidence',
-      displayName: 'Overconfidence',
-      description: 'You underestimate threats.',
-      effect: 'Disadvantage on Perception checks against hidden dangers.'
+      name: 'Overconfidence',
+      description: 'You underestimate threats',
+      effect: 'Disadvantage on Perception vs danger'
+    },
+    'arrogance': {
+      name: 'Arrogance',
+      description: 'You believe you are superior to others',
+      effect: 'Disadvantage on Charisma (Persuasion) checks with authority figures'
     },
     'code-of-honor': {
-      id: 'code-of-honor',
-      displayName: 'Code of Honor',
-      description: 'You refuse to fight dirty or engage in underhanded tactics.',
-      effect: 'Cannot gain advantage from stealth or surprise attacks; must always announce intentions in combat.'
+      name: 'Code of Honor',
+      description: 'You refuse to fight dirty',
+      effect: 'Cannot gain advantage from stealth attacks'
+    },
+    'naive-idealism': {
+      name: 'Naive Idealism',
+      description: 'You always expect the best from people',
+      effect: 'Disadvantage on Wisdom (Insight) checks to detect deception'
     },
     'greed': {
-      id: 'greed',
-      displayName: 'Greed',
-      description: 'You can\'t resist valuable loot, even if it means danger.',
-      effect: 'Disadvantage on saving throws against effects that tempt with riches; compulsion to steal valuable items if unattended.'
+      name: 'Greed',
+      description: 'You can\'t resist valuable loot',
+      effect: 'Disadvantage on resisting theft or bribery'
+    },
+    'recklessness': {
+      name: 'Recklessness',
+      description: 'You often act without thinking',
+      effect: 'Disadvantage on Dexterity (Acrobatics) checks in dangerous situations'
     },
     'dogmatic': {
-      id: 'dogmatic',
-      displayName: 'Dogmatic',
-      description: 'You strictly follow your doctrine, unwilling to compromise.',
-      effect: 'Cannot lie or deceive; disadvantage on social checks when dealing with those of opposing beliefs.'
+      name: 'Dogmatic',
+      description: 'You strictly follow doctrine',
+      effect: 'Cannot lie or deceive, and must always attempt to convert non-believers'
+    },
+    'zealotry': {
+      name: 'Zealotry',
+      description: 'Your faith is unshakeable, but blinding',
+      effect: 'Cannot be convinced by non-religious arguments, and may become hostile towards opposing faiths'
     },
     'perfectionist': {
-      id: 'perfectionist',
-      displayName: 'Perfectionist',
-      description: 'You obsess over mistakes, making recovery difficult.',
-      effect: 'Disadvantage on checks to recover from negative statuses (e.g., "Shaken," "Demoralized") if the status was caused by your own error.'
+      name: 'Perfectionist',
+      description: 'You obsess over mistakes',
+      effect: 'Disadvantage on recovery checks after a failed performance'
+    },
+    'stage-fright': {
+      name: 'Stage Fright',
+      description: 'You struggle under pressure',
+      effect: 'Disadvantage on Performance checks when alone on stage'
     },
     'ego': {
-      id: 'ego',
-      displayName: 'Ego',
-      description: 'You crave the spotlight and recognition.',
-      effect: 'Disadvantage on group performance checks unless you are the primary focus; unwilling to share credit.'
+      name: 'Ego',
+      description: 'You crave the spotlight',
+      effect: 'Disadvantage on group performance checks, unless you are the primary focus'
+    },
+    'rivalry': {
+      name: 'Rivalry',
+      description: 'You see everyone as competition',
+      effect: 'Cannot assist allies on Performance checks, and may challenge others unnecessarily'
     },
     'vulnerable': {
-      id: 'vulnerable',
-      displayName: 'Vulnerable',
-      description: 'You take criticism and negativity hard.',
-      effect: 'Disadvantage on Fame checks for 24 hours after receiving negative feedback or failing a public performance.'
+      name: 'Vulnerable',
+      description: 'You take criticism hard',
+      effect: 'Disadvantage on Fame checks after a failed performance'
+    },
+    'melodrama': {
+      name: 'Melodrama',
+      description: 'You exaggerate emotions for effect',
+      effect: 'Disadvantage on Charisma (Deception) checks, as your intentions are often too obvious'
     },
     'impulsive': {
-      id: 'impulsive',
-      displayName: 'Impulsive',
-      description: 'You rush into things without thinking.',
-      effect: 'Disadvantage on patience checks; cannot take the "Wait" action in combat.'
+      name: 'Impulsive',
+      description: 'You rush into things',
+      effect: 'Disadvantage on patience or timing checks'
     },
-    'naive': {
-        id: 'naive',
-        displayName: 'Naive',
-        description: 'You trust others too easily and are often unsuspecting.',
-        effect: 'Disadvantage on Insight checks to detect deception.'
-    },
-    'vengeful': {
-        id: 'vengeful',
-        displayName: 'Vengeful',
-        description: 'You hold grudges and seek retribution.',
-        effect: 'Compulsion to pursue vengeance against those who have wronged you, even if it\'s not practical.'
+    'distraction': {
+      name: 'Distraction',
+      description: 'You lose focus easily',
+      effect: 'Disadvantage on concentration checks during lengthy performances'
     }
   };
   
+  // Sub-change 1.2: Modify DESTINY_DATA to use array of flaw IDs (already done, kept for context)
   const DESTINY_DATA = {
     // ===== HIGH FANTASY DESTINIES =====
     'wizard': {
@@ -106,7 +128,7 @@ const MODULE_SYSTEM = {
         effect: '6 + INT',
         value: 6
       },
-      flaws: ['overconfidence', 'dogmatic', 'naive'], // Now a list of flaw IDs
+      flaws: ['overconfidence', 'arrogance'], // Array of flaw IDs
       tags: [
         { id: 'magic', display: 'Magic', color: '#8a2be2', icon: '🔮' },
         { id: 'support', display: 'Support', color: '#20b2aa', icon: '🌟' }
@@ -125,7 +147,7 @@ const MODULE_SYSTEM = {
         effect: '10 + CON',
         value: 10
       },
-      flaws: ['code-of-honor', 'overconfidence', 'dogmatic'], // Now a list of flaw IDs
+      flaws: ['code-of-honor', 'naive-idealism'], // Array of flaw IDs
       tags: [
         { id: 'melee', display: 'Melee', color: '#b22222', icon: '⚔️' },
         { id: 'defense', display: 'Defense', color: '#1e90ff', icon: '🛡️' }
@@ -144,7 +166,7 @@ const MODULE_SYSTEM = {
         effect: '8 + DEX',
         value: 8
       },
-      flaws: ['greed', 'impulsive', 'vengeful'], // Now a list of flaw IDs
+      flaws: ['greed', 'recklessness'], // Array of flaw IDs
       tags: [
         { id: 'stealth', display: 'Stealth', color: '#696969', icon: '👤' },
         { id: 'trap', display: 'Traps', color: '#ff8c00', icon: '⚠️' }
@@ -163,7 +185,7 @@ const MODULE_SYSTEM = {
         effect: '9 + WIS',
         value: 9
       },
-      flaws: ['dogmatic', 'naive', 'overconfidence'], // Now a list of flaw IDs
+      flaws: ['dogmatic', 'zealotry'], // Array of flaw IDs
       tags: [
         { id: 'healing', display: 'Healing', color: '#32cd32', icon: '❤️' },
         { id: 'holy', display: 'Holy', color: '#ffd700', icon: '✝️' }
@@ -184,7 +206,7 @@ const MODULE_SYSTEM = {
         effect: '7 + HARMONY',
         value: 7
       },
-      flaws: ['perfectionist', 'ego', 'vulnerable'], // Now a list of flaw IDs
+      flaws: ['perfectionist', 'stage-fright'], // Array of flaw IDs
       tags: [
         { id: 'keys', display: 'Keys', color: '#000000', icon: '🎹' },
         { id: 'solo', display: 'Solo', color: '#ffffff', icon: '🎼' }
@@ -203,7 +225,7 @@ const MODULE_SYSTEM = {
         effect: '8 + STYLE',
         value: 8
       },
-      flaws: ['ego', 'impulsive', 'perfectionist'], // Now a list of flaw IDs
+      flaws: ['ego', 'rivalry'], // Array of flaw IDs
       tags: [
         { id: 'strings', display: 'Strings', color: '#ff4500', icon: '🎸' },
         { id: 'lead', display: 'Lead', color: '#ffd700', icon: '🌟' }
@@ -222,7 +244,7 @@ const MODULE_SYSTEM = {
         effect: '6 + PASSION',
         value: 6
       },
-      flaws: ['vulnerable', 'perfectionist', 'ego'], // Now a list of flaw IDs
+      flaws: ['vulnerable', 'melodrama'], // Array of flaw IDs
       tags: [
         { id: 'vocals', display: 'Vocals', color: '#ff69b4', icon: '🎤' },
         { id: 'lyrics', display: 'Lyrics', color: '#9370db', icon: '📝' }
@@ -241,7 +263,7 @@ const MODULE_SYSTEM = {
         effect: '9 + RHYTHM',
         value: 9
       },
-      flaws: ['impulsive', 'dogmatic', 'greed'], // Now a list of flaw IDs
+      flaws: ['impulsive', 'distraction'], // Array of flaw IDs
       tags: [
         { id: 'percussion', display: 'Percussion', color: '#8b4513', icon: '🥁' },
         { id: 'tempo', display: 'Tempo', color: '#0000ff', icon: '⏱️' }
@@ -254,6 +276,7 @@ const MODULE_SYSTEM = {
     }
   };
   
+// Change 5: Address Inconsistency in Handling Ability Options (Strings vs. Objects)
 const ABILITY_DATA = {
     // ===== HIGH FANTASY ABILITIES =====
     'spellcaster': {
@@ -261,13 +284,18 @@ const ABILITY_DATA = {
       type: ['Spell', 'Combat'],
       description: 'Choose ${maxChoices} spells from your spellbook.',
       maxChoices: 3,
-      options: ['fireball', 'shield', 'mage-hand', 'lightning-bolt'],
+      options: [ // Now objects with id, name, description
+        { id: 'fireball', name: 'Fireball', description: 'A burst of flame that deals fire damage.' },
+        { id: 'shield', name: 'Shield', description: 'Create a magical barrier.' },
+        { id: 'mage-hand', name: 'Mage Hand', description: 'A spectral, floating hand.' },
+        { id: 'lightning-bolt', name: 'Lightning Bolt', description: 'A streak of lightning that deals lightning damage.' }
+      ],
       tier: 1
     },
     'arcane-intellect': {
       name: 'Arcane Intellect',
       type: ['Passive'],
-      description: 'Learn spells from scrolls by spending ${cost.gold} gold.',
+      description: 'Learn spells from scrolls by spending ${cost.gold}.',
       cost: { gold: 50, item: 'spell-scroll' },
       tier: 2
     },
@@ -407,7 +435,7 @@ const ABILITY_DATA = {
       usage: 'once-per-short-rest',
       synergy: 'divine-smite' // Synergizes by controlling targets for Divine Smite
     },
-
+  
     // ===== CRESCENDO ABILITIES =====
     'virtuoso': {
       name: 'Virtuoso',
@@ -444,6 +472,7 @@ const ABILITY_DATA = {
       cost: { stamina: 20 },
       tier: 1
     },
+    // New Crescendo Abilities
     'grand-finale': {
       name: 'Grand Finale',
       type: ['Performance', 'Utility'],
@@ -625,7 +654,6 @@ const ABILITY_DATA = {
     }
 };
 
-
 class CharacterWizard {
     constructor(db) {
       this.currentPage = 0;
@@ -634,6 +662,7 @@ class CharacterWizard {
         module: null,
         moduleChanged: false, // This flag is still used for resetting destiny/attributes when module *truly* changes
         destiny: null,
+        selectedFlaw: null, // New state for selected flaw
         abilities: [], // Track {id, selections, tier}
         attributes: {},
         info: { name: '', bio: '' }
@@ -768,8 +797,10 @@ class CharacterWizard {
               this.state.module = opt.dataset.value;
               this.state.moduleChanged = (oldModule !== this.state.module);
               if (this.state.moduleChanged) {
-                  console.log(`CharacterWizard.setupPageEvents (module): Module changed from ${oldModule} to ${this.state.module}. Resetting destiny and attributes.`);
+                  console.log(`CharacterWizard.setupPageEvents (module): Module changed from ${oldModule} to ${this.state.module}. Resetting destiny, flaw, and attributes.`);
                   this.state.destiny = null; // Reset dependent choices
+                  this.state.selectedFlaw = null; // Reset selected flaw
+                  this.state.abilities = []; // Reset abilities as well
                   this.state.attributes = {};
               } else {
                   console.log(`CharacterWizard.setupPageEvents (module): Module re-selected: ${this.state.module}. No change.`);
@@ -806,11 +837,16 @@ class CharacterWizard {
             roleSelect.addEventListener('change', (e) => {
               this.state.destiny = e.target.value;
               this.state.abilities = []; // Reset on destiny change
-              this.renderDestinyDetails(); // New method
+              this.state.selectedFlaw = null; // Reset flaw on destiny change
+              this.renderDestinyDetails(); // Render new flaw selection (Sub-change 1.3)
               this.renderAbilitiesSection(); // New method
-              this.updateInformer(page);
+              this.updateInformer(page); // Update informer (Sub-change 1.4)
               this.updateNav();
             });
+
+            // Flaw selection listener for dynamically created select (Sub-change 1.3)
+            // This listener is now attached within renderDestinyDetails to ensure it's on the correct element
+            // after the element might have been re-rendered.
             break;
           
         case 'attributes':
@@ -1004,7 +1040,7 @@ class CharacterWizard {
       }
     }
   
-    // Informer updates
+    // Informer updates (Sub-change 1.4: Refactor Destiny Information Display in Informer)
     updateInformer(page) {
       const informer = document.getElementById('informerPanel');
       if (!informer) {
@@ -1021,7 +1057,7 @@ class CharacterWizard {
                  <p>${MODULE_SYSTEM[this.state.module].descriptions.module}</p>
                  <h4>Available Destinies:</h4>
                  <ul>
-                   ${MODULE_SYSTEM[this.state.module].destinies.map(d => `<li>${d}</li>`).join('')}
+                   ${MODULE_SYSTEM[this.state.module].destinies.map(d => `<li>${DESTINY_DATA[d]?.displayName || d}</li>`).join('')}
                  </ul>
                </div>`
             : '<div class="module-info"><p>Select a module to begin your journey</p></div>';
@@ -1035,11 +1071,23 @@ class CharacterWizard {
             }
             
             const destiny = DESTINY_DATA[this.state.destiny];
+            const selectedFlaw = FLAW_DATA[this.state.selectedFlaw]; // Retrieve selected flaw details
+
             informer.innerHTML = `
               <div class="destiny-info">
                 <h3>${destiny.displayName}</h3>
                 <p>${destiny.description}</p>
+                <div class="stats">
+                  <div><strong>Health:</strong> ${destiny.health.title} (${destiny.health.effect})</div>
+                </div>
                 <div class="tags">${this.renderTags(destiny.tags)}</div>
+                ${selectedFlaw ? `
+                  <div class="flaw-info">
+                    <h4>Selected Flaw: ${selectedFlaw.name}</h4>
+                    <p>${selectedFlaw.description}</p>
+                    <p>Effect: ${selectedFlaw.effect}</p>
+                  </div>
+                ` : '<p>Select a flaw for your character from the options on the left.</p>'}
               </div>
             `;
             break;
@@ -1068,24 +1116,59 @@ class CharacterWizard {
     }
 
     // === NEW METHODS FOR ABILITIES SYSTEM ===
+    // Sub-change 1.3: Integrate flaws with selector code (UI & State)
     renderDestinyDetails() {
-        if (!this.state.destiny) return;
+        if (!this.state.destiny) {
+            const existing = document.querySelector('.destiny-details');
+            if (existing) existing.remove(); // Remove if no destiny selected
+            return;
+        }
         const destiny = DESTINY_DATA[this.state.destiny];
         
         const container = document.createElement('div');
         container.className = 'destiny-details';
         container.innerHTML = `
-          <h3>${destiny.displayName}</h3>
-          <p>${destiny.description}</p>
-          <div class="stats">
-            <div><strong>Health:</strong> ${destiny.health.title} (${destiny.health.effect})</div>
-            <div><strong>Flaw:</strong> ${destiny.flaw.title} - ${destiny.flaw.effect}</div>
+          <div class="flaw-selection">
+            <label for="characterFlaw">Choose Your Flaw:</label>
+            <select id="characterFlaw">
+              <option value="">Select a Flaw</option>
+              ${destiny.flaws.map(flawId => {
+                const flaw = FLAW_DATA[flawId]; // Access flaw data directly by ID (key)
+                if (!flaw) {
+                    console.warn(`Missing flaw data for ID: ${flawId}`);
+                    return '';
+                }
+                return `<option value="${flawId}" ${this.state.selectedFlaw === flawId ? 'selected' : ''}>
+                          ${flaw.name} - ${flaw.description}
+                        </option>`;
+              }).join('')}
+            </select>
           </div>
-          <div class="tags">${this.renderTags(destiny.tags)}</div>
         `;
   
-        const existing = document.querySelector('.destiny-details');
-        existing ? existing.replaceWith(container) : document.querySelector('#selectorPanel').appendChild(container);
+        let existing = document.querySelector('.destiny-details');
+        if (existing) {
+            existing.replaceWith(container);
+        } else {
+            // Find the location where destiny-details should be appended.
+            // This is usually below the destiny role selection.
+            const roleSelect = document.getElementById('characterRole');
+            if (roleSelect) {
+                roleSelect.parentNode.insertBefore(container, roleSelect.nextSibling);
+            } else {
+                document.querySelector('#selectorPanel').appendChild(container); // Fallback
+            }
+        }
+
+        // Re-attach event listener if the select element was re-rendered
+        const flawSelect = document.getElementById('characterFlaw');
+        if (flawSelect) {
+          flawSelect.addEventListener('change', (e) => {
+            this.state.selectedFlaw = e.target.value;
+            this.updateInformer('destiny'); // Update informer with selected flaw
+            this.updateNav();
+          });
+        }
     }
   
     renderTags(tags) {
@@ -1097,7 +1180,12 @@ class CharacterWizard {
     }
   
     renderAbilitiesSection() {
-        if (!this.state.destiny) return;
+        if (!this.state.destiny) {
+            const existing = document.querySelector('.abilities-section');
+            if (existing) existing.remove();
+            return;
+        }
+
         const destiny = DESTINY_DATA[this.state.destiny];
         
         const container = document.createElement('div');
@@ -1165,7 +1253,8 @@ class CharacterWizard {
             this.handleAbilityOptionSelection(
               e.target.dataset.ability, // This will now be the correct abilityId
               e.target.dataset.option,
-              e.target.checked
+              e.target.checked,
+              e.target // Pass the checkbox element itself
             );
           });
         });
@@ -1176,16 +1265,55 @@ class CharacterWizard {
           'Combat': '⚔️',
           'Spell': '🔮',
           'Support': '🛡️',
-          'Social': '💬'
+          'Social': '💬',
+          'Holy': '✨',
+          'Healing': '❤️',
+          'Performance': '🎤',
+          'Utility': '🛠️',
+          'Passive': '⭐'
         };
         return icons[type] || '✨';
     }
-  
+
     renderAbilityDescription(ability) {
         let desc = ability.description;
-        // Replace template variables like ${bonus}
+        // Replace template variables like ${attribute} or ${cost.gold} etc.
         desc = desc.replace(/\${([^}]+)}/g, (match, p1) => {
-          return ability[p1] || p1;
+            let value;
+            try {
+                // Attempt to resolve nested properties (e.g., 'cost.gold')
+                const path = p1.split('.');
+                let current = ability;
+                for (let i = 0; i < path.length; i++) {
+                    if (current === null || current === undefined) {
+                        current = undefined; // Path does not exist
+                        break;
+                    }
+                    current = current[path[i]];
+                }
+                value = current;
+    
+                // If the value is still undefined, try direct property (e.g., 'bonus')
+                if (value === undefined && typeof ability[p1] !== 'undefined') {
+                    value = ability[p1];
+                }
+            } catch (e) {
+                console.error(`Error resolving template variable ${p1}:`, e);
+                value = undefined;
+            }
+    
+            if (value !== undefined) {
+                // --- NEW LOGIC TO APPEND UNITS ---
+                if (p1 === 'cost.gold' && typeof value === 'number') {
+                    return `${value} gold`; // Appends " gold" if it's a numeric cost.gold
+                }
+                // --- END NEW LOGIC ---
+    
+                // If value is a string (e.g., 'INT', '5 + STR'), return it as is.
+                // Otherwise, return the interpolated value.
+                return value;
+            }
+            return match; // Return original placeholder if value not found
         });
         return desc;
     }
@@ -1193,23 +1321,21 @@ class CharacterWizard {
     renderAbilityOptions(ability, abilityId) { // Accept ability (definition) and abilityId (string)
         if (!ability.options) return '';
         
-        // Find the state for this specific ability using the correct abilityId
-        const abilityState = this.state.abilities.find(a => a.id === abilityId);
-        const currentSelections = abilityState?.selections || []; // Get selections from the found state
-        
+        const currentSelections = this.state.abilities[abilityId] || [];
+
         return `
-          <div class="ability-options">
+        <div class="ability-options">
             <p>Choose ${ability.maxChoices || 'any'}:</p>
             ${ability.options.map(option => `
-              <label class="ability-option">
-                <input type="checkbox" 
-                       ${currentSelections.some(s => s.id === option) ? 'checked' : ''}
-                       data-ability="${abilityId}"
-                       data-option="${option}">
-                ${option}
-              </label>
+            <label class="ability-option">
+                <input type="checkbox"
+                    ${currentSelections.some(s => s.id === option.id) ? 'checked' : ''}
+                    data-ability="${abilityId}"
+                    data-option="${option.id}">
+                ${option.name}: ${this.renderAbilityDescription(option)}
+            </label>
             `).join('')}
-          </div>
+        </div>
         `;
     }
   
@@ -1232,7 +1358,7 @@ class CharacterWizard {
         this.updateNav();
     }
   
-    handleAbilityOptionSelection(abilityId, optionId, isSelected) {
+    handleAbilityOptionSelection(abilityId, optionId, isSelected, checkboxElement) {
         const abilityState = this.state.abilities.find(a => a.id === abilityId);
         if (!abilityState) return;
   
@@ -1242,6 +1368,8 @@ class CharacterWizard {
           // Check max choices
           if (abilityDef.maxChoices && 
               abilityState.selections.length >= abilityDef.maxChoices) {
+            checkboxElement.checked = false; // Prevent selection if max choices reached
+            alert(`You can only choose ${abilityDef.maxChoices} option(s) for ${abilityDef.name}.`);
             return;
           }
           abilityState.selections.push({ id: optionId });
@@ -1252,10 +1380,17 @@ class CharacterWizard {
         this.updateNav();
     }
   
+    // Sub-change 1.3: Update validateDestinyCompletion to check for selectedFlaw
     validateDestinyCompletion() {
         if (!this.state.destiny) return false;
         const destiny = DESTINY_DATA[this.state.destiny];
         
+        // Check if a flaw is selected
+        if (!this.state.selectedFlaw) {
+          console.log("Validation: No flaw selected.");
+          return false;
+        }
+
         // Check at least one ability per tier is selected
         const tiers = [...new Set(destiny.levelUnlocks.map(u => u.level))];
         const tierComplete = tiers.every(tier => {
@@ -1263,15 +1398,19 @@ class CharacterWizard {
             destiny.levelUnlocks.some(u => u.level == tier && u.ability === a.id)
           );
         });
+        console.log("Validation: All tiers completed:", tierComplete);
   
         // Check ability option requirements
         const optionsComplete = this.state.abilities.every(abilityState => {
           const abilityDef = ABILITY_DATA[abilityState.id];
-          if (!abilityDef.maxChoices) return true;
+          if (!abilityDef.options) return true; // No options to choose from
+          if (abilityDef.maxChoices === undefined || abilityDef.maxChoices === null) return true; // No explicit maxChoices, so any number is fine
+          
           return abilityState.selections.length === abilityDef.maxChoices;
         });
+        console.log("Validation: All ability options complete:", optionsComplete);
   
-        return tierComplete && optionsComplete;
+        return tierComplete && optionsComplete && !!this.state.selectedFlaw;
     }
   
     // New method to check if a page is truly completed
@@ -1350,6 +1489,13 @@ class CharacterWizard {
             if (!DESTINY_DATA[destinyId]) {
               console.error(`Missing destiny data for: ${destinyId}`);
             } else {
+              // Validate flaws
+              DESTINY_DATA[destinyId].flaws.forEach(flawId => {
+                if (!FLAW_DATA[flawId]) {
+                  console.error(`Missing flaw data: ${flawId} for destiny ${destinyId}`);
+                }
+              });
+
               DESTINY_DATA[destinyId].levelUnlocks.forEach(unlock => {
                 if (!ABILITY_DATA[unlock.ability]) {
                   console.error(`Missing ability data: ${unlock.ability} for destiny ${destinyId}`);
@@ -1368,7 +1514,7 @@ class CharacterWizard {
         },
         destiny: { 
           element: '#characterRole', 
-          message: 'Please select a destiny for your character' 
+          message: 'Please select a destiny and a flaw for your character, and ensure all ability options are selected.' 
         },
         attributes: { 
           element: '.dice-assignment-table', 
@@ -1406,6 +1552,32 @@ class CharacterWizard {
         if (!this.state.destiny) {
           errors.push("• Please select a Destiny");
           console.log('  - Validation error: Destiny not selected.');
+        } else {
+            // Validate flaw selection
+            if (!this.state.selectedFlaw) {
+                errors.push("• Please select a Flaw for your character.");
+                console.log('  - Validation error: Flaw not selected.');
+            }
+
+            // Validate ability selections and their options
+            const destiny = DESTINY_DATA[this.state.destiny];
+            const tiers = [...new Set(destiny.levelUnlocks.map(u => u.level))];
+            tiers.forEach(tier => {
+                const tierAbilities = destiny.levelUnlocks.filter(u => u.level === tier).map(u => u.ability);
+                const selectedAbilityInTier = this.state.abilities.find(a => tierAbilities.includes(a.id));
+                if (!selectedAbilityInTier) {
+                    errors.push(`• Please select an Ability for Tier ${tier}.`);
+                    console.log(`  - Validation error: No ability selected for Tier ${tier}.`);
+                } else {
+                    const abilityDef = ABILITY_DATA[selectedAbilityInTier.id];
+                    if (abilityDef.options && abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null) {
+                        if (selectedAbilityInTier.selections.length !== abilityDef.maxChoices) {
+                            errors.push(`• Please select exactly ${abilityDef.maxChoices} option(s) for the ability "${abilityDef.name}".`);
+                            console.log(`  - Validation error: Incorrect number of options for ability "${abilityDef.name}".`);
+                        }
+                    }
+                }
+            });
         }
         
         const requiredAttrs = MODULE_SYSTEM[this.state.module].attributes;
@@ -1444,12 +1616,12 @@ class CharacterWizard {
         name: this.state.info.name,
         module: this.state.module,
         destiny: this.state.destiny,
+        selectedFlaw: this.state.selectedFlaw, // Save the selected flaw
         attributes: this.state.attributes,
         bio: this.state.info.bio,
-        //TODO: figure this shit out lol
-        health: { current: 10, max: 10, temporary: 0 },
+        health: { current: 10, max: 10, temporary: 0 }, // Placeholder, needs actual calculation
         inventory: [],
-        abilities: [],
+        abilities: this.state.abilities, // Save the full abilities array with selections
         createdAt: new Date().toISOString()
       };
       console.log('CharacterWizard.finishWizard: Character object prepared for saving:', character);
@@ -1486,11 +1658,17 @@ class CharacterWizard {
                         roleSelect.value = this.state.destiny;
                         console.log(`CharacterWizard.restoreState (destiny): Destiny dropdown set to "${this.state.destiny}".`);
                     }
-                    // Re-render destiny details and abilities section using the current state.
-                    // renderAbilitiesSection will use this.state.abilities to check the correct inputs.
-                    this.renderDestinyDetails(); 
+                    // Re-render destiny details (including flaw selection) and abilities section using the current state.
+                    this.renderDestinyDetails(); // Sub-change 1.3
                     this.renderAbilitiesSection(); 
                     console.log(`CharacterWizard.restoreState (destiny): Re-rendered destiny details and abilities section to reflect stored abilities selections.`);
+
+                    // Restore selected flaw in the dynamically rendered dropdown (Sub-change 1.3)
+                    const flawSelect = document.getElementById('characterFlaw');
+                    if (flawSelect && this.state.selectedFlaw) {
+                        flawSelect.value = this.state.selectedFlaw;
+                        console.log(`CharacterWizard.restoreState (destiny): Flaw dropdown set to "${this.state.selectedFlaw}".`);
+                    }
                 } else {
                     // If no destiny is currently selected in the state (e.g., after a module change that cleared it),
                     // ensure the UI reflects this.
@@ -1499,10 +1677,10 @@ class CharacterWizard {
                     }
                     // Clear out any existing DOM elements for destiny details and abilities
                     const destinyDetailsContainer = document.querySelector('.destiny-details');
-                    if (destinyDetailsContainer) destinyDetailsContainer.innerHTML = '';
+                    if (destinyDetailsContainer) destinyDetailsContainer.remove(); // Use remove()
                     
                     const abilitiesSectionContainer = document.querySelector('.abilities-section');
-                    if (abilitiesSectionContainer) abilitiesSectionContainer.innerHTML = '';
+                    if (abilitiesSectionContainer) abilitiesSectionContainer.remove(); // Use remove()
                     console.log(`CharacterWizard.restoreState (destiny): No destiny in state. Cleared destiny details and abilities section.`);
                 }
                 break;
