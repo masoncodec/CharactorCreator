@@ -786,7 +786,6 @@ class CharacterWizard {
         container.className = 'abilities-section';
         container.innerHTML = '<h4>Abilities</h4>';
   
-        // Group abilities by tier
         const abilitiesByTier = {};
         destiny.levelUnlocks.forEach(unlock => {
           if (!abilitiesByTier[unlock.level]) {
@@ -795,20 +794,21 @@ class CharacterWizard {
           abilitiesByTier[unlock.level].push(unlock.ability);
         });
   
-        // Render tier groups
         Object.entries(abilitiesByTier).forEach(([tier, abilityIds]) => {
           container.innerHTML += `<h5 class="tier-header">Tier ${tier} (Choose 1)</h5>`;
           
-          abilityIds.forEach(abilityId => {
-            const ability = ABILITY_DATA[abilityId];
+          abilityIds.forEach(abilityId => { // abilityId is the correct string ID, e.g., 'spellcaster'
+            const ability = ABILITY_DATA[abilityId]; // This is the definition object
             if (!ability) {
               console.warn(`Missing ability: ${abilityId}`);
               return;
             }
   
-            const isSelected = this.state.abilities.some(a => a.id === abilityId);
+            const abilityState = this.state.abilities.find(a => a.id === abilityId);
+            const isSelected = !!abilityState; // Check if the ability itself is selected
+  
             container.innerHTML += `
-              <div class="ability ${isSelected ? 'selected' : ''}" data-ability="${abilityId}">
+              <div class="ability ${isSelected ? 'selected' : ''}" data-ability-id="${abilityId}">
                 <div class="ability-header">
                   <label>
                     <input type="radio" name="tier-${tier}" 
@@ -824,13 +824,12 @@ class CharacterWizard {
                   </div>
                 </div>
                 <div class="ability-description">${this.renderAbilityDescription(ability)}</div>
-                ${ability.options ? this.renderAbilityOptions(ability) : ''}
+                ${ability.options ? this.renderAbilityOptions(ability, abilityId) : ''}
               </div>
             `;
           });
         });
   
-        // Add event listeners
         const existing = document.querySelector('.abilities-section');
         existing ? existing.replaceWith(container) : document.querySelector('#selectorPanel').appendChild(container);
         
@@ -846,7 +845,7 @@ class CharacterWizard {
         container.querySelectorAll('.ability-option input').forEach(checkbox => {
           checkbox.addEventListener('change', (e) => {
             this.handleAbilityOptionSelection(
-              e.target.dataset.ability,
+              e.target.dataset.ability, // This will now be the correct abilityId
               e.target.dataset.option,
               e.target.checked
             );
@@ -873,20 +872,21 @@ class CharacterWizard {
         return desc;
     }
   
-    renderAbilityOptions(ability) {
+    renderAbilityOptions(ability, abilityId) { // Accept ability (definition) and abilityId (string)
         if (!ability.options) return '';
         
-        const currentSelections = this.state.abilities
-          .find(a => a.id === ability.id)?.selections || [];
+        // Find the state for this specific ability using the correct abilityId
+        const abilityState = this.state.abilities.find(a => a.id === abilityId);
+        const currentSelections = abilityState?.selections || []; // Get selections from the found state
         
         return `
           <div class="ability-options">
-            <p>Choose ${ability.maxChoices}:</p>
+            <p>Choose ${ability.maxChoices || 'any'}:</p>
             ${ability.options.map(option => `
               <label class="ability-option">
                 <input type="checkbox" 
                        ${currentSelections.some(s => s.id === option) ? 'checked' : ''}
-                       data-ability="${ability.id}" 
+                       data-ability="${abilityId}"
                        data-option="${option}">
                 ${option}
               </label>
@@ -1162,12 +1162,30 @@ class CharacterWizard {
                 break;
                 
             case 'destiny':
+                const roleSelect = document.getElementById('characterRole');
                 if (this.state.destiny) {
-                    const roleSelect = document.getElementById('characterRole');
                     if (roleSelect) {
                         roleSelect.value = this.state.destiny;
                         console.log(`CharacterWizard.restoreState (destiny): Destiny dropdown set to "${this.state.destiny}".`);
                     }
+                    // Re-render destiny details and abilities section using the current state.
+                    // renderAbilitiesSection will use this.state.abilities to check the correct inputs.
+                    this.renderDestinyDetails(); 
+                    this.renderAbilitiesSection(); 
+                    console.log(`CharacterWizard.restoreState (destiny): Re-rendered destiny details and abilities section to reflect stored abilities selections.`);
+                } else {
+                    // If no destiny is currently selected in the state (e.g., after a module change that cleared it),
+                    // ensure the UI reflects this.
+                    if (roleSelect) {
+                        roleSelect.value = ""; // Explicitly set to "Select a Destiny" or equivalent empty value
+                    }
+                    // Clear out any existing DOM elements for destiny details and abilities
+                    const destinyDetailsContainer = document.querySelector('.destiny-details');
+                    if (destinyDetailsContainer) destinyDetailsContainer.innerHTML = '';
+                    
+                    const abilitiesSectionContainer = document.querySelector('.abilities-section');
+                    if (abilitiesSectionContainer) abilitiesSectionContainer.innerHTML = '';
+                    console.log(`CharacterWizard.restoreState (destiny): No destiny in state. Cleared destiny details and abilities section.`);
                 }
                 break;
                 
