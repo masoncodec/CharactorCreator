@@ -874,6 +874,10 @@ select.error-highlight {
     margin: 1rem 0;
     border-radius: 4px;
   }
+
+  .abilities-section {
+    margin-top: 1rem;
+  }
   
   .ability {
     margin: 0.8rem 0;
