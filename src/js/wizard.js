@@ -223,7 +223,7 @@ const MODULE_SYSTEM = {
     }
   };
   
-  const ABILITY_DATA = {
+const ABILITY_DATA = {
     // ===== HIGH FANTASY ABILITIES =====
     'spellcaster': {
       name: 'Spellcaster',
@@ -316,6 +316,7 @@ class CharacterWizard {
         module: null,
         moduleChanged: false, // This flag is still used for resetting destiny/attributes when module *truly* changes
         destiny: null,
+        abilities: [], // Track {id, selections, tier}
         attributes: {},
         info: { name: '', bio: '' }
       };
@@ -324,6 +325,9 @@ class CharacterWizard {
       
       console.log('CharacterWizard: Initializing wizard.');
       this.init();
+
+      // Add validation call
+      this.validateData();
     }
   
     init() {
@@ -458,32 +462,38 @@ class CharacterWizard {
           });
           break;
           
-        case 'destiny':
-          const roleSelect = document.getElementById('characterRole');
-          roleSelect.innerHTML = '<option value="">Select a Role</option>';
-          console.log(`CharacterWizard.setupPageEvents (destiny): Populating destiny options for module: ${this.state.module}`);
+          case 'destiny':
+            const roleSelect = document.getElementById('characterRole');
+            roleSelect.innerHTML = '<option value="">Select a Destiny</option>';
           
-          if (this.state.module) {
-            this.MODULE_SYSTEM[this.state.module].destinies.forEach(destiny => {
-              const option = document.createElement('option');
-              option.value = destiny.toLowerCase();
-              option.textContent = destiny;
-              roleSelect.appendChild(option);
-            });
-            
-            if (this.state.destiny) {
-              roleSelect.value = this.state.destiny;
-              console.log(`CharacterWizard.setupPageEvents (destiny): Restored destiny selection: ${this.state.destiny}`);
+            if (this.state.module) {
+              MODULE_SYSTEM[this.state.module].destinies.forEach(destinyId => {
+                const destiny = DESTINY_DATA[destinyId];
+                if (!destiny) {
+                    console.error(`Missing destiny data for: ${destinyId}`);
+                    return;
+                }
+          
+                const option = document.createElement('option');
+                option.value = destinyId;
+                option.textContent = destiny.displayName;
+                roleSelect.appendChild(option);
+              });
+          
+              if (this.state.destiny) {
+                roleSelect.value = this.state.destiny;
+              }
             }
-          }
           
-          roleSelect.addEventListener('change', (e) => {
-            this.state.destiny = e.target.value;
-            console.log(`CharacterWizard.setupPageEvents (destiny): Destiny selected: ${this.state.destiny}`);
-            this.updateInformer(page);
-            this.updateNav();
-          });
-          break;
+            roleSelect.addEventListener('change', (e) => {
+              this.state.destiny = e.target.value;
+              this.state.abilities = []; // Reset on destiny change
+              this.renderDestinyDetails(); // New method
+              this.renderAbilitiesSection(); // New method
+              this.updateInformer(page);
+              this.updateNav();
+            });
+            break;
           
         case 'attributes':
             const tableContainer = document.getElementById('selectorPanel'); 
@@ -513,7 +523,7 @@ class CharacterWizard {
                 const newTableBody = newTable.querySelector('tbody');
                 
                 if (this.state.module) {
-                    this.MODULE_SYSTEM[this.state.module].attributes.forEach(attr => {
+                    MODULE_SYSTEM[this.state.module].attributes.forEach(attr => {
                         const row = document.createElement('tr');
                         row.dataset.attribute = attr.toLowerCase();
                         row.innerHTML = `
@@ -689,35 +699,41 @@ class CharacterWizard {
         case 'module':
           informer.innerHTML = this.state.module 
             ? `<div class="module-info">
-                 <h3>${this.MODULE_SYSTEM[this.state.module].name}</h3>
-                 <p>${this.MODULE_SYSTEM[this.state.module].descriptions.module}</p>
+                 <h3>${MODULE_SYSTEM[this.state.module].name}</h3>
+                 <p>${MODULE_SYSTEM[this.state.module].descriptions.module}</p>
                  <h4>Available Destinies:</h4>
                  <ul>
-                   ${this.MODULE_SYSTEM[this.state.module].destinies.map(d => `<li>${d}</li>`).join('')}
+                   ${MODULE_SYSTEM[this.state.module].destinies.map(d => `<li>${d}</li>`).join('')}
                  </ul>
                </div>`
             : '<div class="module-info"><p>Select a module to begin your journey</p></div>';
             console.log(`CharacterWizard.updateInformer (module): Informer content updated for module: ${this.state.module || 'None selected'}`);
           break;
   
-        case 'destiny':
-          informer.innerHTML = this.state.destiny
-            ? `<div class="destiny-info">
-                 <h3>${this.state.destiny.charAt(0).toUpperCase() + this.state.destiny.slice(1)}</h3>
-                 <p>${this.MODULE_SYSTEM[this.state.module]?.descriptions.destinies[this.state.destiny] || 'No description available'}</p>
-               </div>`
-            : '<div class="destiny-info"><p>Select your destiny to see details</p></div>';
-            console.log(`CharacterWizard.updateInformer (destiny): Informer content updated for destiny: ${this.state.destiny || 'None selected'}`);
-          break;
+          case 'destiny':
+            if (!this.state.destiny) {
+              informer.innerHTML = '<p>Select your destiny</p>';
+              return;
+            }
+            
+            const destiny = DESTINY_DATA[this.state.destiny];
+            informer.innerHTML = `
+              <div class="destiny-info">
+                <h3>${destiny.displayName}</h3>
+                <p>${destiny.description}</p>
+                <div class="tags">${this.renderTags(destiny.tags)}</div>
+              </div>
+            `;
+            break;
   
         case 'attributes':
           informer.innerHTML = `
             <div class="attributes-info">
-              <h3>${this.MODULE_SYSTEM[this.state.module]?.name || 'Module'} Attributes</h3>
+              <h3>${MODULE_SYSTEM[this.state.module]?.name || 'Module'} Attributes</h3>
               <p>Assign dice to your attributes:</p>
               <ul>
                 ${this.state.module 
-                  ? this.MODULE_SYSTEM[this.state.module].attributes.map(a => 
+                  ? MODULE_SYSTEM[this.state.module].attributes.map(a => 
                       `<li><strong>${a}</strong>: ${this.state.attributes[a.toLowerCase()] || 'Unassigned'}</li>`
                     ).join('')
                   : 'Select a module first'}
@@ -732,6 +748,213 @@ class CharacterWizard {
           break;
       }
     }
+
+    // === NEW METHODS FOR ABILITIES SYSTEM ===
+    renderDestinyDetails() {
+        if (!this.state.destiny) return;
+        const destiny = DESTINY_DATA[this.state.destiny];
+        
+        const container = document.createElement('div');
+        container.className = 'destiny-details';
+        container.innerHTML = `
+          <h3>${destiny.displayName}</h3>
+          <p>${destiny.description}</p>
+          <div class="stats">
+            <div><strong>Health:</strong> ${destiny.health.title} (${destiny.health.effect})</div>
+            <div><strong>Flaw:</strong> ${destiny.flaw.title} - ${destiny.flaw.effect}</div>
+          </div>
+          <div class="tags">${this.renderTags(destiny.tags)}</div>
+        `;
+  
+        const existing = document.querySelector('.destiny-details');
+        existing ? existing.replaceWith(container) : document.querySelector('#selectorPanel').appendChild(container);
+    }
+  
+    renderTags(tags) {
+        return tags.map(tag => `
+          <span class="tag" style="background: ${tag.color}">
+            ${tag.icon} ${tag.display}
+          </span>
+        `).join('');
+    }
+  
+    renderAbilitiesSection() {
+        if (!this.state.destiny) return;
+        const destiny = DESTINY_DATA[this.state.destiny];
+        
+        const container = document.createElement('div');
+        container.className = 'abilities-section';
+        container.innerHTML = '<h4>Abilities</h4>';
+  
+        // Group abilities by tier
+        const abilitiesByTier = {};
+        destiny.levelUnlocks.forEach(unlock => {
+          if (!abilitiesByTier[unlock.level]) {
+            abilitiesByTier[unlock.level] = [];
+          }
+          abilitiesByTier[unlock.level].push(unlock.ability);
+        });
+  
+        // Render tier groups
+        Object.entries(abilitiesByTier).forEach(([tier, abilityIds]) => {
+          container.innerHTML += `<h5 class="tier-header">Tier ${tier} (Choose 1)</h5>`;
+          
+          abilityIds.forEach(abilityId => {
+            const ability = ABILITY_DATA[abilityId];
+            if (!ability) {
+              console.warn(`Missing ability: ${abilityId}`);
+              return;
+            }
+  
+            const isSelected = this.state.abilities.some(a => a.id === abilityId);
+            container.innerHTML += `
+              <div class="ability ${isSelected ? 'selected' : ''}" data-ability="${abilityId}">
+                <div class="ability-header">
+                  <label>
+                    <input type="radio" name="tier-${tier}" 
+                           ${isSelected ? 'checked' : ''}
+                           data-tier="${tier}" 
+                           data-ability="${abilityId}">
+                    <span class="ability-name">${ability.name}</span>
+                  </label>
+                  <div class="ability-types">
+                    ${ability.type.map(type => `
+                      <span class="type-tag">${this.getTypeIcon(type)} ${type}</span>
+                    `).join('')}
+                  </div>
+                </div>
+                <div class="ability-description">${this.renderAbilityDescription(ability)}</div>
+                ${ability.options ? this.renderAbilityOptions(ability) : ''}
+              </div>
+            `;
+          });
+        });
+  
+        // Add event listeners
+        const existing = document.querySelector('.abilities-section');
+        existing ? existing.replaceWith(container) : document.querySelector('#selectorPanel').appendChild(container);
+        
+        container.querySelectorAll('input[type="radio"]').forEach(radio => {
+          radio.addEventListener('change', (e) => {
+            this.handleTierSelection(
+              e.target.dataset.tier, 
+              e.target.dataset.ability
+            );
+          });
+        });
+  
+        container.querySelectorAll('.ability-option input').forEach(checkbox => {
+          checkbox.addEventListener('change', (e) => {
+            this.handleAbilityOptionSelection(
+              e.target.dataset.ability,
+              e.target.dataset.option,
+              e.target.checked
+            );
+          });
+        });
+    }
+  
+    getTypeIcon(type) {
+        const icons = {
+          'Combat': '⚔️',
+          'Spell': '🔮',
+          'Support': '🛡️',
+          'Social': '💬'
+        };
+        return icons[type] || '✨';
+    }
+  
+    renderAbilityDescription(ability) {
+        let desc = ability.description;
+        // Replace template variables like ${bonus}
+        desc = desc.replace(/\${([^}]+)}/g, (match, p1) => {
+          return ability[p1] || p1;
+        });
+        return desc;
+    }
+  
+    renderAbilityOptions(ability) {
+        if (!ability.options) return '';
+        
+        const currentSelections = this.state.abilities
+          .find(a => a.id === ability.id)?.selections || [];
+        
+        return `
+          <div class="ability-options">
+            <p>Choose ${ability.maxChoices}:</p>
+            ${ability.options.map(option => `
+              <label class="ability-option">
+                <input type="checkbox" 
+                       ${currentSelections.some(s => s.id === option) ? 'checked' : ''}
+                       data-ability="${ability.id}" 
+                       data-option="${option}">
+                ${option}
+              </label>
+            `).join('')}
+          </div>
+        `;
+    }
+  
+    handleTierSelection(tier, abilityId) {
+        // Remove any existing abilities from this tier
+        this.state.abilities = this.state.abilities.filter(a => {
+          const ability = ABILITY_DATA[a.id];
+          return !DESTINY_DATA[this.state.destiny].levelUnlocks.some(
+            u => u.level == tier && u.ability === a.id
+          );
+        });
+  
+        // Add new selection
+        this.state.abilities.push({
+          id: abilityId,
+          tier: parseInt(tier),
+          selections: []
+        });
+  
+        this.updateNav();
+    }
+  
+    handleAbilityOptionSelection(abilityId, optionId, isSelected) {
+        const abilityState = this.state.abilities.find(a => a.id === abilityId);
+        if (!abilityState) return;
+  
+        const abilityDef = ABILITY_DATA[abilityId];
+        
+        if (isSelected) {
+          // Check max choices
+          if (abilityDef.maxChoices && 
+              abilityState.selections.length >= abilityDef.maxChoices) {
+            return;
+          }
+          abilityState.selections.push({ id: optionId });
+        } else {
+          abilityState.selections = abilityState.selections.filter(s => s.id !== optionId);
+        }
+  
+        this.updateNav();
+    }
+  
+    validateDestinyCompletion() {
+        if (!this.state.destiny) return false;
+        const destiny = DESTINY_DATA[this.state.destiny];
+        
+        // Check at least one ability per tier is selected
+        const tiers = [...new Set(destiny.levelUnlocks.map(u => u.level))];
+        const tierComplete = tiers.every(tier => {
+          return this.state.abilities.some(a => 
+            destiny.levelUnlocks.some(u => u.level == tier && u.ability === a.id)
+          );
+        });
+  
+        // Check ability option requirements
+        const optionsComplete = this.state.abilities.every(abilityState => {
+          const abilityDef = ABILITY_DATA[abilityState.id];
+          if (!abilityDef.maxChoices) return true;
+          return abilityState.selections.length === abilityDef.maxChoices;
+        });
+  
+        return tierComplete && optionsComplete;
+    }
   
     // New method to check if a page is truly completed
     isPageCompleted(page) {
@@ -741,13 +964,12 @@ class CharacterWizard {
                 completed = !!this.state.module;
                 break;
             case 'destiny':
-                completed = !!this.state.module && !!this.state.destiny;
-                break;
+                return this.validateDestinyCompletion();
             case 'attributes':
                 if (!this.state.module) {
                     completed = false;
                 } else {
-                    const requiredAttrs = this.MODULE_SYSTEM[this.state.module].attributes;
+                    const requiredAttrs = MODULE_SYSTEM[this.state.module].attributes;
                     // A page is completed if all required attributes have a die assigned
                     completed = requiredAttrs.every(attr => 
                         this.state.attributes[attr.toLowerCase()]
@@ -803,6 +1025,22 @@ class CharacterWizard {
       console.log('CharacterWizard.validateCurrentPage: This method is deprecated for navigation control, only for final validation summary.');
       return true;
     }
+
+    validateData() {
+        Object.keys(MODULE_SYSTEM).forEach(moduleId => {
+          MODULE_SYSTEM[moduleId].destinies.forEach(destinyId => {
+            if (!DESTINY_DATA[destinyId]) {
+              console.error(`Missing destiny data for: ${destinyId}`);
+            } else {
+              DESTINY_DATA[destinyId].levelUnlocks.forEach(unlock => {
+                if (!ABILITY_DATA[unlock.ability]) {
+                  console.error(`Missing ability data: ${unlock.ability} for destiny ${destinyId}`);
+                }
+              });
+            }
+          });
+        });
+    }
   
     showPageError() {
       const errorMap = {
@@ -852,7 +1090,7 @@ class CharacterWizard {
           console.log('  - Validation error: Destiny not selected.');
         }
         
-        const requiredAttrs = this.MODULE_SYSTEM[this.state.module].attributes;
+        const requiredAttrs = MODULE_SYSTEM[this.state.module].attributes;
         const missingAttrs = requiredAttrs.filter(attr => 
           !this.state.attributes[attr.toLowerCase()]
         );
