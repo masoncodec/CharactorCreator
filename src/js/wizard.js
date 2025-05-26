@@ -117,7 +117,6 @@ const MODULE_SYSTEM = {
     }
   };
   
-  // Sub-change 1.2: Modify DESTINY_DATA to use array of flaw IDs (already done, kept for context)
   const DESTINY_DATA = {
     // ===== HIGH FANTASY DESTINIES =====
     'wizard': {
@@ -125,10 +124,10 @@ const MODULE_SYSTEM = {
       description: 'Master of magical energies through rigorous study.',
       health: {
         title: 'Frail',
-        effect: '6 + INT',
+        effect: '6', // MODIFIED: Changed from '6 + INT' to '6'
         value: 6
       },
-      flaws: ['overconfidence', 'arrogance'], // Array of flaw IDs
+      flaws: ['overconfidence', 'arrogance'],
       tags: [
         { id: 'magic', display: 'Magic', color: '#8a2be2', icon: '🔮' },
         { id: 'support', display: 'Support', color: '#20b2aa', icon: '🌟' }
@@ -144,10 +143,10 @@ const MODULE_SYSTEM = {
       description: 'Noble warrior sworn to protect the realm.',
       health: {
         title: 'Sturdy',
-        effect: '10 + CON',
+        effect: '10', // MODIFIED: Changed from '10 + CON' to '10'
         value: 10
       },
-      flaws: ['code-of-honor', 'naive-idealism'], // Array of flaw IDs
+      flaws: ['code-of-honor', 'naive-idealism'],
       tags: [
         { id: 'melee', display: 'Melee', color: '#b22222', icon: '⚔️' },
         { id: 'defense', display: 'Defense', color: '#1e90ff', icon: '🛡️' }
@@ -163,10 +162,10 @@ const MODULE_SYSTEM = {
       description: 'Stealthy opportunist who thrives in shadows.',
       health: {
         title: 'Agile',
-        effect: '8 + DEX',
+        effect: '8', // MODIFIED: Changed from '8 + DEX' to '8'
         value: 8
       },
-      flaws: ['greed', 'recklessness'], // Array of flaw IDs
+      flaws: ['greed', 'recklessness'],
       tags: [
         { id: 'stealth', display: 'Stealth', color: '#696969', icon: '👤' },
         { id: 'trap', display: 'Traps', color: '#ff8c00', icon: '⚠️' }
@@ -182,10 +181,10 @@ const MODULE_SYSTEM = {
       description: 'Holy warrior who channels divine power.',
       health: {
         title: 'Resilient',
-        effect: '9 + WIS',
+        effect: '9', // MODIFIED: Changed from '9 + WIS' to '9'
         value: 9
       },
-      flaws: ['dogmatic', 'zealotry'], // Array of flaw IDs
+      flaws: ['dogmatic', 'zealotry'],
       tags: [
         { id: 'healing', display: 'Healing', color: '#32cd32', icon: '❤️' },
         { id: 'holy', display: 'Holy', color: '#ffd700', icon: '✝️' }
@@ -203,10 +202,10 @@ const MODULE_SYSTEM = {
       description: 'Keyboard master with technical precision.',
       health: {
         title: 'Artistic',
-        effect: '7 + HARMONY',
+        effect: '7', // MODIFIED: Changed from '7 + HARMONY' to '7'
         value: 7
       },
-      flaws: ['perfectionist', 'stage-fright'], // Array of flaw IDs
+      flaws: ['perfectionist', 'stage-fright'],
       tags: [
         { id: 'keys', display: 'Keys', color: '#000000', icon: '🎹' },
         { id: 'solo', display: 'Solo', color: '#ffffff', icon: '🎼' }
@@ -222,10 +221,10 @@ const MODULE_SYSTEM = {
       description: 'Stage-dominating riff machine.',
       health: {
         title: 'Charismatic',
-        effect: '8 + STYLE',
+        effect: '8', // MODIFIED: Changed from '8 + STYLE' to '8'
         value: 8
       },
-      flaws: ['ego', 'rivalry'], // Array of flaw IDs
+      flaws: ['ego', 'rivalry'],
       tags: [
         { id: 'strings', display: 'Strings', color: '#ff4500', icon: '🎸' },
         { id: 'lead', display: 'Lead', color: '#ffd700', icon: '🌟' }
@@ -241,10 +240,10 @@ const MODULE_SYSTEM = {
       description: 'Voice that moves audiences to tears.',
       health: {
         title: 'Emotive',
-        effect: '6 + PASSION',
+        effect: '6', // MODIFIED: Changed from '6 + PASSION' to '6'
         value: 6
       },
-      flaws: ['vulnerable', 'melodrama'], // Array of flaw IDs
+      flaws: ['vulnerable', 'melodrama'],
       tags: [
         { id: 'vocals', display: 'Vocals', color: '#ff69b4', icon: '🎤' },
         { id: 'lyrics', display: 'Lyrics', color: '#9370db', icon: '📝' }
@@ -260,10 +259,10 @@ const MODULE_SYSTEM = {
       description: 'The band\'s heartbeat and tempo-keeper.',
       health: {
         title: 'Enduring',
-        effect: '9 + RHYTHM',
+        effect: '9', // MODIFIED: Changed from '9 + RHYTHM' to '9'
         value: 9
       },
-      flaws: ['impulsive', 'distraction'], // Array of flaw IDs
+      flaws: ['impulsive', 'distraction'],
       tags: [
         { id: 'percussion', display: 'Percussion', color: '#8b4513', icon: '🥁' },
         { id: 'tempo', display: 'Tempo', color: '#0000ff', icon: '⏱️' }
@@ -274,7 +273,7 @@ const MODULE_SYSTEM = {
         { level: 5, ability: 'metronome-sense' }
       ]
     }
-  };
+};
   
 // Change 5: Address Inconsistency in Handling Ability Options (Strings vs. Objects)
 const ABILITY_DATA = {
@@ -1643,7 +1642,9 @@ class CharacterWizard {
         selectedFlaw: this.state.selectedFlaw, // Save the selected flaw
         attributes: this.state.attributes,
         bio: this.state.info.bio,
-        health: { current: 10, max: 10, temporary: 0 }, // Placeholder, needs actual calculation
+        health: { current: DESTINY_DATA[this.state.destiny].health.value,
+            max: DESTINY_DATA[this.state.destiny].health.value,
+            temporary: 0 },
         inventory: [],
         abilities: this.state.abilities, // Save the full abilities array with selections
         createdAt: new Date().toISOString()
