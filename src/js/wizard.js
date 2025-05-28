@@ -1,652 +1,5 @@
-// ======================
-// DATA STRUCTURES
-// ======================
-
-const MODULE_SYSTEM = {
-    'high-fantasy': {
-      name: 'High Fantasy',
-      destinies: ['wizard', 'knight', 'rogue', 'cleric'],
-      attributes: ['Strength', 'Dexterity', 'Constitution', 'Wisdom', 'Intelligence', 'Charisma'],
-      descriptions: {
-        module: 'Classic medieval fantasy adventuring with swords, sorcery, and epic quests.',
-        destinies: {
-          wizard: 'Arcane spellcaster who manipulates magical energies through rigorous study.',
-          knight: 'Noble warrior sworn to protect the realm with martial prowess.',
-          rogue: 'Stealthy opportunist who thrives in shadows and urban environments.',
-          cleric: 'Divine agent who channels holy power to heal and smite.'
-        }
-      }
-    },
-    'crescendo': {
-      name: 'Crescendo',
-      destinies: ['pianist', 'guitarist', 'singer', 'drummer'],
-      attributes: ['Passion', 'Rhythm', 'Stamina', 'Fame', 'Style', 'Harmony'],
-      descriptions: {
-        module: 'Musical storytelling game about fame, artistry, and creative struggles.',
-        destinies: {
-          pianist: 'Keyboard virtuoso with technical precision and emotional depth.',
-          guitarist: 'String instrument master who commands the stage with riffs and solos.',
-          singer: 'Vocal artist who connects with audiences through raw emotion.',
-          drummer: 'Rhythmic backbone who drives the band\'s energy and tempo.'
-        }
-      }
-    }
-  };
-  
-  // Sub-change 1.1: FLAW_DATA structure - Removed id_name
-  const FLAW_DATA = {
-    'overconfidence': {
-      name: 'Overconfidence',
-      description: 'You underestimate threats',
-      effect: 'Disadvantage on Perception vs danger'
-    },
-    'arrogance': {
-      name: 'Arrogance',
-      description: 'You believe you are superior to others',
-      effect: 'Disadvantage on Charisma (Persuasion) checks with authority figures'
-    },
-    'code-of-honor': {
-      name: 'Code of Honor',
-      description: 'You refuse to fight dirty',
-      effect: 'Cannot gain advantage from stealth attacks'
-    },
-    'naive-idealism': {
-      name: 'Naive Idealism',
-      description: 'You always expect the best from people',
-      effect: 'Disadvantage on Wisdom (Insight) checks to detect deception'
-    },
-    'greed': {
-      name: 'Greed',
-      description: 'You can\'t resist valuable loot',
-      effect: 'Disadvantage on resisting theft or bribery'
-    },
-    'recklessness': {
-      name: 'Recklessness',
-      description: 'You often act without thinking',
-      effect: 'Disadvantage on Dexterity (Acrobatics) checks in dangerous situations'
-    },
-    'dogmatic': {
-      name: 'Dogmatic',
-      description: 'You strictly follow doctrine',
-      effect: 'Cannot lie or deceive, and must always attempt to convert non-believers'
-    },
-    'zealotry': {
-      name: 'Zealotry',
-      description: 'Your faith is unshakeable, but blinding',
-      effect: 'Cannot be convinced by non-religious arguments, and may become hostile towards opposing faiths'
-    },
-    'perfectionist': {
-      name: 'Perfectionist',
-      description: 'You obsess over mistakes',
-      effect: 'Disadvantage on recovery checks after a failed performance'
-    },
-    'stage-fright': {
-      name: 'Stage Fright',
-      description: 'You struggle under pressure',
-      effect: 'Disadvantage on Performance checks when alone on stage'
-    },
-    'ego': {
-      name: 'Ego',
-      description: 'You crave the spotlight',
-      effect: 'Disadvantage on group performance checks, unless you are the primary focus'
-    },
-    'rivalry': {
-      name: 'Rivalry',
-      description: 'You see everyone as competition',
-      effect: 'Cannot assist allies on Performance checks, and may challenge others unnecessarily'
-    },
-    'vulnerable': {
-      name: 'Vulnerable',
-      description: 'You take criticism hard',
-      effect: 'Disadvantage on Fame checks after a failed performance'
-    },
-    'melodrama': {
-      name: 'Melodrama',
-      description: 'You exaggerate emotions for effect',
-      effect: 'Disadvantage on Charisma (Deception) checks, as your intentions are often too obvious'
-    },
-    'impulsive': {
-      name: 'Impulsive',
-      description: 'You rush into things',
-      effect: 'Disadvantage on patience or timing checks'
-    },
-    'distraction': {
-      name: 'Distraction',
-      description: 'You lose focus easily',
-      effect: 'Disadvantage on concentration checks during lengthy performances'
-    }
-  };
-  
-  const DESTINY_DATA = {
-    // ===== HIGH FANTASY DESTINIES =====
-    'wizard': {
-      displayName: 'Arcane Wizard',
-      description: 'Master of magical energies through rigorous study.',
-      health: {
-        title: 'Frail',
-        value: 6
-      },
-      flaws: ['overconfidence', 'arrogance'],
-      tags: [
-        { id: 'magic', display: 'Magic', color: '#8a2be2', icon: '🔮' },
-        { id: 'support', display: 'Support', color: '#20b2aa', icon: '🌟' }
-      ],
-      levelUnlocks: [
-        { level: 1, ability: 'spellcaster' },
-        { level: 3, ability: 'arcane-intellect' },
-        { level: 5, ability: 'spell-mastery' }
-      ]
-    },
-    'knight': {
-      displayName: 'Chivalric Knight',
-      description: 'Noble warrior sworn to protect the realm.',
-      health: {
-        title: 'Sturdy',
-        value: 10
-      },
-      flaws: ['code-of-honor', 'naive-idealism'],
-      tags: [
-        { id: 'melee', display: 'Melee', color: '#b22222', icon: '⚔️' },
-        { id: 'defense', display: 'Defense', color: '#1e90ff', icon: '🛡️' }
-      ],
-      levelUnlocks: [
-        { level: 1, ability: 'armored-warrior' },
-        { level: 3, ability: 'fealty' },
-        { level: 5, ability: 'shield-bash' }
-      ]
-    },
-    'rogue': {
-      displayName: 'Shadow Rogue',
-      description: 'Stealthy opportunist who thrives in shadows.',
-      health: {
-        title: 'Agile',
-        value: 8
-      },
-      flaws: ['greed', 'recklessness'],
-      tags: [
-        { id: 'stealth', display: 'Stealth', color: '#696969', icon: '👤' },
-        { id: 'trap', display: 'Traps', color: '#ff8c00', icon: '⚠️' }
-      ],
-      levelUnlocks: [
-        { level: 1, ability: 'backstab' },
-        { level: 3, ability: 'lockpick' },
-        { level: 5, ability: 'poison-mastery' }
-      ]
-    },
-    'cleric': {
-      displayName: 'Divine Cleric',
-      description: 'Holy warrior who channels divine power.',
-      health: {
-        title: 'Resilient',
-        value: 9
-      },
-      flaws: ['dogmatic', 'zealotry'],
-      tags: [
-        { id: 'healing', display: 'Healing', color: '#32cd32', icon: '❤️' },
-        { id: 'holy', display: 'Holy', color: '#ffd700', icon: '✝️' }
-      ],
-      levelUnlocks: [
-        { level: 1, ability: 'divine-smite' },
-        { level: 3, ability: 'lay-on-hands' },
-        { level: 5, ability: 'turn-undead' }
-      ]
-    },
-  
-    // ===== CRESCENDO DESTINIES =====
-    'pianist': {
-      displayName: 'Virtuoso Pianist',
-      description: 'Keyboard master with technical precision.',
-      health: {
-        title: 'Artistic',
-        value: 7
-      },
-      flaws: ['perfectionist', 'stage-fright'],
-      tags: [
-        { id: 'keys', display: 'Keys', color: '#000000', icon: '🎹' },
-        { id: 'solo', display: 'Solo', color: '#ffffff', icon: '🎼' }
-      ],
-      levelUnlocks: [
-        { level: 1, ability: 'virtuoso' },
-        { level: 3, ability: 'improvisation' },
-        { level: 5, ability: 'grand-finale' }
-      ]
-    },
-    'guitarist': {
-      displayName: 'Lead Guitarist',
-      description: 'Stage-dominating riff machine.',
-      health: {
-        title: 'Charismatic',
-        value: 8
-      },
-      flaws: ['ego', 'rivalry'],
-      tags: [
-        { id: 'strings', display: 'Strings', color: '#ff4500', icon: '🎸' },
-        { id: 'lead', display: 'Lead', color: '#ffd700', icon: '🌟' }
-      ],
-      levelUnlocks: [
-        { level: 1, ability: 'power-chord' },
-        { level: 3, ability: 'face-melter' },
-        { level: 5, ability: 'feedback-loop' }
-      ]
-    },
-    'singer': {
-      displayName: 'Soulful Singer',
-      description: 'Voice that moves audiences to tears.',
-      health: {
-        title: 'Emotive',
-        value: 6
-      },
-      flaws: ['vulnerable', 'melodrama'],
-      tags: [
-        { id: 'vocals', display: 'Vocals', color: '#ff69b4', icon: '🎤' },
-        { id: 'lyrics', display: 'Lyrics', color: '#9370db', icon: '📝' }
-      ],
-      levelUnlocks: [
-        { level: 1, ability: 'high-note' },
-        { level: 3, ability: 'crowd-hush' },
-        { level: 5, ability: 'golden-voice' }
-      ]
-    },
-    'drummer': {
-      displayName: 'Rhythmic Drummer',
-      description: 'The band\'s heartbeat and tempo-keeper.',
-      health: {
-        title: 'Enduring',
-        value: 9
-      },
-      flaws: ['impulsive', 'distraction'],
-      tags: [
-        { id: 'percussion', display: 'Percussion', color: '#8b4513', icon: '🥁' },
-        { id: 'tempo', display: 'Tempo', color: '#0000ff', icon: '⏱️' }
-      ],
-      levelUnlocks: [
-        { level: 1, ability: 'double-kick' },
-        { level: 3, ability: 'fill-master' },
-        { level: 5, ability: 'metronome-sense' }
-      ]
-    }
-};
-  
-// Change 5: Address Inconsistency in Handling Ability Options (Strings vs. Objects)
-const ABILITY_DATA = {
-    // ===== HIGH FANTASY ABILITIES =====
-    'spellcaster': {
-      name: 'Spellcaster',
-      type: ['Spell', 'Combat'],
-      description: 'Choose ${maxChoices} spells from your spellbook.',
-      maxChoices: 3,
-      options: [ // Now objects with id, name, description
-        { id: 'fireball', name: 'Fireball', description: 'A burst of flame that deals fire damage.' },
-        { id: 'shield', name: 'Shield', description: 'Create a magical barrier.' },
-        { id: 'mage-hand', name: 'Mage Hand', description: 'A spectral, floating hand.' },
-        { id: 'lightning-bolt', name: 'Lightning Bolt', description: 'A streak of lightning that deals lightning damage.' }
-      ],
-      tier: 1
-    },
-    'arcane-intellect': {
-      name: 'Arcane Intellect',
-      type: ['Passive'],
-      description: 'Learn spells from scrolls by spending ${cost.gold}.',
-      cost: { gold: 50, item: 'spell-scroll' },
-      tier: 2
-    },
-    'armored-warrior': {
-      name: 'Armored Warrior',
-      type: ['Combat', 'Passive'],
-      description: 'Gain +${bonus} to Constitution when wearing heavy armor.',
-      bonus: 3,
-      tier: 1
-    },
-    'fealty': {
-      name: 'Fealty',
-      type: ['Social', 'Passive'],
-      description: 'Advantage on Charisma checks in your lord\'s domain.',
-      tier: 2
-    },
-    'backstab': {
-      name: 'Backstab',
-      type: ['Combat'],
-      description: 'Deal ${damage}x damage when attacking from stealth.',
-      damage: 2,
-      cost: { stamina: 10 },
-      tier: 1
-    },
-    'divine-smite': {
-      name: 'Divine Smite',
-      type: ['Holy', 'Combat'],
-      description: 'Channel holy energy to deal ${damage} + WIS radiant damage.',
-      damage: 5,
-      cost: { faith: 1 },
-      tier: 1
-    },
-    // New High Fantasy Abilities
-    'spell-mastery': {
-      name: 'Spell Mastery',
-      type: ['Spell', 'Passive', 'Utility'],
-      description: 'Gain powerful control over a chosen school of magic. Choose one school to specialize in.',
-      tier: 5,
-      maxChoices: 1,
-      options: [
-        {
-          id: 'evocation-mastery',
-          name: 'Evocation Mastery',
-          description: 'Evocation spells deal an additional ${bonus} damage, and their area of effect increases by 5ft. Mana cost of Evocation spells reduced by 1.',
-          bonus: 'INT' // Scales with Intelligence
-        },
-        {
-          id: 'abjuration-mastery',
-          name: 'Abjuration Mastery',
-          description: 'Abjuration spells grant an additional ${bonus} temporary hit points. When casting an Abjuration spell, you gain +2 AC until your next turn. Mana cost of Abjuration spells reduced by 1.',
-          bonus: 'INT' // Scales with Intelligence
-        },
-        {
-          id: 'conjuration-mastery',
-          name: 'Conjuration Mastery',
-          description: 'Conjuration spells last an additional ${bonus} rounds. Summoned creatures gain +${bonus} to their attack rolls. Mana cost of Conjuration spells reduced by 1.',
-          bonus: 'INT' // Scales with Intelligence
-        }
-      ],
-      newResources: {
-        'mana': {
-          type: 'persistent',
-          description: 'Arcane energy used to cast advanced spells. Refreshes on a long rest.'
-        }
-      }
-    },
-    'shield-bash': {
-      name: 'Shield Bash',
-      type: ['Combat', 'Utility'],
-      description: 'Use your shield to stun an enemy, dealing ${damage} blunt damage. Target must succeed on a Constitution saving throw (DC 8 + STR modifier) or be Stunned for 1 round. Usable once per combat.',
-      damage: '5 + STR', // Scales with Strength
-      cost: { stamina: 15 },
-      tier: 5,
-      usage: 'once-per-combat',
-      synergy: 'armored-warrior' // Synergizes with Armored Warrior
-    },
-    'lockpick': {
-      name: 'Lockpick',
-      type: ['Utility'],
-      description: 'Expertly pick any non-magical lock with a successful Dexterity check (DC 10 + lock complexity). Can be used to disarm simple traps. You gain proficiency with Thieves\' Tools.',
-      tier: 3,
-      synergy: 'backstab' // Sets up opportunities for Backstab
-    },
-    'poison-mastery': {
-      name: 'Poison Mastery',
-      type: ['Utility', 'Combat'],
-      description: 'You can craft ${maxChoices} unique poisons daily, choosing from a list. Applying a poison to a weapon takes a bonus action. Poisons inflict effects and ${bonus} necrotic damage. Your Backstab ability deals an additional 1x damage if the target is poisoned.',
-      tier: 5,
-      maxChoices: 2,
-      options: [
-        {
-          id: 'paralytic-poison',
-          name: 'Paralytic Poison',
-          description: 'Target must succeed on a Constitution saving throw (DC 8 + DEX modifier) or be Paralyzed for 1 round.'
-        },
-        {
-          id: 'wound-poison',
-          name: 'Wound Poison',
-          description: 'Target takes ${bonus} necrotic damage at the start of their turn for 3 rounds. Does not stack.'
-        },
-        {
-          id: 'truth-serum',
-          name: 'Truth Serum',
-          description: 'Target becomes unable to lie for 1 minute. They must succeed on a Wisdom saving throw (DC 8 + CHA modifier) or truthfully answer any direct question.'
-        }
-      ],
-      bonus: 'DEX', // Scales with Dexterity
-      newResources: {
-        'poison-vials': {
-          type: 'temporary',
-          description: 'Poisons crafted daily. Resets on a long rest.'
-        }
-      },
-      synergy: 'backstab'
-    },
-    'lay-on-hands': {
-      name: 'Lay on Hands',
-      type: ['Healing', 'Support'],
-      description: 'As an action, you can touch a creature and heal them for ${healing} hit points. Alternatively, you can expend 5 points to cure one disease or neutralize one poison affecting the creature. Your healing is boosted by your Wisdom.',
-      healing: '5 + WIS * 2', // Scales with Wisdom (tiered: double WIS bonus)
-      cost: { faith: 3 },
-      tier: 3,
-      usage: 'faith-points-based',
-      newResources: {
-        'faith-points': {
-          type: 'persistent',
-          description: 'Divine energy points. You have a pool equal to your Wisdom score. Refreshes on a long rest.'
-        }
-      }
-    },
-    'turn-undead': {
-      name: 'Turn Undead',
-      type: ['Holy', 'Utility', 'Combat'],
-      description: 'As an action, present your holy symbol and speak a prayer. Each undead within 30 feet that can hear you must make a Wisdom saving throw (DC 8 + WIS modifier) or be Turned for 1 minute. A Turned creature must spend its turns trying to move as far away from you as it can. It cannot willingly move into a space within 30 feet of you. It also can\'t take reactions. For low-level undead (CR 1/2 or less), you can attempt to command them instead (Wisdom check vs their DC). Usable once per short rest.',
-      tier: 5,
-      cost: { faith: 2 },
-      usage: 'once-per-short-rest',
-      synergy: 'divine-smite' // Synergizes by controlling targets for Divine Smite
-    },
-  
-    // ===== CRESCENDO ABILITIES =====
-    'virtuoso': {
-      name: 'Virtuoso',
-      type: ['Performance', 'Passive'],
-      description: 'Gain +${bonus} to technical skill checks.',
-      bonus: 2,
-      tier: 1
-    },
-    'improvisation': {
-      name: 'Improvisation',
-      type: ['Performance'],
-      description: 'Reroll a failed performance check once per session.',
-      cost: { inspiration: 1 },
-      tier: 2
-    },
-    'power-chord': {
-      name: 'Power Chord',
-      type: ['Performance', 'Combat'],
-      description: 'Deal ${damage} sonic damage to nearby enemies.',
-      damage: 4,
-      cost: { stamina: 15 },
-      tier: 1
-    },
-    'high-note': {
-      name: 'High Note',
-      type: ['Performance'],
-      description: 'Automatically succeed on a vocal check (once per session).',
-      tier: 1
-    },
-    'double-kick': {
-      name: 'Double Kick',
-      type: ['Performance', 'Combat'],
-      description: 'Gain an extra action during drum solos.',
-      cost: { stamina: 20 },
-      tier: 1
-    },
-    // New Crescendo Abilities
-    'grand-finale': {
-      name: 'Grand Finale',
-      type: ['Performance', 'Utility'],
-      description: 'Unleash a captivating musical climax. Choose one powerful finale effect to execute. Usable once per concert.',
-      tier: 5,
-      maxChoices: 1,
-      options: [
-        {
-          id: 'emotional-crescendo',
-          name: 'Emotional Crescendo',
-          description: 'Inspire your allies. All allies within 30ft gain Advantage on their next attack roll or skill check within the next minute. Scales with Harmony.',
-          scalesWith: 'Harmony' // Scales with Harmony
-        },
-        {
-          id: 'shattering-climax',
-          name: 'Shattering Climax',
-          description: 'Deal ${damage} sonic damage to all enemies within 20ft. Scales with Passion.',
-          damage: '8 + PASSION', // Scales with Passion
-          type: 'Combat'
-        },
-        {
-          id: 'encore-inducer',
-          name: 'Encore Inducer',
-          description: 'Significantly increase crowd "Hype" and Fame gain for this performance. You immediately gain 2 points of Fame. This effect is doubled if your current Fame is below 5. Scales with Fame.',
-          scalesWith: 'Fame' // Scales with Fame
-        }
-      ],
-      usage: 'once-per-concert',
-      newResources: {
-        'hype': {
-          type: 'temporary',
-          description: 'Represents audience engagement. Increases with good performances, decreases with poor ones. Resets per performance.'
-        }
-      }
-    },
-    'face-melter': {
-      name: 'Face-Melter',
-      type: ['Performance', 'Combat'],
-      description: 'Unleash a blistering guitar solo that deals ${damage} psychic damage to a single target and forces them to make a Wisdom saving throw (DC 8 + STYLE modifier) or be Frightened for 1 round. Your style boosts this effect.',
-      damage: '6 + STYLE', // Scales with Style
-      cost: { stamina: 25 },
-      tier: 3,
-      usage: 'once-per-scene',
-      synergy: 'power-chord' // Could lead into a Power Chord
-    },
-    'feedback-loop': {
-      name: 'Feedback Loop',
-      type: ['Performance', 'Utility', 'Combat'],
-      description: 'Manipulate sonic feedback to your advantage. Choose one effect. The effectiveness is influenced by your Rhythm.',
-      tier: 5,
-      maxChoices: 1,
-      options: [
-        {
-          id: 'disruptive-feedback',
-          name: 'Disruptive Feedback',
-          description: 'Create a cacophony that imposes Disadvantage on attack rolls for enemies within 15ft until the start of your next turn. Costs 1 Resonance Point.',
-          cost: { resonance: 1 }
-        },
-        {
-          id: 'empowering-feedback',
-          name: 'Empowering Feedback',
-          description: 'Amplify your own or an ally\'s next performance check, granting Advantage. Costs 1 Resonance Point.',
-          cost: { resonance: 1 }
-        },
-        {
-          id: 'defensive-feedback',
-          name: 'Defensive Feedback',
-          description: 'Generate a sonic barrier, granting you +${bonus} temporary hit points. Costs 1 Resonance Point.',
-          bonus: 'RHYTHM', // Scales with Rhythm
-          cost: { resonance: 1 }
-        }
-      ],
-      newResources: {
-        'resonance': {
-          type: 'temporary',
-          description: 'Points gained through successful musical attacks or sustained performance. Resets per combat/performance.'
-        }
-      },
-      synergy: 'power-chord' // Can enhance or be enhanced by Power Chord
-    },
-    'crowd-hush': {
-      name: 'Crowd Hush',
-      type: ['Social', 'Performance'],
-      description: 'Deliver a vocal performance so subtle and profound it captures the full attention of the audience. Gain Advantage on your next Charisma (Performance) check this scene. Silences minor distractions. Your Passion helps you silence the crowd.',
-      tier: 3,
-      cost: { inspiration: 1 },
-      usage: 'once-per-scene',
-      scalesWith: 'Passion'
-    },
-    'golden-voice': {
-      name: 'Golden Voice',
-      type: ['Social', 'Performance', 'Utility'],
-      description: 'Your voice is imbued with irresistible charm and authority. Choose one powerful vocal effect. Usable once per session.',
-      tier: 5,
-      maxChoices: 1,
-      options: [
-        {
-          id: 'commanding-aria',
-          name: 'Commanding Aria',
-          description: 'Issue a verbal command to a non-hostile creature. They must obey if the command is simple and does not endanger them (Wisdom saving throw DC 8 + CHA modifier to resist). Scales with Fame.',
-          scalesWith: 'Fame'
-        },
-        {
-          id: 'soothing-ballad',
-          name: 'Soothing Ballad',
-          description: 'Calm a hostile crowd or creature. Target must succeed on a Wisdom saving throw (DC 8 + CHA modifier) or become indifferent towards you for 1 minute. Scales with Passion.',
-          scalesWith: 'Passion'
-        },
-        {
-          id: 'inspiring-anthem',
-          name: 'Inspiring Anthem',
-          description: 'Rally up to 3 allies within 30ft. Each ally gains 1 Inspiration point. Scales with Style.',
-          scalesWith: 'Style'
-        }
-      ],
-      usage: 'once-per-session',
-      newResources: {
-        'inspiration-points': {
-          type: 'temporary',
-          description: 'Points reflecting creative energy or momentum, typically gained through roleplaying or successful performances. Resets per session.'
-        }
-      }
-    },
-    'fill-master': {
-      name: 'Fill Master',
-      type: ['Performance', 'Utility'],
-      description: 'Execute a complex drum fill that can set up an ally or disrupt an enemy. Choose one effect. This requires precise Rhythm.',
-      tier: 3,
-      maxChoices: 1,
-      options: [
-        {
-          id: 'setup-fill',
-          name: 'Setup Fill',
-          description: 'Grant an ally of your choice within 30ft Advantage on their next attack roll or performance check this turn. Costs 10 Stamina.',
-          cost: { stamina: 10 }
-        },
-        {
-          id: 'disruptive-fill',
-          name: 'Disruptive Fill',
-          description: 'Distract an enemy within 30ft, imposing Disadvantage on their next saving throw or attack roll. Costs 10 Stamina.',
-          cost: { stamina: 10 }
-        }
-      ],
-      scalesWith: 'Rhythm' // Scales with Rhythm
-    },
-    'metronome-sense': {
-      name: 'Metronome Sense',
-      type: ['Utility', 'Passive'],
-      description: 'You possess an uncanny sense of rhythm and timing, allowing you to manipulate the flow of time in minor ways. Choose one application of your Metronome Sense. This ability makes you the ultimate tempo-keeper.',
-      tier: 5,
-      maxChoices: 1,
-      options: [
-        {
-          id: 'perfect-timing',
-          name: 'Perfect Timing',
-          description: 'Once per session, you can reroll any failed Dexterity (Sleight of Hand) or Dexterity (Initiative) check. You have Advantage on checks to notice temporal anomalies. Scales with Rhythm.',
-          scalesWith: 'Rhythm'
-        },
-        {
-          id: 'tempo-control',
-          name: 'Tempo Control',
-          description: 'As an action, you can affect the speed of yourself or one willing ally within 30ft. They gain +5ft movement speed until the end of their next turn. Usable once per encounter. Scales with Stamina.',
-          scalesWith: 'Stamina',
-          usage: 'once-per-encounter'
-        },
-        {
-          id: 'rhythmic-precognition',
-          name: 'Rhythmic Precognition',
-          description: 'You gain a momentary glimpse of the immediate future based on the rhythms around you. Once per short rest, you can ask the GM a "yes" or "no" question about the safest immediate course of action (e.g., "Is it safe to go through that door?"). Scales with Intelligence (if applicable for drummers, else Wisdom).',
-          scalesWith: 'Intelligence' // or Wisdom, depending on how drummers perceive the world
-        }
-      ],
-      newResources: {
-        'flow-points': {
-          type: 'temporary',
-          description: 'Points representing your mastery over tempo. Gained through successful rhythmic actions. Resets per scene.'
-        }
-      }
-    }
-};
-
 class CharacterWizard {
-    constructor(db) {
+    constructor(moduleSystem, flawData, destinyData, abilityData, db) {
       this.currentPage = 0;
       this.pages = ['module', 'destiny', 'attributes', 'info'];
       this.state = {
@@ -658,6 +11,12 @@ class CharacterWizard {
         attributes: {},
         info: { name: '', bio: '' }
       };
+      // Assign the loaded data to instance properties
+      this.moduleSystem = moduleSystem;
+      this.flawData = flawData;
+      this.destinyData = destinyData;
+      this.abilityData = abilityData;
+
       this.db = db;
       this.navItems = document.querySelectorAll('.nav-item');
       
@@ -807,8 +166,8 @@ class CharacterWizard {
             roleSelect.innerHTML = '<option value="">Select a Destiny</option>';
           
             if (this.state.module) {
-              MODULE_SYSTEM[this.state.module].destinies.forEach(destinyId => {
-                const destiny = DESTINY_DATA[destinyId];
+              this.moduleSystem[this.state.module].destinies.forEach(destinyId => {
+                const destiny = this.destinyData[destinyId];
                 if (!destiny) {
                     console.error(`Missing destiny data for: ${destinyId}`);
                     return;
@@ -868,7 +227,7 @@ class CharacterWizard {
                 const newTableBody = newTable.querySelector('tbody');
                 
                 if (this.state.module) {
-                    MODULE_SYSTEM[this.state.module].attributes.forEach(attr => {
+                    this.moduleSystem[this.state.module].attributes.forEach(attr => {
                         const row = document.createElement('tr');
                         row.dataset.attribute = attr.toLowerCase();
                         row.innerHTML = `
@@ -1044,11 +403,11 @@ class CharacterWizard {
         case 'module':
           informer.innerHTML = this.state.module 
             ? `<div class="module-info">
-                 <h3>${MODULE_SYSTEM[this.state.module].name}</h3>
-                 <p>${MODULE_SYSTEM[this.state.module].descriptions.module}</p>
+                 <h3>${this.moduleSystem[this.state.module].name}</h3>
+                 <p>${this.moduleSystem[this.state.module].descriptions.module}</p>
                  <h4>Available Destinies:</h4>
                  <ul>
-                   ${MODULE_SYSTEM[this.state.module].destinies.map(d => `<li>${DESTINY_DATA[d]?.displayName || d}</li>`).join('')}
+                   ${this.moduleSystem[this.state.module].destinies.map(d => `<li>${this.destinyData[d]?.displayName || d}</li>`).join('')}
                  </ul>
                </div>`
             : '<div class="module-info"><p>Select a module to begin your journey</p></div>';
@@ -1061,8 +420,8 @@ class CharacterWizard {
               return;
             }
             
-            const destiny = DESTINY_DATA[this.state.destiny];
-            const selectedFlaw = FLAW_DATA[this.state.selectedFlaw]; // Retrieve selected flaw details
+            const destiny = this.destinyData[this.state.destiny];
+            const selectedFlaw = this.flawData[this.state.selectedFlaw]; // Retrieve selected flaw details
 
             informer.innerHTML = `
               <div class="destiny-info">
@@ -1086,11 +445,11 @@ class CharacterWizard {
         case 'attributes':
           informer.innerHTML = `
             <div class="attributes-info">
-              <h3>${MODULE_SYSTEM[this.state.module]?.name || 'Module'} Attributes</h3>
+              <h3>${this.moduleSystem[this.state.module]?.name || 'Module'} Attributes</h3>
               <p>Assign dice to your attributes:</p>
               <ul>
                 ${this.state.module 
-                  ? MODULE_SYSTEM[this.state.module].attributes.map(a => 
+                  ? this.moduleSystem[this.state.module].attributes.map(a => 
                       `<li><strong>${a}</strong>: ${this.state.attributes[a.toLowerCase()] || 'Unassigned'}</li>`
                     ).join('')
                   : 'Select a module first'}
@@ -1114,7 +473,7 @@ class CharacterWizard {
             if (existing) existing.remove(); // Remove if no destiny selected
             return;
         }
-        const destiny = DESTINY_DATA[this.state.destiny];
+        const destiny = this.destinyData[this.state.destiny];
         
         const container = document.createElement('div');
         container.className = 'destiny-details';
@@ -1124,7 +483,7 @@ class CharacterWizard {
             <select id="characterFlaw">
               <option value="">Select a Flaw</option>
               ${destiny.flaws.map(flawId => {
-                const flaw = FLAW_DATA[flawId]; // Access flaw data directly by ID (key)
+                const flaw = this.flawData[flawId]; // Access flaw data directly by ID (key)
                 if (!flaw) {
                     console.warn(`Missing flaw data for ID: ${flawId}`);
                     return '';
@@ -1177,7 +536,7 @@ class CharacterWizard {
             return;
         }
 
-        const destiny = DESTINY_DATA[this.state.destiny];
+        const destiny = this.destinyData[this.state.destiny];
         
         const container = document.createElement('div');
         container.className = 'abilities-section';
@@ -1195,7 +554,7 @@ class CharacterWizard {
           container.innerHTML += `<h5 class="tier-header">Tier ${tier} (Choose 1)</h5>`;
           
           abilityIds.forEach(abilityId => { // abilityId is the correct string ID, e.g., 'spellcaster'
-            const ability = ABILITY_DATA[abilityId]; // This is the definition object
+            const ability = this.abilityData[abilityId]; // This is the definition object
             if (!ability) {
               console.warn(`Missing ability: ${abilityId}`);
               return;
@@ -1371,7 +730,7 @@ class CharacterWizard {
             return;
         }
     
-        const abilityDef = ABILITY_DATA[abilityId];
+        const abilityDef = this.abilityData[abilityId];
         
         if (isSelected) {
             // Check maxChoices before adding
@@ -1398,7 +757,7 @@ class CharacterWizard {
     // Sub-change 1.3: Update validateDestinyCompletion to check for selectedFlaw
     validateDestinyCompletion() {
         if (!this.state.destiny) return false;
-        const destiny = DESTINY_DATA[this.state.destiny];
+        const destiny = this.destinyData[this.state.destiny];
         
         // Check if a flaw is selected
         if (!this.state.selectedFlaw) {
@@ -1417,7 +776,7 @@ class CharacterWizard {
   
         // Check ability option requirements
         const optionsComplete = this.state.abilities.every(abilityState => {
-          const abilityDef = ABILITY_DATA[abilityState.id];
+          const abilityDef = this.abilityData[abilityState.id];
           if (!abilityDef.options) return true; // No options to choose from
           if (abilityDef.maxChoices === undefined || abilityDef.maxChoices === null) return true; // No explicit maxChoices, so any number is fine
           
@@ -1441,7 +800,7 @@ class CharacterWizard {
                 if (!this.state.module) {
                     completed = false;
                 } else {
-                    const requiredAttrs = MODULE_SYSTEM[this.state.module].attributes;
+                    const requiredAttrs = this.moduleSystem[this.state.module].attributes;
                     // A page is completed if all required attributes have a die assigned
                     completed = requiredAttrs.every(attr => 
                         this.state.attributes[attr.toLowerCase()]
@@ -1499,20 +858,20 @@ class CharacterWizard {
     }
 
     validateData() {
-        Object.keys(MODULE_SYSTEM).forEach(moduleId => {
-          MODULE_SYSTEM[moduleId].destinies.forEach(destinyId => {
-            if (!DESTINY_DATA[destinyId]) {
+        Object.keys(this.moduleSystem).forEach(moduleId => {
+          this.moduleSystem[moduleId].destinies.forEach(destinyId => {
+            if (!this.destinyData[destinyId]) {
               console.error(`Missing destiny data for: ${destinyId}`);
             } else {
               // Validate flaws
-              DESTINY_DATA[destinyId].flaws.forEach(flawId => {
-                if (!FLAW_DATA[flawId]) {
+              this.destinyData[destinyId].flaws.forEach(flawId => {
+                if (!this.flawData[flawId]) {
                   console.error(`Missing flaw data: ${flawId} for destiny ${destinyId}`);
                 }
               });
 
-              DESTINY_DATA[destinyId].levelUnlocks.forEach(unlock => {
-                if (!ABILITY_DATA[unlock.ability]) {
+              this.destinyData[destinyId].levelUnlocks.forEach(unlock => {
+                if (!this.abilityData[unlock.ability]) {
                   console.error(`Missing ability data: ${unlock.ability} for destiny ${destinyId}`);
                 }
               });
@@ -1575,7 +934,7 @@ class CharacterWizard {
             }
 
             // Validate ability selections and their options
-            const destiny = DESTINY_DATA[this.state.destiny];
+            const destiny = this.destinyData[this.state.destiny];
             const tiers = [...new Set(destiny.levelUnlocks.map(u => u.level))];
             tiers.forEach(tier => {
                 const tierAbilities = destiny.levelUnlocks.filter(u => u.level === tier).map(u => u.ability);
@@ -1584,7 +943,7 @@ class CharacterWizard {
                     errors.push(`• Please select an Ability for Tier ${tier}.`);
                     console.log(`  - Validation error: No ability selected for Tier ${tier}.`);
                 } else {
-                    const abilityDef = ABILITY_DATA[selectedAbilityInTier.id];
+                    const abilityDef = this.abilityData[selectedAbilityInTier.id];
                     if (abilityDef.options && abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null) {
                         if (selectedAbilityInTier.selections.length !== abilityDef.maxChoices) {
                             errors.push(`• Please select exactly ${abilityDef.maxChoices} option(s) for the ability "${abilityDef.name}".`);
@@ -1595,7 +954,7 @@ class CharacterWizard {
             });
         }
         
-        const requiredAttrs = MODULE_SYSTEM[this.state.module].attributes;
+        const requiredAttrs = this.moduleSystem[this.state.module].attributes;
         const missingAttrs = requiredAttrs.filter(attr => 
           !this.state.attributes[attr.toLowerCase()]
         );
@@ -1634,8 +993,8 @@ class CharacterWizard {
         selectedFlaw: this.state.selectedFlaw, // Save the selected flaw
         attributes: this.state.attributes,
         bio: this.state.info.bio,
-        health: { current: DESTINY_DATA[this.state.destiny].health.value,
-            max: DESTINY_DATA[this.state.destiny].health.value,
+        health: { current: this.destinyData[this.state.destiny].health.value,
+            max: this.destinyData[this.state.destiny].health.value,
             temporary: 0 },
         inventory: [],
         abilities: this.state.abilities, // Save the full abilities array with selections
@@ -1724,7 +1083,7 @@ class CharacterWizard {
         // CHANGE THIS LINE: Select .ability instead of .ability-container
         document.querySelectorAll('.ability').forEach(abilityContainer => {
             const abilityId = abilityContainer.dataset.abilityId;
-            const abilityData = ABILITY_DATA[abilityId];
+            const abilityData = this.abilityData[abilityId];
             
             // Find if this ability is selected in the wizard's state
             const abilityState = this.state.abilities.find(a => a.id === abilityId);
@@ -1776,11 +1135,54 @@ class CharacterWizard {
     }
 }
   
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => { // Made the callback async
     if (typeof db === 'undefined') {
-      console.error("CharacterWizard: Database module 'db' not loaded! Ensure db.js is included before wizard.js.");
-      return;
+        console.error("CharacterWizard: Database module 'db' not loaded! Ensure db.js is included before wizard.js.");
+        return;
     }
-    console.log('CharacterWizard: DOMContentLoaded event fired. Initializing CharacterWizard with db.');
-    new CharacterWizard(db);
+
+    console.log('CharacterWizard: DOMContentLoaded event fired. Loading data...');
+
+    let moduleSystemData = null;
+    let flawData = null;
+    let destinyData = null;
+    let abilityData = null;
+
+    try {
+        // Load modules.json
+        console.log('CharacterWizard: Fetching modules.json...');
+        const moduleResponse = await fetch('data/modules.json');
+        if (!moduleResponse.ok) throw new Error(`HTTP error! status: ${moduleResponse.status}`);
+        moduleSystemData = await moduleResponse.json();
+        console.log('CharacterWizard: modules.json loaded successfully.');
+
+        // Load abilities.json
+        console.log('CharacterWizard: Fetching abilities.json...');
+        const abilityResponse = await fetch('data/abilities.json');
+        if (!abilityResponse.ok) throw new Error(`HTTP error! status: ${abilityResponse.status}`);
+        abilityData = await abilityResponse.json();
+        console.log('CharacterWizard: abilities.json loaded successfully.');
+
+        // Load flaws.json
+        console.log('CharacterWizard: Fetching flaws.json...');
+        const flawResponse = await fetch('data/flaws.json');
+        if (!flawResponse.ok) throw new Error(`HTTP error! status: ${flawResponse.status}`);
+        flawData = await flawResponse.json();
+        console.log('CharacterWizard: flaws.json loaded successfully.');
+
+        // Load destinies.json
+        console.log('CharacterWizard: Fetching destinies.json...');
+        const destinyResponse = await fetch('data/destinies.json');
+        if (!destinyResponse.ok) throw new Error(`HTTP error! status: ${destinyResponse.status}`);
+        destinyData = await destinyResponse.json();
+        console.log('CharacterWizard: destinies.json loaded successfully.');
+
+        // Initialize CharacterWizard with all loaded data
+        console.log('CharacterWizard: All data loaded. Initializing CharacterWizard.');
+        new CharacterWizard(moduleSystemData, flawData, destinyData, abilityData, db);
+
+    } catch (error) {
+        console.error('CharacterWizard: Error loading data:', error);
+        alert('Failed to load character data. Please check the console for details.');
+    }
 });
