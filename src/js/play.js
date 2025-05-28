@@ -42,6 +42,36 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}
                     </div>
                 </div>
+
+                ${character.selectedFlaw ? `
+                <div class="character-flaw">
+                    <h4>Selected Flaw</h4>
+                    <p>${character.selectedFlaw.charAt(0).toUpperCase() + character.selectedFlaw.slice(1)}</p>
+                </div>
+                ` : ''}
+
+                ${character.inventory && character.inventory.length > 0 ? `
+                <div class="character-inventory">
+                    <h4>Inventory</h4>
+                    <ul>
+                        ${character.inventory.map(item => `<li>${item.name}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                ${character.abilities && character.abilities.length > 0 ? `
+                <div class="character-abilities">
+                    <h4>Abilities</h4>
+                    ${character.abilities.map(ability => `
+                        <div class="ability-item">
+                            <button class="ability-toggle">${ability.selections[0].id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</button>
+                            <ul class="ability-selections">
+                                ${ability.selections.map(selection => `<li>${selection.id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
                 
                 ${character.bio ? `
                 <div class="character-bio">
@@ -55,6 +85,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     <textarea placeholder="Add session notes here..."></textarea>
                 </div>
             `;
+
+            // Add event listeners for ability toggles
+            document.querySelectorAll('.ability-toggle').forEach(button => {
+                button.addEventListener('click', function() {
+                    const selections = this.nextElementSibling;
+                    selections.classList.toggle('active');
+                });
+            });
+
         } else {
             characterDetails.innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
         }
@@ -62,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Error loading character:', err);
     });
 
-    // Dice roller functionality
+    // Dice roller functionality for D20
     document.getElementById('rollD20').addEventListener('click', function() {
         const result = Math.floor(Math.random() * 20) + 1;
         const diceResult = document.getElementById('diceResult');
@@ -98,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Rolling logic
+    // Rolling logic for attribute dice
     document.querySelectorAll('.btn-roll').forEach(btn => {
         btn.addEventListener('click', function() {
             const assignment = this.closest('.dice-assignment');

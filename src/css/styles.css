@@ -893,3 +893,74 @@ select.error-highlight {
   .ability.optional {
     border-left: 3px solid #2196F3;
   }
+
+/* Styles for abilities section */
+.character-abilities {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+}
+
+.ability-item {
+    margin-bottom: 10px;
+}
+
+.ability-toggle {
+    background-color: #f0f0f0;
+    color: #333;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    font-weight: bold;
+}
+
+.ability-toggle:hover {
+    background-color: #e0e0e0;
+}
+
+.ability-selections {
+    list-style: none;
+    padding-left: 15px;
+    margin-top: 5px;
+    max-height: 0; /* Hidden by default */
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.ability-selections.active {
+    max-height: 100px; /* Adjust as needed to fit content */
+}
+
+.ability-selections li {
+    padding: 5px 0;
+    font-size: 0.9em;
+    color: #555;
+}
+
+/* Adjustments for the Tools Panel */
+.tools-panel {
+    /* Example: Reduce its width or give it a smaller grid column span if using grid */
+    /* For a simple float layout, you might just adjust its width or margin */
+    /* max-width: 200px; */ /* Example: Make it smaller */
+    max-width: 200px;
+    max-height: 150px;
+}
+
+.dice-container {
+    display: flex;
+    flex-direction: column; /* Stack elements vertically */
+    align-items: center; /* Center horizontally */
+}
+
+.dice-container button {
+    margin-bottom: 10px; /* Space between button and result */
+}
+
+#diceResult {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #007bff; /* Example color */
+}
