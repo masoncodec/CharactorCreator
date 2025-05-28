@@ -1,0 +1,371 @@
+{
+    "spellcaster": {
+        "name": "Spellcaster",
+        "type": ["Spell", "Combat"],
+        "description": "Choose ${maxChoices} spells from your spellbook.",
+        "maxChoices": 3,
+        "options": [
+            { "id": "fireball", "name": "Fireball", "description": "A burst of flame that deals fire damage." },
+            { "id": "shield", "name": "Shield", "description": "Create a magical barrier." },
+            { "id": "mage-hand", "name": "Mage Hand", "description": "A spectral, floating hand." },
+            { "id": "lightning-bolt", "name": "Lightning Bolt", "description": "A streak of lightning that deals lightning damage." }
+        ],
+        "tier": 1
+    },
+    "arcane-intellect": {
+        "name": "Arcane Intellect",
+        "type": ["Passive"],
+        "description": "Learn spells from scrolls by spending ${cost.gold}.",
+        "cost": { "gold": 50, "item": "spell-scroll" },
+        "tier": 2
+    },
+    "armored-warrior": {
+        "name": "Armored Warrior",
+        "type": ["Combat", "Passive"],
+        "description": "Gain +${bonus} to Constitution when wearing heavy armor.",
+        "bonus": 3,
+        "tier": 1
+    },
+    "fealty": {
+        "name": "Fealty",
+        "type": ["Social", "Passive"],
+        "description": "Advantage on Charisma checks in your lord's domain.",
+        "tier": 2
+    },
+    "backstab": {
+        "name": "Backstab",
+        "type": ["Combat"],
+        "description": "Deal ${damage}x damage when attacking from stealth.",
+        "damage": 2,
+        "cost": { "stamina": 10 },
+        "tier": 1
+    },
+    "divine-smite": {
+        "name": "Divine Smite",
+        "type": ["Holy", "Combat"],
+        "description": "Channel holy energy to deal ${damage} + WIS radiant damage.",
+        "damage": 5,
+        "cost": { "faith": 1 },
+        "tier": 1
+    },
+    "spell-mastery": {
+        "name": "Spell Mastery",
+        "type": ["Spell", "Passive", "Utility"],
+        "description": "Gain powerful control over a chosen school of magic. Choose one school to specialize in.",
+        "tier": 5,
+        "maxChoices": 1,
+        "options": [
+            {
+                "id": "evocation-mastery",
+                "name": "Evocation Mastery",
+                "description": "Evocation spells deal an additional ${bonus} damage, and their area of effect increases by 5ft. Mana cost of Evocation spells reduced by 1.",
+                "bonus": "INT"
+            },
+            {
+                "id": "abjuration-mastery",
+                "name": "Abjuration Mastery",
+                "description": "Abjuration spells grant an additional ${bonus} temporary hit points. When casting an Abjuration spell, you gain +2 AC until your next turn. Mana cost of Abjuration spells reduced by 1.",
+                "bonus": "INT"
+            },
+            {
+                "id": "conjuration-mastery",
+                "name": "Conjuration Mastery",
+                "description": "Conjuration spells last an additional ${bonus} rounds. Summoned creatures gain +${bonus} to their attack rolls. Mana cost of Conjuration spells reduced by 1.",
+                "bonus": "INT"
+            }
+        ],
+        "newResources": {
+            "mana": {
+                "type": "persistent",
+                "description": "Arcane energy used to cast advanced spells. Refreshes on a long rest."
+            }
+        }
+    },
+    "shield-bash": {
+        "name": "Shield Bash",
+        "type": ["Combat", "Utility"],
+        "description": "Use your shield to stun an enemy, dealing ${damage} blunt damage. Target must succeed on a Constitution saving throw (DC 8 + STR modifier) or be Stunned for 1 round. Usable once per combat.",
+        "damage": "5 + STR",
+        "cost": { "stamina": 15 },
+        "tier": 5,
+        "usage": "once-per-combat",
+        "synergy": "armored-warrior"
+    },
+    "lockpick": {
+        "name": "Lockpick",
+        "type": ["Utility"],
+        "description": "Expertly pick any non-magical lock with a successful Dexterity check (DC 10 + lock complexity). Can be used to disarm simple traps. You gain proficiency with Thieves' Tools.",
+        "tier": 3,
+        "synergy": "backstab"
+    },
+    "poison-mastery": {
+        "name": "Poison Mastery",
+        "type": ["Utility", "Combat"],
+        "description": "You can craft ${maxChoices} unique poisons daily, choosing from a list. Applying a poison to a weapon takes a bonus action. Poisons inflict effects and ${bonus} necrotic damage. Your Backstab ability deals an additional 1x damage if the target is poisoned.",
+        "tier": 5,
+        "maxChoices": 2,
+        "options": [
+            {
+                "id": "paralytic-poison",
+                "name": "Paralytic Poison",
+                "description": "Target must succeed on a Constitution saving throw (DC 8 + DEX modifier) or be Paralyzed for 1 round."
+            },
+            {
+                "id": "wound-poison",
+                "name": "Wound Poison",
+                "description": "Target takes ${bonus} necrotic damage at the start of their turn for 3 rounds. Does not stack."
+            },
+            {
+                "id": "truth-serum",
+                "name": "Truth Serum",
+                "description": "Target becomes unable to lie for 1 minute. They must succeed on a Wisdom saving throw (DC 8 + CHA modifier) or truthfully answer any direct question."
+            }
+        ],
+        "bonus": "DEX",
+        "newResources": {
+            "poison-vials": {
+                "type": "temporary",
+                "description": "Poisons crafted daily. Resets on a long rest."
+            }
+        },
+        "synergy": "backstab"
+    },
+    "lay-on-hands": {
+        "name": "Lay on Hands",
+        "type": ["Healing", "Support"],
+        "description": "As an action, you can touch a creature and heal them for ${healing} hit points. Alternatively, you can expend 5 points to cure one disease or neutralize one poison affecting the creature. Your healing is boosted by your Wisdom.",
+        "healing": "5 + WIS * 2",
+        "cost": { "faith": 3 },
+        "tier": 3,
+        "usage": "faith-points-based",
+        "newResources": {
+            "faith-points": {
+                "type": "persistent",
+                "description": "Divine energy points. You have a pool equal to your Wisdom score. Refreshes on a long rest."
+            }
+        }
+    },
+    "turn-undead": {
+        "name": "Turn Undead",
+        "type": ["Holy", "Utility", "Combat"],
+        "description": "As an action, present your holy symbol and speak a prayer. Each undead within 30 feet that can hear you must make a Wisdom saving throw (DC 8 + WIS modifier) or be Turned for 1 minute. A Turned creature must spend its turns trying to move as far away from you as it can. It cannot willingly move into a space within 30 feet of you. It also can't take reactions. For low-level undead (CR 1/2 or less), you can attempt to command them instead (Wisdom check vs their DC). Usable once per short rest.",
+        "tier": 5,
+        "cost": { "faith": 2 },
+        "usage": "once-per-short-rest",
+        "synergy": "divine-smite"
+    },
+    "virtuoso": {
+        "name": "Virtuoso",
+        "type": ["Performance", "Passive"],
+        "description": "Gain +${bonus} to technical skill checks.",
+        "bonus": 2,
+        "tier": 1
+    },
+    "improvisation": {
+        "name": "Improvisation",
+        "type": ["Performance"],
+        "description": "Reroll a failed performance check once per session.",
+        "cost": { "inspiration": 1 },
+        "tier": 2
+    },
+    "power-chord": {
+        "name": "Power Chord",
+        "type": ["Performance", "Combat"],
+        "description": "Deal ${damage} sonic damage to nearby enemies.",
+        "damage": 4,
+        "cost": { "stamina": 15 },
+        "tier": 1
+    },
+    "high-note": {
+        "name": "High Note",
+        "type": ["Performance"],
+        "description": "Automatically succeed on a vocal check (once per session).",
+        "tier": 1
+    },
+    "double-kick": {
+        "name": "Double Kick",
+        "type": ["Performance", "Combat"],
+        "description": "Gain an extra action during drum solos.",
+        "cost": { "stamina": 20 },
+        "tier": 1
+    },
+    "grand-finale": {
+        "name": "Grand Finale",
+        "type": ["Performance", "Utility"],
+        "description": "Unleash a captivating musical climax. Choose one powerful finale effect to execute. Usable once per concert.",
+        "tier": 5,
+        "maxChoices": 1,
+        "options": [
+            {
+                "id": "emotional-crescendo",
+                "name": "Emotional Crescendo",
+                "description": "Inspire your allies. All allies within 30ft gain Advantage on their next attack roll or skill check within the next minute. Scales with Harmony.",
+                "scalesWith": "Harmony"
+            },
+            {
+                "id": "shattering-climax",
+                "name": "Shattering Climax",
+                "description": "Deal ${damage} sonic damage to all enemies within 20ft. Scales with Passion.",
+                "damage": "8 + PASSION",
+                "type": "Combat"
+            },
+            {
+                "id": "encore-inducer",
+                "name": "Encore Inducer",
+                "description": "Significantly increase crowd \"Hype\" and Fame gain for this performance. You immediately gain 2 points of Fame. This effect is doubled if your current Fame is below 5. Scales with Fame.",
+                "scalesWith": "Fame"
+            }
+        ],
+        "usage": "once-per-concert",
+        "newResources": {
+            "hype": {
+                "type": "temporary",
+                "description": "Represents audience engagement. Increases with good performances, decreases with poor ones. Resets per performance."
+            }
+        }
+    },
+    "face-melter": {
+        "name": "Face-Melter",
+        "type": ["Performance", "Combat"],
+        "description": "Unleash a blistering guitar solo that deals ${damage} psychic damage to a single target and forces them to make a Wisdom saving throw (DC 8 + STYLE modifier) or be Frightened for 1 round. Your style boosts this effect.",
+        "damage": "6 + STYLE",
+        "cost": { "stamina": 25 },
+        "tier": 3,
+        "usage": "once-per-scene",
+        "synergy": "power-chord"
+    },
+    "feedback-loop": {
+        "name": "Feedback Loop",
+        "type": ["Performance", "Utility", "Combat"],
+        "description": "Manipulate sonic feedback to your advantage. Choose one effect. The effectiveness is influenced by your Rhythm.",
+        "tier": 5,
+        "maxChoices": 1,
+        "options": [
+            {
+                "id": "disruptive-feedback",
+                "name": "Disruptive Feedback",
+                "description": "Create a cacophony that imposes Disadvantage on attack rolls for enemies within 15ft until the start of your next turn. Costs 1 Resonance Point.",
+                "cost": { "resonance": 1 }
+            },
+            {
+                "id": "empowering-feedback",
+                "name": "Empowering Feedback",
+                "description": "Amplify your own or an ally's next performance check, granting Advantage. Costs 1 Resonance Point.",
+                "cost": { "resonance": 1 }
+            },
+            {
+                "id": "defensive-feedback",
+                "name": "Defensive Feedback",
+                "description": "Generate a sonic barrier, granting you +${bonus} temporary hit points. Costs 1 Resonance Point.",
+                "bonus": "RHYTHM",
+                "cost": { "resonance": 1 }
+            }
+        ],
+        "newResources": {
+            "resonance": {
+                "type": "temporary",
+                "description": "Points gained through successful musical attacks or sustained performance. Resets per combat/performance."
+            }
+        },
+        "synergy": "power-chord"
+    },
+    "crowd-hush": {
+        "name": "Crowd Hush",
+        "type": ["Social", "Performance"],
+        "description": "Deliver a vocal performance so subtle and profound it captures the full attention of the audience. Gain Advantage on your next Charisma (Performance) check this scene. Silences minor distractions. Your Passion helps you silence the crowd.",
+        "tier": 3,
+        "cost": { "inspiration": 1 },
+        "usage": "once-per-scene",
+        "scalesWith": "Passion"
+    },
+    "golden-voice": {
+        "name": "Golden Voice",
+        "type": ["Social", "Performance", "Utility"],
+        "description": "Your voice is imbued with irresistible charm and authority. Choose one powerful vocal effect. Usable once per session.",
+        "tier": 5,
+        "maxChoices": 1,
+        "options": [
+            {
+                "id": "commanding-aria",
+                "name": "Commanding Aria",
+                "description": "Issue a verbal command to a non-hostile creature. They must obey if the command is simple and does not endanger them (Wisdom saving throw DC 8 + CHA modifier to resist). Scales with Fame.",
+                "scalesWith": "Fame"
+            },
+            {
+                "id": "soothing-ballad",
+                "name": "Soothing Ballad",
+                "description": "Calm a hostile crowd or creature. Target must succeed on a Wisdom saving throw (DC 8 + CHA modifier) or become indifferent towards you for 1 minute. Scales with Passion.",
+                "scalesWith": "Passion"
+            },
+            {
+                "id": "inspiring-anthem",
+                "name": "Inspiring Anthem",
+                "description": "Rally up to 3 allies within 30ft. Each ally gains 1 Inspiration point. Scales with Style.",
+                "scalesWith": "Style"
+            }
+        ],
+        "usage": "once-per-session",
+        "newResources": {
+            "inspiration-points": {
+                "type": "temporary",
+                "description": "Points reflecting creative energy or momentum, typically gained through roleplaying or successful performances. Resets per session."
+            }
+        }
+    },
+    "fill-master": {
+        "name": "Fill Master",
+        "type": ["Performance", "Utility"],
+        "description": "Execute a complex drum fill that can set up an ally or disrupt an enemy. Choose one effect. This requires precise Rhythm.",
+        "tier": 3,
+        "maxChoices": 1,
+        "options": [
+            {
+                "id": "setup-fill",
+                "name": "Setup Fill",
+                "description": "Grant an ally of your choice within 30ft Advantage on their next attack roll or performance check this turn. Costs 10 Stamina.",
+                "cost": { "stamina": 10 }
+            },
+            {
+                "id": "disruptive-fill",
+                "name": "Disruptive Fill",
+                "description": "Distract an enemy within 30ft, imposing Disadvantage on their next saving throw or attack roll. Costs 10 Stamina.",
+                "cost": { "stamina": 10 }
+            }
+        ],
+        "scalesWith": "Rhythm"
+    },
+    "metronome-sense": {
+        "name": "Metronome Sense",
+        "type": ["Utility", "Passive"],
+        "description": "You possess an uncanny sense of rhythm and timing, allowing you to manipulate the flow of time in minor ways. Choose one application of your Metronome Sense. This ability makes you the ultimate tempo-keeper.",
+        "tier": 5,
+        "maxChoices": 1,
+        "options": [
+            {
+                "id": "perfect-timing",
+                "name": "Perfect Timing",
+                "description": "Once per session, you can reroll any failed Dexterity (Sleight of Hand) or Dexterity (Initiative) check. You have Advantage on checks to notice temporal anomalies. Scales with Rhythm.",
+                "scalesWith": "Rhythm"
+            },
+            {
+                "id": "tempo-control",
+                "name": "Tempo Control",
+                "description": "As an action, you can affect the speed of yourself or one willing ally within 30ft. They gain +5ft movement speed until the end of their next turn. Usable once per encounter. Scales with Stamina.",
+                "scalesWith": "Stamina",
+                "usage": "once-per-encounter"
+            },
+            {
+                "id": "rhythmic-precognition",
+                "name": "Rhythmic Precognition",
+                "description": "You gain a momentary glimpse of the immediate future based on the rhythms around you. Once per short rest, you can ask the GM a \"yes\" or \"no\" question about the safest immediate course of action (e.g., \"Is it safe to go through that door?\"). Scales with Intelligence (if applicable for drummers, else Wisdom).",
+                "scalesWith": "Intelligence"
+            }
+        ],
+        "newResources": {
+            "flow-points": {
+                "type": "temporary",
+                "description": "Points representing your mastery over tempo. Gained through successful rhythmic actions. Resets per scene."
+            }
+        }
+    }
+}
