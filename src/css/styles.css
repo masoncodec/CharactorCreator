@@ -1173,3 +1173,178 @@ select.error-highlight {
     justify-content: space-between;
     margin-top: 30px;
 }
+
+/* Styles for dice roll results */
+.roll-result {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #28a745; /* Example: Green for success */
+    margin-top: 5px;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.3s ease-in-out; /* Smooth transition */
+}
+
+.roll-result.visible {
+    opacity: 1; /* Visible when 'visible' class is added */
+}
+
+/* In your css/styles.css file */
+
+.roll-result {
+    /* Initially hide the result but occupy space */
+    min-width: 30px; /* Adjust this value based on your font size and expected max roll (e.g., for '100' or '20') */
+    text-align: center;
+    visibility: hidden; /* Hides the element visually but keeps it in the layout flow */
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out; /* Smooth transition for fading in/out */
+    /* Add any other styling for the rolled number itself, e.g., font-size, color */
+}
+
+.roll-result.visible {
+    visibility: visible; /* Makes the element visible */
+    opacity: 1;
+}
+
+/* Optional: To better align the button and result */
+.dice-assignment {
+    display: flex;
+    align-items: center; /* Aligns items vertically in the center */
+    gap: 5px; /* Adds some space between elements */
+}
+
+.dice-assignment label {
+    flex-shrink: 0; /* Prevents the label from shrinking */
+}
+
+.dice-assignment .die-type {
+    flex-shrink: 0;
+}
+
+.dice-assignment .btn-roll {
+    flex-shrink: 0;
+}
+
+/* In your css/styles.css file */
+
+/* Ensure consistent spacing and alignment for attribute rows */
+.dice-assignment {
+    display: flex;
+    align-items: center; /* Vertically align items */
+    gap: 8px; /* Adjust spacing between elements within the row */
+    margin-bottom: 5px; /* Small space between each attribute row */
+}
+
+.dice-assignment label {
+    flex-basis: 70px; /* Give labels a fixed width to align them, adjust as needed */
+    text-align: right; /* Align label text to the right */
+    flex-shrink: 0; /* Prevent label from shrinking */
+}
+
+.dice-assignment .die-type {
+    min-width: 40px; /* Ensure D20, D100 etc. have consistent width */
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.dice-assignment .btn-roll {
+    padding: 4px 8px; /* Smaller padding for attribute roll buttons */
+    font-size: 0.85em; /* Smaller font size for attribute roll buttons */
+    flex-shrink: 0;
+}
+
+/* The core fix for the rolling result area */
+.roll-result {
+    font-size: 1.1em; /* Adjust font size to match expected result size */
+    font-weight: bold;
+    color: #333; /* Or whatever color you want for the result */
+    
+    /* Crucial: Pre-allocate space */
+    min-width: 40px; /* Generous width for two or three digit numbers (e.g., '100'), adjust if your font is very large */
+    text-align: left; /* Align the number to the left within its allocated space */
+    
+    /* Make it invisible but still occupy space */
+    visibility: hidden; /* Keeps the element in the flow, but hides its content */
+    opacity: 0; /* For a fade-in effect */
+    transition: opacity 0.2s ease-in-out; /* Smooth transition */
+}
+
+.roll-result.visible {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Specific styling for the general D20 roll, if needed */
+#diceResult {
+    min-width: 50px; /* Ensure this also has pre-allocated space */
+    text-align: center;
+    font-size: 1.5em;
+    font-weight: bold;
+    /* Add other styles as desired */
+}
+
+/* In your css/styles.css file */
+
+/* Ensure consistent spacing and alignment for attribute rows */
+.dice-assignment {
+    display: flex;
+    align-items: center; /* Vertically align items to the center */
+    gap: 8px; /* Adjust spacing between elements within the row */
+    margin-bottom: 5px; /* Small space between each attribute row */
+}
+
+.dice-assignment label {
+    flex-basis: 70px; /* Give labels a fixed width to align them, adjust as needed */
+    text-align: right; /* Align label text to the right */
+    flex-shrink: 0; /* Prevent label from shrinking */
+}
+
+.dice-assignment .die-type {
+    min-width: 40px; /* Ensure D20, D100 etc. have consistent width */
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.dice-assignment .btn-roll {
+    padding: 4px 8px; /* Smaller padding for attribute roll buttons */
+    font-size: 0.85em; /* Smaller font size for attribute roll buttons */
+    flex-shrink: 0;
+}
+
+/* The core fix for the rolling result area - Height Control */
+.roll-result {
+    /* Explicitly set font properties for consistency */
+    font-family: 'Roboto', sans-serif; /* Ensure consistent font family */
+    font-size: 1.1em; /* Keep font size consistent */
+    font-weight: bold;
+    color: #333; /* Or whatever color you want for the result */
+    
+    /* Crucial: Pre-allocate space */
+    min-width: 40px; /* Generous width for two or three digit numbers (e.g., '100'), adjust if your font is very large */
+    text-align: left; /* Align the number to the left within its allocated space */
+    
+    /* Explicit Height Control */
+    height: 1.2em; /* Set a fixed height based on your font-size and desired line-height. Adjust this! */
+    line-height: 1.2em; /* Make line-height equal to height to prevent vertical shifting due to content */
+    display: flex; /* Use flexbox for vertical centering of the number itself */
+    align-items: center; /* Center the number vertically within its fixed height */
+    justify-content: flex-start; /* Align number to the left within its fixed width */
+
+    /* Make it invisible but still occupy space */
+    visibility: hidden; /* Keeps the element in the flow, but hides its content */
+    opacity: 0; /* For a fade-in effect */
+    transition: opacity 0.2s ease-in-out; /* Smooth transition */
+}
+
+.roll-result.visible {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Specific styling for the general D20 roll, if needed */
+#diceResult {
+    min-width: 50px; /* Ensure this also has pre-allocated space */
+    text-align: center;
+    font-size: 1.5em;
+    font-weight: bold;
+    /* Add other styles as desired */
+}
