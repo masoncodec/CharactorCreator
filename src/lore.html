@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Narrative TTRPG | Lore</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="main-nav">
+        <ul>
+            <li><a href="play.html" class="nav-link">Play</a></li>
+            <li><a href="dice.html" class="nav-link">Dice</a></li>
+            <li><a href="combat.html" class="nav-link">Combat</a></li>
+            <li><a href="character-sheet.html" class="nav-link">Character</a></li>
+            <li><a href="lore.html" class="nav-link active">Lore</a></li>
+        </ul>
+    </nav>
+
+    <div class="page-content">
+        <h2>The World of Crescendo</h2>
+        <div class="lore-controls">
+            <input type="search" id="loreSearch" placeholder="Search lore...">
+            <button id="showTocBtn">Table of Contents</button>
+        </div>
+        
+        <div class="lore-toc" style="display: none;">
+            <h3>Table of Contents</h3>
+            <ul id="tocList">
+                </ul>
+        </div>
+
+        <div id="loreContent">
+            </div>
+
+        <div class="lore-pagination">
+            <button id="prevSectionBtn" disabled>Previous</button>
+            <button id="nextSectionBtn" disabled>Next</button>
+        </div>
+    </div>
+
+    <script src="js/lore.js"></script>
+</body>
+</html>

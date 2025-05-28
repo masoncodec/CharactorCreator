@@ -1,5 +1,17 @@
+// Function to highlight the active navigation link
+function highlightActiveNav(pageName) {
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href').includes(pageName)) {
+            link.classList.add('active');
+        }
+    });
+}
+
 // Initialize play page
 document.addEventListener('DOMContentLoaded', function() {
+    highlightActiveNav('play.html'); // Highlight "Play" link
+
     //Load active character
     db.getActiveCharacter().then(function(character) {
         const characterDetails = document.getElementById('characterDetails');

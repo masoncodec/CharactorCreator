@@ -964,3 +964,212 @@ select.error-highlight {
     font-weight: bold;
     color: #007bff; /* Example color */
 }
+
+/* Navigation Bar Styles */
+.main-nav {
+    background-color: #333; /* Dark background for the nav bar */
+    padding: 10px 0;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.main-nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex; /* Arrange links horizontally */
+    justify-content: center; /* Center the links */
+    gap: 20px; /* Space between links */
+}
+
+.main-nav li {
+    display: inline-block; /* For older browser support */
+}
+
+.main-nav a {
+    color: white;
+    text-decoration: none;
+    padding: 8px 15px;
+    border-radius: 5px; /* Slightly rounded corners */
+    transition: background-color 0.3s ease, color 0.3s ease;
+    font-weight: bold;
+}
+
+.main-nav a:hover {
+    background-color: #555; /* Darker background on hover */
+}
+
+.main-nav a.active {
+    background-color: #dc3545; /* Red background for active page */
+    color: white;
+    box-shadow: 0 0 8px rgba(220, 53, 69, 0.5); /* Subtle glow for active */
+}
+
+/* Styles for abilities section */
+.character-abilities {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+}
+
+.ability-item {
+    margin-bottom: 10px;
+}
+
+.ability-toggle {
+    background-color: #f0f0f0;
+    color: #333;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    font-weight: bold;
+}
+
+.ability-toggle:hover {
+    background-color: #e0e0e0;
+}
+
+.ability-selections {
+    list-style: none;
+    padding-left: 15px;
+    margin-top: 5px;
+    max-height: 0; /* Hidden by default */
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.ability-selections.active {
+    max-height: 100px; /* Adjust as needed to fit content, or use a larger value like 500px if content varies greatly */
+}
+
+.ability-selections li {
+    padding: 5px 0;
+    font-size: 0.9em;
+    color: #555;
+}
+
+/* Adjustments for the Tools Panel */
+.tools-panel {
+    /* For a responsive layout, you might use flexbox or grid */
+    /* Example if it's alongside character-sheet panel: */
+    /* flex: 0.5; /* If using flex, make it half the size of character-sheet */
+    max-width: 250px; /* Example: Make it smaller */
+    margin-left: 20px; /* Space between panels */
+}
+
+.dice-container {
+    display: flex;
+    flex-direction: column; /* Stack elements vertically */
+    align-items: center; /* Center horizontally */
+}
+
+.dice-container button {
+    margin-bottom: 10px; /* Space between button and result */
+}
+
+#diceResult {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #007bff; /* Example color */
+}
+
+/* General panel styling (ensure these are in your styles.css) */
+.play-area {
+    display: flex; /* Use flexbox for layout */
+    justify-content: center; /* Center content */
+    padding: 20px;
+    gap: 20px; /* Space between panels */
+    flex-wrap: wrap; /* Allow panels to wrap on smaller screens */
+}
+
+.panel {
+    background-color: #323030;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin-bottom: 20px; /* Space between stacked panels on smaller screens */
+    flex: 1; /* Allow panels to grow and shrink */
+    min-width: 300px; /* Minimum width before wrapping */
+}
+
+.character-sheet {
+    max-width: 600px; /* Max width for the main character sheet */
+}
+
+/* Specific Page Styling */
+.page-content {
+    background-color: #323030;;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin: 20px auto; /* Center the content */
+    max-width: 800px; /* Max width for specific content pages */
+}
+
+/* Lore Page Specifics */
+.lore-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.lore-controls input[type="search"] {
+    flex-grow: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.lore-controls button {
+    padding: 8px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.lore-controls button:hover {
+    background-color: #0056b3;
+}
+
+.lore-toc ul {
+    list-style: none;
+    padding: 0;
+    margin-top: 10px;
+}
+
+.lore-toc li a {
+    display: block;
+    padding: 5px 0;
+    color: #007bff;
+    text-decoration: none;
+}
+
+.lore-toc li a.active-section {
+    font-weight: bold;
+    color: #dc3545;
+}
+
+.lore-content h3 {
+    margin-top: 25px;
+    margin-bottom: 10px;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+.lore-content p {
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+.lore-pagination {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 30px;
+}
