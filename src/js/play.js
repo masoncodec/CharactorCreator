@@ -1,5 +1,34 @@
+// Function to highlight the active navigation link
+function highlightActiveNav(pageName) {
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href').includes(pageName)) {
+            link.classList.add('active');
+        }
+    });
+}
+
+// Function to attach attribute roll event listeners
+function attachAttributeRollListeners() {
+    document.querySelectorAll('.attribute-roll').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const assignment = this.closest('.dice-assignment');
+            const dieType = assignment.getAttribute('data-dice');
+            const result = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
+            
+            const resultEl = assignment.querySelector('.roll-result');
+            resultEl.textContent = result;
+            resultEl.classList.add('visible');
+            
+            setTimeout(() => resultEl.classList.remove('visible'), 2000);
+        });
+    });
+}
+
 // Initialize play page
 document.addEventListener('DOMContentLoaded', function() {
+    highlightActiveNav('play.html'); // Highlight "Play" link
+
     //Load active character
     db.getActiveCharacter().then(function(character) {
         const characterDetails = document.getElementById('characterDetails');
@@ -19,14 +48,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="dice-assignment" data-attribute="${attr}" data-dice="${die}">
                                 <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
                                 <div class="die-type">${die.toUpperCase()}</div>
-                                <button class="btn-roll">Roll</button>
+                                <button class="btn-roll attribute-roll">Roll</button>
                                 <div class="roll-result"></div>
                             </div>
                         `).join('')}
                         <div class="dice-assignment" data-dice="d100">
                             <label>Luck</label>
                             <div class="die-type">D100</div>
-                            <button class="btn-roll">Roll</button>
+                            <button class="btn-roll attribute-roll">Roll</button>
                             <div class="roll-result"></div>
                         </div>
                     </div>
@@ -42,6 +71,36 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}
                     </div>
                 </div>
+
+                ${character.selectedFlaw ? `
+                <div class="character-flaw">
+                    <h4>Selected Flaw</h4>
+                    <p>${character.selectedFlaw.charAt(0).toUpperCase() + character.selectedFlaw.slice(1)}</p>
+                </div>
+                ` : ''}
+
+                ${character.inventory && character.inventory.length > 0 ? `
+                <div class="character-inventory">
+                    <h4>Inventory</h4>
+                    <ul>
+                        ${character.inventory.map(item => `<li>${item.name}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                ${character.abilities && character.abilities.length > 0 ? `
+                <div class="character-abilities">
+                    <h4>Abilities</h4>
+                    ${character.abilities.map(ability => `
+                        <div class="ability-item">
+                            <button class="ability-toggle">${ability.selections[0].id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</button>
+                            <ul class="ability-selections">
+                                ${ability.selections.map(selection => `<li>${selection.id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
                 
                 ${character.bio ? `
                 <div class="character-bio">
@@ -55,6 +114,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     <textarea placeholder="Add session notes here..."></textarea>
                 </div>
             `;
+
+            // Add event listeners for ability toggles
+            document.querySelectorAll('.ability-toggle').forEach(button => {
+                button.addEventListener('click', function() {
+                    const selections = this.nextElementSibling;
+                    selections.classList.toggle('active');
+                });
+            });
+
+            // Re-attach attribute roll listeners after character details are loaded
+            attachAttributeRollListeners(); // IMPORTANT: Call this here
+
         } else {
             characterDetails.innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
         }
@@ -62,7 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Error loading character:', err);
     });
 
-    // Dice roller functionality
+    // Dice roller functionality for D20
     document.getElementById('rollD20').addEventListener('click', function() {
         const result = Math.floor(Math.random() * 20) + 1;
         const diceResult = document.getElementById('diceResult');
@@ -95,21 +166,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }).catch(function(err) {
             console.error('Export failed:', err);
             alert('Export failed: ' + err);
-        });
-    });
-
-    // Rolling logic
-    document.querySelectorAll('.btn-roll').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const assignment = this.closest('.dice-assignment');
-            const dieType = assignment.getAttribute('data-dice');
-            const result = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
-            
-            const resultEl = assignment.querySelector('.roll-result');
-            resultEl.textContent = result;
-            resultEl.classList.add('visible');
-            
-            setTimeout(() => resultEl.classList.remove('visible'), 2000);
         });
     });
 });
