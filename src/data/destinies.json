@@ -1,4 +1,22 @@
 {
+    "whisperer": {
+        "displayName": "Whisperer",
+        "description": "One with the Beasts of the Forest",
+        "health": {
+            "title": "Average",
+            "value": 10
+        },
+        "flaws": ["frail", "stranger"],
+        "tags": [
+            { "id": "nature", "display": "Nature", "color": "#28a745", "icon": "🌳" },
+            { "id": "beast-tamer", "display": "Beast Tamer", "color": "#C4A484", "icon": "🐻" }
+        ],
+        "levelUnlocks": [
+            { "level": 1, "ability": "speak-with-animals" },
+            { "level": 1, "ability": "easter-egg" },
+            { "level": 5, "ability": "small-domain" }
+        ]
+    },
     "wizard": {
         "displayName": "Arcane Wizard",
         "description": "Master of magical energies through rigorous study.",

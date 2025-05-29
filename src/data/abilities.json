@@ -1,4 +1,39 @@
 {
+    "speak-with-animals": {
+        "type": ["Passive", "Language"],
+        "name": "Speak with Animals",
+        "description": "You are able to communicate with any Animal.",
+        "effect": {
+            "type": "language",
+            "name": "Animal"
+        },
+        "tier": 1
+    },
+    "easter-egg": {
+        "name": "Easter Egg",
+        "type": ["Active", "Combat"],
+        "description": "Overwhelming power flows through your veins.",
+        "effect": {
+            "type": "die_num",
+            "name": "Advantage",
+            "attribute": "speed",
+            "modifier": "1",
+            "cost": { "resource": "mana", "value": "5" }
+        },
+        "tier": 1
+    },
+    "small-domain": {
+        "name": "Small Domain",
+        "type": ["Active", "Summon"],
+        "description":  "Choose ${maxChoices} type of insect to gain low level control over.",
+        "maxChoices": 1,
+        "options": [
+            { "id": "ants", "name": "Ants", "description": "The perfect distraction." },
+            { "id": "butterfly", "name": "Butterfly", "description": "The perfect reconnaissance." },
+            { "id": "beetles", "name": "Beetles", "description": "The perfect food for scaly friends." }
+        ],
+        "tier": 2
+    },
     "spellcaster": {
         "name": "Spellcaster",
         "type": ["Spell", "Combat"],
