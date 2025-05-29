@@ -89,25 +89,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 ` : ''}
 
                 ${character.abilities && character.abilities.length > 0 ? `
-                <div class="character-abilities">
-                    <h4>Abilities</h4>
-                    ${character.abilities.map(ability => `
-                    <div class="ability-item">
-                        <button class="ability-toggle">
-                            ${ability.selections && ability.selections.length > 0
-                                ? ability.selections[0].id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-                                : ability.id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-                            }
-                        </button>
-                        ${ability.selections && ability.selections.length > 0 ? `
-                        <ul class="ability-selections">
-                            ${ability.selections.map(selection => `<li>${selection.id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</li>`).join('')}
-                        </ul>
-                        ` : ''}
+                    <div class="character-abilities">
+                        <h4>Abilities</h4>
+                        ${character.abilities.map(ability => `
+                        <div class="ability-item">
+                            <button class="ability-toggle">
+                                ${ability.id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                            </button>
+                            ${ability.selections && ability.selections.length > 0 ? `
+                            <ul class="ability-selections">
+                                ${ability.selections.map(selection => `<li>${selection.id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</li>`).join('')}
+                            </ul>
+                            ` : ''}
+                        </div>
+                    `).join('')}
                     </div>
-                `).join('')}
-                </div>
-                ` : ''}
+                    ` : ''}
                 
                 ${character.bio ? `
                 <div class="character-bio">
