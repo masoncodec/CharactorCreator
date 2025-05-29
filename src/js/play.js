@@ -92,13 +92,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="character-abilities">
                     <h4>Abilities</h4>
                     ${character.abilities.map(ability => `
-                        <div class="ability-item">
-                            <button class="ability-toggle">${ability.selections[0].id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</button>
-                            <ul class="ability-selections">
-                                ${ability.selections.map(selection => `<li>${selection.id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</li>`).join('')}
-                            </ul>
-                        </div>
-                    `).join('')}
+                    <div class="ability-item">
+                        <button class="ability-toggle">
+                            ${ability.selections && ability.selections.length > 0
+                                ? ability.selections[0].id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+                                : ability.id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+                            }
+                        </button>
+                        ${ability.selections && ability.selections.length > 0 ? `
+                        <ul class="ability-selections">
+                            ${ability.selections.map(selection => `<li>${selection.id.replace(/-/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</li>`).join('')}
+                        </ul>
+                        ` : ''}
+                    </div>
+                `).join('')}
                 </div>
                 ` : ''}
                 
@@ -119,7 +126,10 @@ document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.ability-toggle').forEach(button => {
                 button.addEventListener('click', function() {
                     const selections = this.nextElementSibling;
-                    selections.classList.toggle('active');
+                    // Only toggle class if 'selections' element exists
+                    if (selections) {
+                        selections.classList.toggle('active');
+                    }
                 });
             });
 
