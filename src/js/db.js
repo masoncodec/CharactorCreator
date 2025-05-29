@@ -67,26 +67,16 @@ function exportCharacter() {
         delete exportData.id;
         
         // Ensure we have all important fields
-        if (!character.module) character.module = 'Crescendo'; // Default
-
-        if (!character.attributes) {
-            // Set default assignments if missing
-            character.attributes = {
-                passion: 'd8',
-                rhythm: 'd6',
-                stamina: 'd10',
-                fame: 'd4',
-                style: 'd12',
-                harmony: 'd20'
-            };
+        if (!exportData.module) {
+            throw new Error('Character module is missing. Cannot export data.');
         }
-        
+
+        if (!exportData.attributes) {
+            throw new Error('Character attributes are missing. Cannot export data.');
+        }
+
         if (!exportData.health) {
-            exportData.health = {
-                current: 10,
-                max: 10,
-                temporary: 0
-            };
+            throw new Error('Export data health information is missing. Cannot export data.');
         }
         
         const json = JSON.stringify(exportData, null, 2);
