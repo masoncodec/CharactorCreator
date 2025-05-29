@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const characterCard = document.createElement('div');
                 characterCard.className = 'character-card';
                 characterCard.innerHTML = `
-                    <h3>${character.name}</h3>
+                    <h3>${character.info.name}</h3>
                     <p>${character.destiny}</p>
                     <p class="meta">Created: ${new Date(character.createdAt).toLocaleDateString()}</p>
                     <div class="card-actions">
