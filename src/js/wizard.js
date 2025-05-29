@@ -1155,6 +1155,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
         if (!moduleResponse.ok) throw new Error(`HTTP error! status: ${moduleResponse.status}`);
         moduleSystemData = await moduleResponse.json();
         console.log('CharacterWizard: modules.json loaded successfully.');
+        console.debug('CharacterWizard: modules.json data:', moduleSystemData);
 
         // Load abilities.json
         console.log('CharacterWizard: Fetching abilities.json...');
@@ -1162,6 +1163,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
         if (!abilityResponse.ok) throw new Error(`HTTP error! status: ${abilityResponse.status}`);
         abilityData = await abilityResponse.json();
         console.log('CharacterWizard: abilities.json loaded successfully.');
+        console.debug('CharacterWizard: abilities.json data:', abilityData);
 
         // Load flaws.json
         console.log('CharacterWizard: Fetching flaws.json...');
@@ -1169,6 +1171,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
         if (!flawResponse.ok) throw new Error(`HTTP error! status: ${flawResponse.status}`);
         flawData = await flawResponse.json();
         console.log('CharacterWizard: flaws.json loaded successfully.');
+        console.debug('CharacterWizard: flaws.json data:', flawData);
 
         // Load destinies.json
         console.log('CharacterWizard: Fetching destinies.json...');
@@ -1176,6 +1179,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
         if (!destinyResponse.ok) throw new Error(`HTTP error! status: ${destinyResponse.status}`);
         destinyData = await destinyResponse.json();
         console.log('CharacterWizard: destinies.json loaded successfully.');
+        console.debug('CharacterWizard: destinies.json data:', destinyData);
 
         // Initialize CharacterWizard with all loaded data
         console.log('CharacterWizard: All data loaded. Initializing CharacterWizard.');
