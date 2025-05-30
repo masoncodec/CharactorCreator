@@ -574,9 +574,7 @@ class CharacterWizard {
                   <span class="ability-name">${ability.name}</span>
                 </label>
                 <div class="ability-types">
-                  ${ability.type.map(type => `
-                    <span class="type-tag">${this.getTypeIcon(type)} ${type}</span>
-                  `).join('')}
+                  <span class="type-tag">${this.getTypeIcon(ability.type)} ${ability.type}</span>
                 </div>
               </div>
               <div class="ability-description">${this.renderAbilityDescription(ability)}</div>
@@ -623,7 +621,8 @@ class CharacterWizard {
         'Healing': '❤️',
         'Performance': '🎤',
         'Utility': '🛠️',
-        'Passive': '⭐'
+        'Passive': '⭐',
+        'Active': '⚡'
       };
       return icons[type] || '✨';
   }
