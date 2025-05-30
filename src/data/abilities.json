@@ -1,4 +1,16 @@
 {
+    "natures-gift": {
+      "type": ["Passive"],
+      "name": "Nature's Gift",
+      "description": "You feel energy flowing from the woods.",
+      "effect": {
+        "type": "modifier",
+        "name": "Modifier",
+        "attribute": "nature",
+        "modifier": 3
+      },
+      "tier": 3
+    },
     "speak-with-animals": {
         "type": ["Passive", "Language"],
         "name": "Speak with Animals",
