@@ -28,6 +28,108 @@ function attachAttributeRollListeners() {
 // Global variable to hold ability data
 let abilityData = {}; // Initialize as empty object
 
+// Global variable to hold the state of active toggleable abilities
+// Resets on page refresh as requested.
+let activeAbilityStates = new Set(); 
+
+// Function to render abilities, separating active and passive
+function renderAbilities(character) {
+    if (!character.abilities || character.abilities.length === 0) {
+        return '';
+    }
+
+    const activeAbilitiesHtml = [];
+    const passiveAbilitiesHtml = [];
+
+    character.abilities.forEach(abilityState => {
+        const abilityDef = abilityData[abilityState.id]; // Look up full ability definition
+        if (!abilityDef) {
+            console.warn(`Ability definition not found for ID: ${abilityState.id}`);
+            return;
+        }
+
+        let description = abilityDef.description;
+
+        // Replace template variables in the description
+        description = description.replace(/\${([^}]+)}/g, (match, p1) => {
+            let value;
+            try {
+                const path = p1.split('.');
+                let current = abilityDef; // Use abilityDef as the base
+                for (let i = 0; i < path.length; i++) {
+                    if (current === null || current === undefined) {
+                        current = undefined;
+                        break;
+                    }
+                    current = current[path[i]];
+                }
+                value = current;
+                if (value === undefined && typeof abilityDef[p1] !== 'undefined') {
+                    value = abilityDef[p1];
+                }
+            } catch (e) {
+                console.error(`Error resolving template variable ${p1} for ability ${abilityState.id}:`, e);
+                value = undefined;
+            }
+            if (value !== undefined) {
+                if (p1 === 'cost.gold' && typeof value === 'number') {
+                    return `${value} gold`;
+                }
+                return value;
+            }
+            return match;
+        });
+
+        let optionsHtml = '';
+        if (abilityDef.options && abilityState.selections && abilityState.selections.length > 0) {
+            const selectedOptionNames = abilityState.selections.map(selection => {
+                const option = abilityDef.options.find(opt => opt.id === selection.id);
+                return option ? option.name : selection.id;
+            }).join(', ');
+            optionsHtml = `<p class="ability-selections">Selections: ${selectedOptionNames}</p>`;
+        }
+
+        if (abilityDef.type === "active") { //
+            const isOn = activeAbilityStates.has(abilityState.id) ? 'toggled-red' : ''; //
+            activeAbilitiesHtml.push(`
+                <li class="ability-item active-ability-item">
+                    <button class="ability-button ${isOn}" data-ability-id="${abilityState.id}">
+                        <strong>${abilityDef.name}</strong> (Tier ${abilityState.tier})
+                        <p>${description}</p>
+                        ${optionsHtml}
+                    </button>
+                </li>
+            `);
+        } else { // Passive ability
+            passiveAbilitiesHtml.push(`
+                <li class="ability-item passive-ability-item">
+                    <strong>${abilityDef.name}</strong> (Tier ${abilityState.tier})
+                    <p>${description}</p>
+                    ${optionsHtml}
+                </li>
+            `);
+        }
+    });
+
+    return `
+        <div class="character-abilities">
+            <h4>Abilities</h4>
+            <div class="abilities-section-active">
+                <h5>Active Abilities</h5>
+                <ul id="activeAbilitiesList">
+                    ${activeAbilitiesHtml.join('')}
+                </ul>
+            </div>
+            <div class="abilities-section-passive">
+                <h5>Passive Abilities</h5>
+                <ul id="passiveAbilitiesList">
+                    ${passiveAbilitiesHtml.join('')}
+                </ul>
+            </div>
+        </div>
+    `;
+}
+
 // Initialize play page
 document.addEventListener('DOMContentLoaded', function() {
     highlightActiveNav('play.html'); // Highlight "Play" link
@@ -106,77 +208,38 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         ` : ''}
                         
-                        ${character.abilities && character.abilities.length > 0 ? `
-                        <div class="character-abilities">
-                            <h4>Abilities</h4>
-                            <ul>
-                                ${character.abilities.map(abilityState => {
-                                    const abilityDef = abilityData[abilityState.id]; // Look up full ability definition
-                                    if (!abilityDef) {
-                                        console.warn(`Ability definition not found for ID: ${abilityState.id}`);
-                                        return '';
-                                    }
-                                    let description = abilityDef.description;
-
-                                    // Replace template variables in the description
-                                    // This logic is adapted from CharacterWizard's renderAbilityDescription
-                                    description = description.replace(/\${([^}]+)}/g, (match, p1) => {
-                                        let value;
-                                        try {
-                                            const path = p1.split('.');
-                                            let current = abilityDef; // Use abilityDef as the base
-                                            for (let i = 0; i < path.length; i++) {
-                                                if (current === null || current === undefined) {
-                                                    current = undefined;
-                                                    break;
-                                                }
-                                                current = current[path[i]];
-                                            }
-                                            value = current;
-                                            if (value === undefined && typeof abilityDef[p1] !== 'undefined') {
-                                                value = abilityDef[p1];
-                                            }
-                                        } catch (e) {
-                                            console.error(`Error resolving template variable ${p1} for ability ${abilityState.id}:`, e);
-                                            value = undefined;
-                                        }
-                                        if (value !== undefined) {
-                                            if (p1 === 'cost.gold' && typeof value === 'number') {
-                                                return `${value} gold`;
-                                            }
-                                            return value;
-                                        }
-                                        return match;
-                                    });
-
-                                    let optionsHtml = '';
-                                    if (abilityDef.options && abilityState.selections && abilityState.selections.length > 0) {
-                                        const selectedOptionNames = abilityState.selections.map(selection => {
-                                            const option = abilityDef.options.find(opt => opt.id === selection.id);
-                                            return option ? option.name : selection.id;
-                                        }).join(', ');
-                                        optionsHtml = `<p class="ability-selections">Selections: ${selectedOptionNames}</p>`;
-                                    }
-
-                                    return `
-                                        <li class="ability-item">
-                                            <strong>${abilityDef.name}</strong> (Tier ${abilityState.tier})
-                                            <p>${description}</p>
-                                            ${optionsHtml}
-                                        </li>
-                                    `;
-                                }).join('')}
-                            </ul>
-                        </div>
-                        ` : ''}
-
-                        <div class="character-info">
+                        ${renderAbilities(character)}  <div class="character-info">
                             <h4>Info</h4>
                             <p><strong>Name:</strong> ${character.info.name}</p>
                             <p><strong>Bio:</strong> ${character.info.bio || 'N/A'}</p>
                         </div>
                     `;
                     attachAttributeRollListeners(); // Attach listeners after content is loaded
+
+                    // Attach event listener for active ability buttons
+                    document.getElementById('activeAbilitiesList').addEventListener('click', function(event) {
+                        const button = event.target.closest('.ability-button');
+                        if (button) {
+                            const abilityId = button.dataset.abilityId;
+                            
+                            // Check if the ability is currently active
+                            if (activeAbilityStates.has(abilityId)) {
+                                activeAbilityStates.delete(abilityId); // Turn off
+                                button.classList.remove('toggled-red'); //
+                                console.log(`Ability ${abilityId} turned OFF.`);
+                                // TODO: Add logic for deactivating ability effects (e.g., remove buffs)
+                            } else {
+                                activeAbilityStates.add(abilityId); // Turn on
+                                button.classList.add('toggled-red'); //
+                                console.log(`Ability ${abilityId} turned ON.`);
+                                // TODO: Add logic for activating ability effects (e.g., apply buffs, check resource costs)
+                                // TODO: Implement cooldowns here
+                            }
+                            // You might want to update some character property here
+                            // For now, it's local persistence only.
+                        }
+                    });
+
                 } else {
                     characterDetails.innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
                 }
