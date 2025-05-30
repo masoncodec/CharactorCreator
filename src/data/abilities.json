@@ -1,6 +1,6 @@
 {
     "natures-gift": {
-      "type": ["Passive"],
+      "type": "passive",
       "name": "Nature's Gift",
       "description": "You feel energy flowing from the woods.",
       "effect": {
@@ -10,6 +10,18 @@
         "modifier": 3
       },
       "tier": 3
+    },
+    "forest-feet": {
+      "type": "active",
+      "name": "Forest Feet",
+      "description": "You are able to move much quicker in the forest.",
+      "effect": {
+        "type": "modifier",
+        "name": "Modifier",
+        "attribute": "speed",
+        "modifier": 5
+      },
+      "tier": 2
     },
     "speak-with-animals": {
         "type": ["Passive", "Language"],
