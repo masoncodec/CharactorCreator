@@ -90,10 +90,9 @@ function renderAbilities(character) {
         }
 
         if (abilityDef.type === "active") { //
-            const isOn = activeAbilityStates.has(abilityState.id) ? 'toggled-red' : ''; //
+            const isOn = activeAbilityStates.has(abilityState.id) ? 'toggled-red' : '';
             activeAbilitiesHtml.push(`
-                <li class="ability-item active-ability-item">
-                    <button class="ability-button ${isOn}" data-ability-id="${abilityState.id}">
+                <li class="ability-list-item"> <button class="ability-button ability-item ${isOn}" data-ability-id="${abilityState.id}">
                         <strong>${abilityDef.name}</strong> (Tier ${abilityState.tier})
                         <p>${description}</p>
                         ${optionsHtml}
