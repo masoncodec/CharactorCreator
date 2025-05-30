@@ -1,5 +1,17 @@
 document.addEventListener('DOMContentLoaded', function() {
     const charactersList = document.getElementById('charactersList');
+    const importCharacterBtn = document.getElementById('importCharacterBtn');
+    const importFileInput = document.getElementById('importFileInput');
+    const importMessageArea = document.getElementById('importMessage');
+
+    function showMessage(message, type) {
+        importMessageArea.textContent = message;
+        importMessageArea.className = `message-area ${type}`; // Add a class for styling (e.g., 'success', 'error')
+        setTimeout(() => {
+            importMessageArea.textContent = '';
+            importMessageArea.className = 'message-area';
+        }, 5000); // Clear message after 5 seconds
+    }
     
     function refreshCharacterList() {
         db.getAllCharacters().then(function(characters) {
@@ -42,7 +54,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         db.deleteCharacter(Number(id)).then(function() {
                             refreshCharacterList();
                         }).catch(function(err) {
-                            alert('Error deleting character: ' + err);
+                            showMessage('Error deleting character: ' + err, 'error');
                         });
                     }
                 });
@@ -52,6 +64,31 @@ document.addEventListener('DOMContentLoaded', function() {
             charactersList.innerHTML = '<p class="error">Error loading characters. Please refresh the page.</p>';
         });
     }
+
+    // Event listener for the Import Character button
+    importCharacterBtn.addEventListener('click', function() {
+        importFileInput.click(); // Programmatically click the hidden file input
+    });
+
+    // Event listener for when a file is selected
+    importFileInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            db.importCharacter(file).then(function(result) {
+                if (result.errorCount === 0) {
+                    showMessage(`Successfully imported ${result.importCount} character(s)!`, 'success');
+                } else {
+                    showMessage(`Import completed with ${result.importCount} successes and ${result.errorCount} error(s). Check console for details.`, 'warning');
+                }
+                refreshCharacterList(); // Refresh the list to show imported characters
+            }).catch(function(err) {
+                showMessage('Error importing character: ' + err, 'error');
+                console.error('Import error:', err);
+            });
+        }
+        // Clear the file input value so that the same file can be selected again if needed
+        event.target.value = ''; 
+    });
     
     refreshCharacterList();
 });

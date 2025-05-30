@@ -11,10 +11,12 @@
         <a href="index.html" class="home-link">← Return to Home</a>
         
         <h2>Your Characters</h2>
-        <div id="charactersList" class="characters-grid"></div>
+        <div id="importMessage" class="message-area"></div> <div id="charactersList" class="characters-grid"></div>
         
         <div class="character-actions">
             <a href="character-creator.html" class="btn btn-primary">Create New Character</a>
+            <button id="importCharacterBtn" class="btn btn-secondary">Import Character</button>
+            <input type="file" id="importFileInput" accept=".json" style="display: none;">
         </div>
     </div>
 
