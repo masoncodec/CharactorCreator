@@ -8,29 +8,103 @@ function highlightActiveNav(pageName) {
     });
 }
 
-// Function to attach attribute roll event listeners
-function attachAttributeRollListeners() {
-    document.querySelectorAll('.attribute-roll').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const assignment = this.closest('.dice-assignment');
-            const dieType = assignment.getAttribute('data-dice');
-            const result = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
-            
-            const resultEl = assignment.querySelector('.roll-result');
-            resultEl.textContent = result;
-            resultEl.classList.add('visible');
-            
-            setTimeout(() => resultEl.classList.remove('visible'), 2000);
-        });
-    });
-}
-
 // Global variable to hold ability data
 let abilityData = {}; // Initialize as empty object
 
 // Global variable to hold the state of active toggleable abilities
 // Resets on page refresh as requested.
-let activeAbilityStates = new Set(); 
+let activeAbilityStates = new Set(); // It is a Set.
+
+// Function to attach attribute roll event listeners
+function attachAttributeRollListeners() {
+    document.querySelectorAll('.attribute-roll').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const assignment = this.closest('.dice-assignment');
+            const attributeName = assignment.getAttribute('data-attribute');
+            const dieType = assignment.getAttribute('data-dice');
+            const baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
+
+            // Get total modifier for this attribute
+            let totalModifier = 0;
+            const activeModifiers = []; // To store individual modifiers for display
+
+            // Iterate through all abilities to find relevant modifiers
+            if (activeCharacter && activeCharacter.abilities) {
+                activeCharacter.abilities.forEach(abilityState => {
+                    const abilityDef = abilityData[abilityState.id];
+                    if (abilityDef && abilityDef.effect && abilityDef.effect.type === "modifier" && abilityDef.effect.attribute) {
+                        const effectAttribute = abilityDef.effect.attribute.toLowerCase(); // Ensure case-insensitive matching
+
+                        // Check if the ability is active based on its type
+                        const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id)); //
+
+                        if (isActive && effectAttribute === attributeName) { // Check if modifier applies to this attribute
+                            const modifierValue = abilityDef.effect.modifier;
+                            totalModifier += modifierValue; // Stack modifiers
+                            activeModifiers.push({ // Store for individual display
+                                value: modifierValue,
+                                abilityName: abilityDef.name
+                            });
+                        }
+                    }
+                });
+            }
+
+            const modifiedResult = baseResult + totalModifier; // Apply modifier to the result
+
+            const blueResultEl = assignment.querySelector('.unmodified-roll-result'); // Blue unmodified result
+            const yellowResultEl = assignment.querySelector('.roll-result'); // Yellow modified result
+            const modifiersContainer = assignment.querySelector('.modifiers-container'); // Container for modifiers
+
+            // Reset visibility
+            blueResultEl.textContent = '';
+            yellowResultEl.textContent = '';
+            blueResultEl.classList.remove('visible', 'fade-out');
+            yellowResultEl.classList.remove('visible', 'fade-out');
+
+            // Display blue unmodified result if there are mods
+            if (activeModifiers.length > 0) {
+                blueResultEl.textContent = baseResult;
+                blueResultEl.classList.add('visible');
+                setTimeout(() => blueResultEl.classList.add('fade-out'), 2000); // Fade out after 2 seconds
+            }
+
+            // Display yellow modified result
+            yellowResultEl.textContent = modifiedResult;
+            yellowResultEl.classList.add('visible');
+            setTimeout(() => yellowResultEl.classList.add('fade-out'), 2000); // Fade out after 2 seconds
+
+            // Update and display modifiers
+            modifiersContainer.innerHTML = ''; // Clear previous modifiers
+            if (activeModifiers.length > 0) {
+                activeModifiers.forEach(mod => {
+                    const modSpan = document.createElement('span');
+                    modSpan.classList.add('modifier-display');
+                    modSpan.textContent = (mod.value > 0 ? '+' : '') + mod.value;
+                    modSpan.style.color = mod.value > 0 ? '#03AC13' : '#FF0000'; // Apply colors
+                    modSpan.dataset.abilityName = mod.abilityName; // Store ability name for tooltip
+
+                    // Add click listener for tooltip
+                    modSpan.addEventListener('click', function(event) {
+                        const tooltip = document.createElement('div');
+                        tooltip.classList.add('modifier-tooltip');
+                        tooltip.textContent = this.dataset.abilityName;
+                        // Position the tooltip over the number
+                        tooltip.style.left = `${event.clientX}px`;
+                        tooltip.style.top = `${event.clientY - 20}px`; // Adjust for vertical positioning
+                        document.body.appendChild(tooltip);
+
+                        // Remove tooltip after a few seconds
+                        setTimeout(() => {
+                            document.body.removeChild(tooltip);
+                        }, 3000); // Visible for 3 seconds
+                    });
+                    modifiersContainer.appendChild(modSpan);
+                });
+            }
+        });
+    });
+}
 
 // Function to render abilities, separating active and passive
 function renderAbilities(character) {
@@ -129,11 +203,11 @@ function renderAbilities(character) {
     `;
 }
 
+let activeCharacter = null; // Variable to store the active character
+
 // Initialize play page
 document.addEventListener('DOMContentLoaded', function() {
     highlightActiveNav('play.html'); // Highlight "Play" link
-
-    let activeCharacter = null; // Variable to store the active character
 
     // Load abilities.json first
     fetch('data/abilities.json')
@@ -151,7 +225,7 @@ document.addEventListener('DOMContentLoaded', function() {
             db.getActiveCharacter().then(function(character) {
                 const characterDetails = document.getElementById('characterDetails');
                 activeCharacter = character; // Store the active character
-                
+
                 if (character) {
                     characterDetails.innerHTML = `
                         <div class="character-header">
@@ -159,7 +233,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <p class="character-module">${character.module || 'Crescendo'}</p>
                             <p class="character-role">${character.destiny}</p>
                         </div>
-                        
+
                         <div class="character-stats">
                             <h4>Attributes</h4>
                             <div class="dice-assignments">
@@ -168,18 +242,18 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
                                         <div class="die-type">${die.toUpperCase()}</div>
                                         <button class="btn-roll attribute-roll">Roll</button>
-                                        <div class="roll-result"></div>
+                                        <div class="unmodified-roll-result"></div> <div class="modifiers-container"></div> <div class="roll-result"></div>
                                     </div>
                                 `).join('')}
-                                <div class="dice-assignment" data-dice="d100">
+                                <div class="dice-assignment" data-attribute="luck" data-dice="d100">
                                     <label>Luck</label>
                                     <div class="die-type">D100</div>
                                     <button class="btn-roll attribute-roll">Roll</button>
-                                    <div class="roll-result"></div>
+                                    <div class="unmodified-roll-result"></div> <div class="modifiers-container"></div> <div class="roll-result"></div>
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="character-health">
                             <h4>Health</h4>
                             <div class="health-bar">
@@ -197,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <p>${character.selectedFlaw.charAt(0).toUpperCase() + character.selectedFlaw.slice(1)}</p>
                         </div>
                         ` : ''}
-                        
+
                         ${character.inventory && character.inventory.length > 0 ? `
                         <div class="character-inventory">
                             <h4>Inventory</h4>
@@ -206,7 +280,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </ul>
                         </div>
                         ` : ''}
-                        
+
                         ${renderAbilities(character)}  <div class="character-info">
                             <h4>Info</h4>
                             <p><strong>Name:</strong> ${character.info.name}</p>
@@ -220,7 +294,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const button = event.target.closest('.ability-button');
                         if (button) {
                             const abilityId = button.dataset.abilityId;
-                            
+
                             // Check if the ability is currently active
                             if (activeAbilityStates.has(abilityId)) {
                                 activeAbilityStates.delete(abilityId); // Turn off
@@ -255,7 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('rollD20').addEventListener('click', function() {
         const result = Math.floor(Math.random() * 20) + 1;
         const diceResult = document.getElementById('diceResult');
-        
+
         diceResult.textContent = '...';
         setTimeout(function() {
             diceResult.textContent = result;
@@ -274,10 +348,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Selected character not found for export.');
                 return;
             }
-            
+
             // Log the exported data for debugging
             console.log('Exporting character:', exportData.data);
-            
+
             const a = document.createElement('a');
             a.href = exportData.url;
             a.download = exportData.filename;
