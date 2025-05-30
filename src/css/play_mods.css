@@ -24,6 +24,8 @@
     display: flex;
     gap: 5px; /* Spacing between individual modifiers */
     margin-left: 10px; /* Spacing from the blue result */
+    /* Ensure this container can grow/shrink as needed but doesn't push the roll-result */
+    flex-shrink: 0;
 }
 
 .modifier-display {
@@ -64,7 +66,8 @@
     color: yellow;
     min-width: 40px; /* Ensure space */
     text-align: center;
-    margin-left: 10px; /* Spacing from the modifiers */
+    /* margin-left: 10px; This was causing it not to be far right */
+    margin-left: auto; /* Pushes the element to the far right */
     opacity: 0; /* Hidden by default */
     transition: opacity 0.5s ease-out;
 }

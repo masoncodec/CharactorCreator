@@ -15,6 +15,63 @@ let abilityData = {}; // Initialize as empty object
 // Resets on page refresh as requested.
 let activeAbilityStates = new Set(); // It is a Set.
 
+// Helper function to calculate and get active modifiers for a given attribute
+function getActiveModifiersForAttribute(attributeName) {
+    const activeModifiers = [];
+    if (activeCharacter && activeCharacter.abilities) {
+        activeCharacter.abilities.forEach(abilityState => {
+            const abilityDef = abilityData[abilityState.id];
+            if (abilityDef && abilityDef.effect && abilityDef.effect.type === "modifier" && abilityDef.effect.attribute) {
+                const effectAttribute = abilityDef.effect.attribute.toLowerCase();
+
+                const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id));
+
+                if (isActive && effectAttribute === attributeName) {
+                    activeModifiers.push({
+                        value: abilityDef.effect.modifier,
+                        abilityName: abilityDef.name
+                    });
+                }
+            }
+        });
+    }
+    return activeModifiers;
+}
+
+// Helper function to render modifier display elements
+function renderModifierDisplays(modifiers, containerElement) {
+    containerElement.innerHTML = ''; // Clear previous modifiers
+    if (modifiers.length > 0) {
+        modifiers.forEach(mod => {
+            const modSpan = document.createElement('span');
+            modSpan.classList.add('modifier-display');
+            modSpan.textContent = (mod.value > 0 ? '+' : '') + mod.value;
+            modSpan.style.color = mod.value > 0 ? '#03AC13' : '#FF0000'; // Apply colors
+            modSpan.dataset.abilityName = mod.abilityName; // Store ability name for tooltip
+
+            // Add click listener for tooltip
+            modSpan.addEventListener('click', function(event) {
+                const tooltip = document.createElement('div');
+                tooltip.classList.add('modifier-tooltip');
+                tooltip.textContent = this.dataset.abilityName;
+                // Position the tooltip over the number
+                tooltip.style.left = `${event.clientX}px`;
+                tooltip.style.top = `${event.clientY - 20}px`; // Adjust for vertical positioning
+                document.body.appendChild(tooltip);
+
+                // Remove tooltip after a few seconds
+                setTimeout(() => {
+                    if (document.body.contains(tooltip)) { // Check if it still exists before removing
+                        document.body.removeChild(tooltip);
+                    }
+                }, 3000); // Visible for 3 seconds
+            });
+            containerElement.appendChild(modSpan);
+        });
+    }
+}
+
+
 // Function to attach attribute roll event listeners
 function attachAttributeRollListeners() {
     document.querySelectorAll('.attribute-roll').forEach(btn => {
@@ -24,31 +81,8 @@ function attachAttributeRollListeners() {
             const dieType = assignment.getAttribute('data-dice');
             const baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
 
-            // Get total modifier for this attribute
-            let totalModifier = 0;
-            const activeModifiers = []; // To store individual modifiers for display
-
-            // Iterate through all abilities to find relevant modifiers
-            if (activeCharacter && activeCharacter.abilities) {
-                activeCharacter.abilities.forEach(abilityState => {
-                    const abilityDef = abilityData[abilityState.id];
-                    if (abilityDef && abilityDef.effect && abilityDef.effect.type === "modifier" && abilityDef.effect.attribute) {
-                        const effectAttribute = abilityDef.effect.attribute.toLowerCase(); // Ensure case-insensitive matching
-
-                        // Check if the ability is active based on its type
-                        const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id)); //
-
-                        if (isActive && effectAttribute === attributeName) { // Check if modifier applies to this attribute
-                            const modifierValue = abilityDef.effect.modifier;
-                            totalModifier += modifierValue; // Stack modifiers
-                            activeModifiers.push({ // Store for individual display
-                                value: modifierValue,
-                                abilityName: abilityDef.name
-                            });
-                        }
-                    }
-                });
-            }
+            const activeModifiers = getActiveModifiersForAttribute(attributeName);
+            let totalModifier = activeModifiers.reduce((sum, mod) => sum + mod.value, 0);
 
             const modifiedResult = baseResult + totalModifier; // Apply modifier to the result
 
@@ -74,34 +108,8 @@ function attachAttributeRollListeners() {
             yellowResultEl.classList.add('visible');
             setTimeout(() => yellowResultEl.classList.add('fade-out'), 2000); // Fade out after 2 seconds
 
-            // Update and display modifiers
-            modifiersContainer.innerHTML = ''; // Clear previous modifiers
-            if (activeModifiers.length > 0) {
-                activeModifiers.forEach(mod => {
-                    const modSpan = document.createElement('span');
-                    modSpan.classList.add('modifier-display');
-                    modSpan.textContent = (mod.value > 0 ? '+' : '') + mod.value;
-                    modSpan.style.color = mod.value > 0 ? '#03AC13' : '#FF0000'; // Apply colors
-                    modSpan.dataset.abilityName = mod.abilityName; // Store ability name for tooltip
-
-                    // Add click listener for tooltip
-                    modSpan.addEventListener('click', function(event) {
-                        const tooltip = document.createElement('div');
-                        tooltip.classList.add('modifier-tooltip');
-                        tooltip.textContent = this.dataset.abilityName;
-                        // Position the tooltip over the number
-                        tooltip.style.left = `${event.clientX}px`;
-                        tooltip.style.top = `${event.clientY - 20}px`; // Adjust for vertical positioning
-                        document.body.appendChild(tooltip);
-
-                        // Remove tooltip after a few seconds
-                        setTimeout(() => {
-                            document.body.removeChild(tooltip);
-                        }, 3000); // Visible for 3 seconds
-                    });
-                    modifiersContainer.appendChild(modSpan);
-                });
-            }
+            // Re-render modifiers explicitly on roll
+            renderModifierDisplays(activeModifiers, modifiersContainer);
         });
     });
 }
@@ -163,7 +171,7 @@ function renderAbilities(character) {
             optionsHtml = `<p class="ability-selections">Selections: ${selectedOptionNames}</p>`;
         }
 
-        if (abilityDef.type === "active") { //
+        if (abilityDef.type === "active") {
             const isOn = activeAbilityStates.has(abilityState.id) ? 'toggled-red' : '';
             activeAbilitiesHtml.push(`
                 <li class="ability-list-item"> <button class="ability-button ability-item ${isOn}" data-ability-id="${abilityState.id}">
@@ -242,14 +250,18 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
                                         <div class="die-type">${die.toUpperCase()}</div>
                                         <button class="btn-roll attribute-roll">Roll</button>
-                                        <div class="unmodified-roll-result"></div> <div class="modifiers-container"></div> <div class="roll-result"></div>
+                                        <div class="unmodified-roll-result"></div>
+                                        <div class="modifiers-container"></div>
+                                        <div class="roll-result"></div>
                                     </div>
                                 `).join('')}
                                 <div class="dice-assignment" data-attribute="luck" data-dice="d100">
                                     <label>Luck</label>
                                     <div class="die-type">D100</div>
                                     <button class="btn-roll attribute-roll">Roll</button>
-                                    <div class="unmodified-roll-result"></div> <div class="modifiers-container"></div> <div class="roll-result"></div>
+                                    <div class="unmodified-roll-result"></div>
+                                    <div class="modifiers-container"></div>
+                                    <div class="roll-result"></div>
                                 </div>
                             </div>
                         </div>
@@ -287,6 +299,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             <p><strong>Bio:</strong> ${character.info.bio || 'N/A'}</p>
                         </div>
                     `;
+                    // After character details are rendered, initialize modifier displays
+                    document.querySelectorAll('.dice-assignment').forEach(assignment => {
+                        const attributeName = assignment.getAttribute('data-attribute');
+                        const modifiersContainer = assignment.querySelector('.modifiers-container');
+                        const activeModifiers = getActiveModifiersForAttribute(attributeName);
+                        renderModifierDisplays(activeModifiers, modifiersContainer);
+                    });
+
                     attachAttributeRollListeners(); // Attach listeners after content is loaded
 
                     // Attach event listener for active ability buttons
@@ -298,18 +318,20 @@ document.addEventListener('DOMContentLoaded', function() {
                             // Check if the ability is currently active
                             if (activeAbilityStates.has(abilityId)) {
                                 activeAbilityStates.delete(abilityId); // Turn off
-                                button.classList.remove('toggled-red'); //
+                                button.classList.remove('toggled-red');
                                 console.log(`Ability ${abilityId} turned OFF.`);
-                                // TODO: Add logic for deactivating ability effects (e.g., remove buffs)
                             } else {
                                 activeAbilityStates.add(abilityId); // Turn on
-                                button.classList.add('toggled-red'); //
+                                button.classList.add('toggled-red');
                                 console.log(`Ability ${abilityId} turned ON.`);
-                                // TODO: Add logic for activating ability effects (e.g., apply buffs, check resource costs)
-                                // TODO: Implement cooldowns here
                             }
-                            // You might want to update some character property here
-                            // For now, it's local persistence only.
+                            // Re-render all modifier displays across attributes
+                            document.querySelectorAll('.dice-assignment').forEach(assignment => {
+                                const attributeName = assignment.getAttribute('data-attribute');
+                                const modifiersContainer = assignment.querySelector('.modifiers-container');
+                                const activeModifiers = getActiveModifiersForAttribute(attributeName);
+                                renderModifierDisplays(activeModifiers, modifiersContainer);
+                            });
                         }
                     });
 
@@ -337,27 +359,26 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Export single character
-    document.getElementById('exportSingleCharacterBtn').addEventListener('click', function() { // Changed ID
+    document.getElementById('exportSingleCharacterBtn').addEventListener('click', function() {
         if (!activeCharacter) {
             alert('No character selected to export.');
             return;
         }
 
-        db.exportCharacter(activeCharacter.id, activeCharacter.info.name).then(function(exportData) { // Pass ID and name
+        db.exportCharacter(activeCharacter.id, activeCharacter.info.name).then(function(exportData) {
             if (!exportData) {
                 alert('Selected character not found for export.');
                 return;
             }
 
-            // Log the exported data for debugging
             console.log('Exporting character:', exportData.data);
 
             const a = document.createElement('a');
             a.href = exportData.url;
             a.download = exportData.filename;
-            document.body.appendChild(a); // Append to body to make it clickable in all browsers
+            document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a); // Clean up
+            document.body.removeChild(a);
             setTimeout(function() {
                 URL.revokeObjectURL(exportData.url);
             }, 100);
