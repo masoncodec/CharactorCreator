@@ -59,9 +59,8 @@ function getCurrentCharacter() {
     });
 }
 
-// Export character data
-//TODO: THIS IS EXPORT ALL CHARACTERS -> change back
-function exportCharacter() {
+// Export ALL character data
+function exportAllCharacters() {
     return openDB().then(db => {
         return new Promise((resolve, reject) => {
             const transaction = db.transaction(STORE_NAME, 'readonly');
@@ -76,10 +75,40 @@ function exportCharacter() {
                 const dataStr = JSON.stringify(getAllRequest.result, null, 2);
                 const blob = new Blob([dataStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
-                const filename = `character_data_${new Date().toISOString().slice(0, 10)}.json`;
+                const filename = `all_characters_${new Date().toISOString().slice(0, 10)}.json`;
                 resolve({ url, filename, data: getAllRequest.result });
             };
-            getAllRequest.onerror = () => reject('Error exporting characters');
+            getAllRequest.onerror = () => reject('Error exporting all characters');
+        });
+    });
+}
+
+// Export a SINGLE character by ID
+function exportCharacter(id, characterName) {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const getRequest = store.get(id);
+
+            getRequest.onsuccess = () => {
+                const character = getRequest.result;
+                if (!character) {
+                    resolve(null); // Character not found
+                    return;
+                }
+                const dataStr = JSON.stringify(character, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                // Sanitize character name for filename and then capitalize the first letter
+                let safeCharacterName = (characterName || 'character').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                if (safeCharacterName.length > 0) {
+                    safeCharacterName = safeCharacterName.charAt(0).toUpperCase() + safeCharacterName.slice(1);
+                }
+                const filename = `${safeCharacterName}_${new Date().toISOString().slice(0, 10)}.json`;
+                resolve({ url, filename, data: character });
+            };
+            getRequest.onerror = () => reject('Error exporting character');
         });
     });
 }
@@ -91,10 +120,9 @@ function importCharacter(file) {
         reader.onload = (event) => {
             try {
                 const importedData = JSON.parse(event.target.result);
-                if (!Array.isArray(importedData)) {
-                    reject('Invalid JSON format: Expected an array of characters.');
-                    return;
-                }
+                // Ensure importedData is always an array, even if a single object is imported
+                const charactersToImport = Array.isArray(importedData) ? importedData : [importedData];
+
                 openDB().then(db => {
                     const transaction = db.transaction(STORE_NAME, 'readwrite');
                     const store = transaction.objectStore(STORE_NAME);
@@ -102,16 +130,8 @@ function importCharacter(file) {
                     let importCount = 0;
                     let errorCount = 0;
 
-                    // Clear existing data (optional, but often desired for full import)
-                    // const clearRequest = store.clear();
-                    // clearRequest.onsuccess = () => { /* proceed with import */ };
-                    // clearRequest.onerror = () => reject('Error clearing existing data');
-
-                    importedData.forEach(char => {
-                        // Ensure unique IDs for imported characters if not managed
-                        // or if they might conflict with autoIncrement
-                        // For simplicity, directly put (upsert) here, assuming IDs are managed
-                        const request = store.put(char); // Use put for import too
+                    charactersToImport.forEach(char => {
+                        const request = store.put(char); // Use put for import (upsert)
                         request.onsuccess = () => importCount++;
                         request.onerror = (e) => {
                             console.error('Error importing character:', char, e);
@@ -220,7 +240,8 @@ function updateCharacterHealth(id, healthUpdate) {
 window.db = {
     saveCharacter,
     getCurrentCharacter,
-    exportCharacter,
+    exportAllCharacters, // Changed this
+    exportCharacter,     // Added this
     importCharacter,
     getAllCharacters,
     deleteCharacter,

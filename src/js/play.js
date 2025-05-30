@@ -32,6 +32,8 @@ let abilityData = {}; // Initialize as empty object
 document.addEventListener('DOMContentLoaded', function() {
     highlightActiveNav('play.html'); // Highlight "Play" link
 
+    let activeCharacter = null; // Variable to store the active character
+
     // Load abilities.json first
     fetch('data/abilities.json')
         .then(response => {
@@ -47,6 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Now load active character, as abilityData is available
             db.getActiveCharacter().then(function(character) {
                 const characterDetails = document.getElementById('characterDetails');
+                activeCharacter = character; // Store the active character
                 
                 if (character) {
                     characterDetails.innerHTML = `
@@ -197,11 +200,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
     });
 
-    // Export character
-    document.getElementById('exportCharacter').addEventListener('click', function() {
-        db.exportCharacter().then(function(exportData) {
+    // Export single character
+    document.getElementById('exportSingleCharacterBtn').addEventListener('click', function() { // Changed ID
+        if (!activeCharacter) {
+            alert('No character selected to export.');
+            return;
+        }
+
+        db.exportCharacter(activeCharacter.id, activeCharacter.info.name).then(function(exportData) { // Pass ID and name
             if (!exportData) {
-                alert('No character to export');
+                alert('Selected character not found for export.');
                 return;
             }
             
@@ -211,8 +219,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const a = document.createElement('a');
             a.href = exportData.url;
             a.download = exportData.filename;
+            document.body.appendChild(a); // Append to body to make it clickable in all browsers
             a.click();
-            
+            document.body.removeChild(a); // Clean up
             setTimeout(function() {
                 URL.revokeObjectURL(exportData.url);
             }, 100);

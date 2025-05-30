@@ -11,12 +11,14 @@
         <a href="index.html" class="home-link">← Return to Home</a>
         
         <h2>Your Characters</h2>
-        <div id="importMessage" class="message-area"></div> <div id="charactersList" class="characters-grid"></div>
+        <div id="importMessage" class="message-area"></div> 
+        <div id="charactersList" class="characters-grid"></div> <!-- contains the characters -->
         
         <div class="character-actions">
             <a href="character-creator.html" class="btn btn-primary">Create New Character</a>
-            <button id="importCharacterBtn" class="btn btn-secondary">Import Character</button>
+            <button id="importCharacterBtn" class="btn btn-secondary">Import Character(s)</button>
             <input type="file" id="importFileInput" accept=".json" style="display: none;">
+            <button id="exportAllCharactersBtn" class="btn btn-secondary">Export All Characters</button>
         </div>
     </div>
 
