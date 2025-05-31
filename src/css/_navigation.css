@@ -40,16 +40,11 @@
     justify-content: center;
     gap: 1rem;
     position: fixed;
-    bottom: 0;
+    top: 60px; /* IMPORTANT CHANGE: Position below header-controls */
     left: 0;
     width: 100%;
     z-index: 1000;
-    /* REMOVED: position: fixed; */
-    /* REMOVED: top: 0; */
-    /* REMOVED: left: 0; */
-    /* REMOVED: width: 100%; */
-    /* REMOVED: z-index: 1000; */
-    /* REMOVED: box-shadow: 0 2px 5px rgba(0,0,0,0.2); */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* Added back for visual separation */
 }
 
 .nav-item {
@@ -125,7 +120,6 @@
     visibility: visible;
 }
 
-/* Consolidated and updated wizard-controls styles */
 .wizard-controls {
     display: flex;
     justify-content: space-between;
@@ -137,11 +131,5 @@
     left: 0;
     width: 100%;
     z-index: 1000;
-    /* REMOVED: Styles for fixed position at the bottom */
-    /* REMOVED: position: fixed; */
-    /* REMOVED: bottom: 0; */
-    /* REMOVED: left: 0; */
-    /* REMOVED: width: 100%; */
-    /* REMOVED: z-index: 1000; */
-    /* REMOVED: box-shadow: 0 -2px 5px rgba(0,0,0,0.2); */
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.2); /* Added back for visual separation */
 }

@@ -1,4 +1,6 @@
 /* Layout & Containers */
+/* The html, body rules should be in _base.css as confirmed from your uploaded files */
+
 .character-creator {
     display: flex;
     flex-direction: column;
@@ -7,14 +9,14 @@
 }
 
 .header-controls {
-    /* Define a fixed height for the header-controls. Adjust this if its actual height is different. */
-    height: 60px; /* Example height. Please measure its actual computed height if this doesn't look right. */
+    /* Define a fixed height for the header-controls. Please measure its actual computed height if 60px is incorrect. */
+    height: 60px; /* Crucial: This defines the height of the top-most in-flow element */
     flex-shrink: 0; /* Prevents this section from shrinking */
     background-color: #333; /* Example background, remove if already styled elsewhere */
     color: white;
     padding: 10px 20px; /* Example padding */
     box-sizing: border-box; /* Include padding in height calculation */
-    display: flex; /* Adjust if not already flex */
+    display: flex;
     align-items: center;
     justify-content: space-between;
     /* No position: fixed here; it's part of the flex flow */
@@ -36,25 +38,36 @@
     gap: 2rem;
     flex-grow: 1; /* Allow wizard-content to fill available space within wizard-container */
 
-    /* These paddings create space for the *fixed* wizard-nav and wizard-controls */
-    padding-top: 69px; /* Space for fixed wizard-nav (approx. 69px height) */
-    padding-bottom: 48px; /* Space for fixed wizard-controls (exact 48px height) */
+    /* Crucial padding adjustment for fixed elements:
+       Top padding:
+       - 60px for the height of .header-controls (in flow)
+       - 69px for the height of .wizard-nav (fixed, positioned below .header-controls)
+       Total top padding = 60px + 69px = 129px
+       Bottom padding:
+       - 48px for the height of .wizard-controls (fixed)
+    */
+    padding-top: 129px; /* Accounts for header-controls and wizard-nav */
+    padding-bottom: 48px; /* Accounts for fixed wizard-controls */
 
-    overflow-y: auto; /* This is where the scrollbar for the content should appear */
-    box-sizing: border-box; /* Ensures padding doesn't add to element's total height */
+    /* IMPORTANT: Remove overflow-y: auto from wizard-content. */
+    /* Let the individual panels handle their own scrolling. */
+    /* overflow-y: auto; -- REMOVED */
+
+    box-sizing: border-box;
 }
 
 .panel {
     background: #2D2D2D;
     padding: 1.5rem;
     border-radius: 8px;
+    height: 100%; /* Ensures panel takes full height of wizard-content */
     overflow-y: auto; /* Enable scrolling for content that exceeds panel height */
     flex-shrink: 1; /* Allow panels to shrink */
     min-height: 0; /* Important for flex items with overflow-y: auto */
     box-sizing: border-box; /* Ensure panel's padding is included in its height calculation */
 }
 
-/* Specific panel sizing */
+/* Specific panel sizing (keep existing) */
 .selector-panel {
     flex: 2;
 }
@@ -64,7 +77,7 @@
     max-width: 350px;
 }
 
-/* Other specific panel layouts (if used elsewhere in the app) */
+/* Other specific panel layouts (keep existing) */
 .character-sheet {
     flex: 1;
 }
@@ -78,7 +91,7 @@
     max-width: 250px;
 }
 
-/* Responsive Adjustments */
+/* Responsive Adjustments (keep existing) */
 @media (max-width: 768px) {
     .wizard-content {
         flex-direction: column; /* Stack panels on smaller screens */
