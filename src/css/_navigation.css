@@ -42,7 +42,6 @@
 }
 
 .nav-item {
-    /* Keep existing styles */
     cursor: pointer;
     transition: all 0.2s;
     border-radius: 4px;
@@ -61,10 +60,17 @@
     align-items: center; /* Vertically centers the text content */
     justify-content: center; /* Horizontally centers the text within its now symmetrical content area */
 
-    /* Remove text-align: center if it was explicitly added, as justify-content handles it now */
+    /* Add the permanent border here */
+    border: 1px solid #555; /* Example: 1px solid dark gray border */
 }
 
-/* Styles for the ::before pseudo-element (icon) - remain mostly the same */
+/* Add hover logic for nav-item */
+.nav-item:hover {
+    background-color: #444; /* Darker background on hover */
+    border-color: #777; /* Lighter border on hover */
+}
+
+/* Styles for the ::before pseudo-element (icon) */
 .nav-item::before {
     content: "";
     position: absolute;
@@ -84,25 +90,28 @@
     color: white;
 }
 
+/* Add specific hover for active items if they have different base styles */
+.nav-item.active:hover {
+    background: #c23232; /* Slightly different hover for active items */
+    border-color: #B22222;
+}
+
 /* Styles for disabled state */
 .nav-item.disabled {
     opacity: 0.6;
     pointer-events: none;
-    /* Remove any display:flex, align-items, justify-content from here if they were present from previous attempts, as the base .nav-item handles it now */
-}
-
-.nav-item.disabled::before {
-    content: "🔒"; /* Overrides empty content with lock symbol */
-    visibility: visible; /* Makes the lock icon visible */
+    /* Optional: You might want to override hover effects for disabled 
+    items if they are accidentally applied -> current not affected */
+    /* background-color: initial; */
+    /* border-color: #555; */
 }
 
 /* Styles for completed state */
 .nav-item.completed {
     color: #FFD700;
-    /* Remove any display:flex, align-items, justify-content from here */
 }
 
 .nav-item.completed::before {
-    content: "✓ "; /* Overrides empty content with checkmark */
-    visibility: visible; /* Makes the checkmark visible */
+    content: "✓ ";
+    visibility: visible;
 }
