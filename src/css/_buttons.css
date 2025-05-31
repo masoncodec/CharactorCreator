@@ -36,43 +36,43 @@
     flex: 1;
 }
 
+/* REMOVE .wizard-controls FROM HERE. It is now in _navigation.css */
+
 /* module selection buttons */
 .module-option {
-    display: block; /* Make buttons take full width if desired, or use flex/grid for layout */
-    width: 100%; /* Example: full width within its container */
+    display: block;
+    width: 100%;
     padding: 1.2rem;
     margin-bottom: 1rem;
-    background-color: #252525; /* A slightly darker base background */
+    background-color: #252525;
     color: #E0E0E0;
     border: 1px solid #444;
     border-radius: 8px;
     font-size: 1.1rem;
     font-weight: bold;
-    text-align: left; /* Align text to the left */
+    text-align: left;
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
 .module-option:hover {
-    background-color: #3A3A3A; /* Lighter background on hover */
-    border-color: #B22222; /* Red border on hover */
+    background-color: #3A3A3A;
+    border-color: #B22222;
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
 
 .module-option.selected {
-    background-color: #B22222; /* Prominent red background when selected */
-    color: white; /* White text for contrast */
-    border-color: #FFD700; /* Gold border for strong emphasis */
-    box-shadow: 0 0 15px rgba(178, 34, 34, 0.8), 0 0 8px rgba(255, 215, 0, 0.4); /* Glowing effect */
-    transform: scale(1.02); /* Slightly grow the selected button */
-    position: relative; /* Needed for z-index if multiple selected items overlap visually */
-    z-index: 1; /* Bring selected item to front if needed */
+    background-color: #B22222;
+    color: white;
+    border-color: #FFD700;
+    box-shadow: 0 0 15px rgba(178, 34, 34, 0.8), 0 0 8px rgba(255, 215, 0, 0.4);
+    transform: scale(1.02);
+    position: relative;
+    z-index: 1;
 }
 
-/* Ensure module options inside specific panels get default button styles */
 .selector-panel .module-option {
     /* Styles specifically for module options within the selector panel */
-    /* You might want to override or ensure consistency with the general .module-option styles */
 }

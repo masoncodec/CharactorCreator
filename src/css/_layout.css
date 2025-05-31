@@ -2,20 +2,23 @@
 .wizard-container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100vh; /* This makes the container fill the screen */
 }
 
 .wizard-content {
     display: flex;
-    padding-left: 2rem; /* Keep original horizontal padding */
-    padding-right: 2rem; /* Keep original horizontal padding */
+    flex-direction: row; /* Ensure panels are side-by-side */
+    padding-left: 2rem;
+    padding-right: 2rem;
     gap: 2rem;
-    /* REMOVE min-height: 100vh; - it causes content overlap and extra scrollbars */
-    flex-grow: 1; /* This makes it fill the available vertical space */
-    /* Add padding to compensate for fixed header/footer */
-    padding-top: 70px; /* Adjust this value based on the actual height of your fixed wizard-nav */
-    padding-bottom: 80px; /* Adjust this value based on the actual height of your fixed wizard-controls */
-    overflow-y: auto; /* Ensures content within this div scrolls if it overflows */
+    flex-grow: 1; /* This makes it fill all available vertical space */
+
+    /* REMOVED: height: calc(100vh - 69px - 48px); */
+    /* REMOVED: padding-top: 1rem; */
+    /* REMOVED: padding-bottom: 1rem; */
+
+    overflow-y: auto; /* Allow wizard-content itself to scroll if its internal content overflows */
+    box-sizing: border-box; /* Ensures padding doesn't add to element's total height */
 }
 
 .panel {
@@ -23,6 +26,9 @@
     padding: 1.5rem;
     border-radius: 8px;
     overflow-y: auto; /* Enable scrolling for content that exceeds panel height */
+    flex-shrink: 1; /* Allow panels to shrink */
+    min-height: 0; /* Important for flex items with overflow-y: auto */
+    box-sizing: border-box; /* Ensure panel's padding is included in its height calculation */
 }
 
 /* Specific panel sizing */
@@ -52,14 +58,15 @@
 /* Responsive Adjustments */
 @media (max-width: 768px) {
     .wizard-content {
-        /* REMOVE this line to prevent panels from stacking side-by-side at this breakpoint */
-        /* flex-direction: column; */
+        flex-direction: column; /* Stack panels on smaller screens */
+        /* height: auto; // Let flex-grow handle height, no fixed height needed */
     }
 
     .selector-panel,
     .informer-panel {
         flex: auto;
         max-width: 100%;
+        height: auto; /* Allow natural height for stacked panels */
     }
 
     .tools-panel {

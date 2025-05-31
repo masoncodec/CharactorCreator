@@ -39,13 +39,12 @@
     padding: 1rem;
     justify-content: center;
     gap: 1rem;
-    /* Fixed positioning for navigation bar */
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    z-index: 1000;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    /* REMOVED: position: fixed; */
+    /* REMOVED: top: 0; */
+    /* REMOVED: left: 0; */
+    /* REMOVED: width: 100%; */
+    /* REMOVED: z-index: 1000; */
+    /* REMOVED: box-shadow: 0 2px 5px rgba(0,0,0,0.2); */
 }
 
 .nav-item {
@@ -68,20 +67,6 @@
 .nav-item:hover {
     background-color: #444;
     border-color: #777;
-}
-
-.nav-item::before {
-    content: "";
-    position: absolute;
-    left: 0.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    visibility: hidden;
 }
 
 .nav-item.active {
@@ -113,18 +98,18 @@
     visibility: visible;
 }
 
-/* I think I need to rename this? */
+/* Consolidated and updated wizard-controls styles */
 .wizard-controls {
     display: flex;
     justify-content: space-between;
     background: #2D2D2D;
     border-top: 1px solid #444;
     padding: 1rem 2rem;
-    /* Fixed positioning for controls */
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    z-index: 1000;
-    box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
+    /* REMOVED: Styles for fixed position at the bottom */
+    /* REMOVED: position: fixed; */
+    /* REMOVED: bottom: 0; */
+    /* REMOVED: left: 0; */
+    /* REMOVED: width: 100%; */
+    /* REMOVED: z-index: 1000; */
+    /* REMOVED: box-shadow: 0 -2px 5px rgba(0,0,0,0.2); */
 }
