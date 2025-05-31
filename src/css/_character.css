@@ -1,0 +1,44 @@
+/* Character Management */
+.character-card {
+    background: #1A1A1A;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #444;
+    transition: transform 0.2s;
+}
+
+.character-card:hover {
+    transform: translateY(-5px);
+    border-color: #FFD700;
+}
+
+.character-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #444;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.stat {
+    background: #1A1A1A;
+    padding: 0.75rem;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

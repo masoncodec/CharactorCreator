@@ -1,0 +1,36 @@
+/* Form Elements */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 0.8rem;
+    background: #1A1A1A;
+    border: 1px solid #444;
+    color: white;
+    border-radius: 4px;
+}
+
+#characterFlaw {
+    padding: 0.8rem;
+    background: #1A1A1A;
+    border: 1px solid #444;
+    color: white;
+    border-radius: 4px;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.form-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #444;
+}

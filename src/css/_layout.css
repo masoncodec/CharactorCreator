@@ -1,0 +1,62 @@
+/* Layout & Containers */
+.wizard-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.wizard-content {
+    display: flex;
+    padding: 2rem;
+    gap: 2rem;
+    min-height: 100vh;
+    flex-grow: 1;
+}
+
+.panel {
+    background: #2D2D2D;
+    padding: 1.5rem;
+    border-radius: 8px;
+    overflow-y: auto; /* Enable scrolling for content that exceeds panel height */
+}
+
+/* Specific panel sizing */
+.selector-panel {
+    flex: 2;
+}
+
+.informer-panel {
+    flex: 1;
+    max-width: 350px;
+}
+
+/* Other specific panel layouts (if used elsewhere in the app) */
+.character-sheet {
+    flex: 1;
+}
+
+.narrative-panel {
+    flex: 2;
+}
+
+.tools-panel {
+    flex: 1;
+    max-width: 250px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .wizard-content {
+        flex-direction: column;
+    }
+
+    .selector-panel,
+    .informer-panel {
+        flex: auto;
+        max-width: 100%;
+    }
+
+    .tools-panel {
+        max-width: 100%;
+    }
+}

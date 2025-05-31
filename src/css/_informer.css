@@ -1,0 +1,46 @@
+/* Styles for Destiny info in informer panel */
+.destiny-info {
+    padding: 1rem;
+}
+
+.destiny-info h3 {
+    color: #FFD700;
+    margin-bottom: 0.5rem;
+}
+
+.destiny-info p {
+    color: #E0E0E0;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.destiny-info .stats {
+    background-color: #252525;
+    padding: 0.8rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    border: 1px solid #3A3A3A;
+}
+
+.destiny-info .stats strong {
+    color: #FFD700;
+}
+
+.destiny-info .tags {
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.destiny-info .flaw-info {
+    background-color: #381a1a;
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid #B22222;
+    margin-top: 1.5rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.destiny-info .flaw-info h4 {
+    color: #FFD700;
+    margin-bottom: 0.5rem;
+}
