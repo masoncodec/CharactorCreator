@@ -5,6 +5,13 @@
     padding: 0;
 }
 
+html, body {
+    height: 100%; /* Ensures html and body take up full viewport height */
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Crucial: Prevents the global scrollbar */
+}
+
 body {
     font-family: 'Roboto', sans-serif;
     background-color: #1A1A1A;

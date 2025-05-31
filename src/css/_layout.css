@@ -1,8 +1,31 @@
 /* Layout & Containers */
+.character-creator {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Make this the main vertical flex container */
+    overflow: hidden; /* Ensure it doesn't scroll if children somehow overflow */
+}
+
+.header-controls {
+    /* Define a fixed height for the header-controls. Adjust this if its actual height is different. */
+    height: 60px; /* Example height. Please measure its actual computed height if this doesn't look right. */
+    flex-shrink: 0; /* Prevents this section from shrinking */
+    background-color: #333; /* Example background, remove if already styled elsewhere */
+    color: white;
+    padding: 10px 20px; /* Example padding */
+    box-sizing: border-box; /* Include padding in height calculation */
+    display: flex; /* Adjust if not already flex */
+    align-items: center;
+    justify-content: space-between;
+    /* No position: fixed here; it's part of the flex flow */
+}
+
 .wizard-container {
     display: flex;
     flex-direction: column;
-    height: 100vh; /* This makes the container fill the screen */
+    flex-grow: 1; /* This will make wizard-container fill the remaining vertical space */
+    /* No height: 100vh here, as flex-grow manages its height within character-creator */
+    position: relative; /* Useful if you need to absolutely position children later, but not strictly for this fix */
 }
 
 .wizard-content {
@@ -11,13 +34,13 @@
     padding-left: 2rem;
     padding-right: 2rem;
     gap: 2rem;
-    flex-grow: 1; /* This makes it fill all available vertical space */
+    flex-grow: 1; /* Allow wizard-content to fill available space within wizard-container */
 
-    /* REMOVED: height: calc(100vh - 69px - 48px); */
-    /* REMOVED: padding-top: 1rem; */
-    /* REMOVED: padding-bottom: 1rem; */
+    /* These paddings create space for the *fixed* wizard-nav and wizard-controls */
+    padding-top: 69px; /* Space for fixed wizard-nav (approx. 69px height) */
+    padding-bottom: 48px; /* Space for fixed wizard-controls (exact 48px height) */
 
-    overflow-y: auto; /* Allow wizard-content itself to scroll if its internal content overflows */
+    overflow-y: auto; /* This is where the scrollbar for the content should appear */
     box-sizing: border-box; /* Ensures padding doesn't add to element's total height */
 }
 
@@ -59,7 +82,7 @@
 @media (max-width: 768px) {
     .wizard-content {
         flex-direction: column; /* Stack panels on smaller screens */
-        /* height: auto; // Let flex-grow handle height, no fixed height needed */
+        /* Paddings for fixed elements remain the same */
     }
 
     .selector-panel,

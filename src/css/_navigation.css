@@ -39,6 +39,11 @@
     padding: 1rem;
     justify-content: center;
     gap: 1rem;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
     /* REMOVED: position: fixed; */
     /* REMOVED: top: 0; */
     /* REMOVED: left: 0; */
@@ -48,20 +53,42 @@
 }
 
 .nav-item {
+    /* Keep existing styles */
     cursor: pointer;
     transition: all 0.2s;
     border-radius: 4px;
-    min-width: 120px;
+    min-width: 120px; /* Uniform overall width */
     box-sizing: border-box;
-    position: relative;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-    padding-left: calc(0.5rem + 20px + 5px);
-    padding-right: calc(0.5rem + 20px + 5px);
+    position: relative; /* Context for absolutely positioned ::before */
+
+    /* Adjusted padding for symmetric text centering */
+    padding-top: 0.5rem; /* Original top padding */
+    padding-bottom: 0.5rem; /* Original bottom padding */
+    padding-left: calc(0.5rem + 20px + 5px); /* Space for icon + gap (e.g., 8px + 20px + 5px = 33px) */
+    padding-right: calc(0.5rem + 20px + 5px); /* MAKE THIS SYMMETRICAL to padding-left */
+
+    /* Flexbox for vertical and horizontal centering of the *text content* (since ::before is absolute) */
+    display: flex;
+    align-items: center; /* Vertically centers the text content */
+    justify-content: center; /* Horizontally centers the text within its now symmetrical content area */
+
+    border: 1px solid #555;
+    /* Remove text-align: center if it was explicitly added, as justify-content handles it now */
+}
+
+/* Styles for the ::before pseudo-element (icon) */
+.nav-item::before {
+    content: "";
+    position: absolute;
+    left: 0.5rem; /* Aligns with the original padding-left */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px; /* Fixed width for the icon slot */
+    height: 20px; /* Fixed height for icon consistency */
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #555;
+    visibility: hidden; /* Hidden by default */
 }
 
 .nav-item:hover {
@@ -105,6 +132,11 @@
     background: #2D2D2D;
     border-top: 1px solid #444;
     padding: 1rem 2rem;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
     /* REMOVED: Styles for fixed position at the bottom */
     /* REMOVED: position: fixed; */
     /* REMOVED: bottom: 0; */
