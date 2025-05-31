@@ -44,7 +44,7 @@
     border-top: 1px solid #444;
 }
 
-/* New: Styles for module selection buttons */
+/* module selection buttons */
 .module-option {
     display: block; /* Make buttons take full width if desired, or use flex/grid for layout */
     width: 100%; /* Example: full width within its container */

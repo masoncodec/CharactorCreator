@@ -57,7 +57,21 @@
     color: #FFD700;
 }
 
+.nav-item.completed::before {
+    content: "✓ ";
+}
+
 .nav-item.disabled {
     opacity: 0.6;
     pointer-events: none;
+    display: flex; /* Makes the nav item a flex container */
+    align-items: center; /* Vertically centers the lock icon and text */
+    gap: 5px; /* Adds space between the lock icon and the text */
+    /* Ensure no conflicting padding or height on .nav-item itself that might disrupt flex alignment */
+}
+
+.nav-item.disabled::before {
+    content: "🔒";
+    font-size: inherit; /* Ensures the lock icon uses the same font size as its parent text */
+    line-height: 1; /* Normalizes the line height for the icon, helping with vertical alignment */
 }
