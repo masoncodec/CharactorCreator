@@ -42,13 +42,41 @@
 }
 
 .nav-item {
-    padding: 0.5rem 1rem;
+    /* Keep existing styles */
     cursor: pointer;
     transition: all 0.2s;
     border-radius: 4px;
-    min-width: 120px; /* Adjust this value as needed */
-    text-align: center; /* Center the text within the fixed width */
-    box-sizing: border-box; /* Include padding in the width calculation */
+    min-width: 120px; /* Uniform overall width */
+    box-sizing: border-box;
+    position: relative; /* Context for absolutely positioned ::before */
+
+    /* Adjusted padding for symmetric text centering */
+    padding-top: 0.5rem; /* Original top padding */
+    padding-bottom: 0.5rem; /* Original bottom padding */
+    padding-left: calc(0.5rem + 20px + 5px); /* Space for icon + gap (e.g., 8px + 20px + 5px = 33px) */
+    padding-right: calc(0.5rem + 20px + 5px); /* MAKE THIS SYMMETRICAL to padding-left */
+
+    /* Flexbox for vertical and horizontal centering of the *text content* (since ::before is absolute) */
+    display: flex;
+    align-items: center; /* Vertically centers the text content */
+    justify-content: center; /* Horizontally centers the text within its now symmetrical content area */
+
+    /* Remove text-align: center if it was explicitly added, as justify-content handles it now */
+}
+
+/* Styles for the ::before pseudo-element (icon) - remain mostly the same */
+.nav-item::before {
+    content: "";
+    position: absolute;
+    left: 0.5rem; /* Aligns with the original padding-left */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px; /* Fixed width for the icon slot */
+    height: 20px; /* Fixed height for icon consistency */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    visibility: hidden; /* Hidden by default */
 }
 
 .nav-item.active {
@@ -56,31 +84,25 @@
     color: white;
 }
 
-.nav-item.completed {
-    color: #FFD700;
-    display: flex; /* Apply flex to completed items too for consistent behavior */
-    align-items: center;
-    justify-content: center; /* Centers content horizontally */
-    gap: 5px; /* Adds space between checkmark and text */
-}
-
-.nav-item.completed::before {
-    content: "✓ ";
-    font-size: inherit;
-    line-height: 1;
-}
-
+/* Styles for disabled state */
 .nav-item.disabled {
     opacity: 0.6;
     pointer-events: none;
-    display: flex;
-    align-items: center;
-    justify-content: center; /* Ensures content (icon + text) is centered horizontally within the flex item */
-    gap: 5px;
+    /* Remove any display:flex, align-items, justify-content from here if they were present from previous attempts, as the base .nav-item handles it now */
 }
 
 .nav-item.disabled::before {
-    content: "🔒";
-    font-size: inherit;
-    line-height: 1;
+    content: "🔒"; /* Overrides empty content with lock symbol */
+    visibility: visible; /* Makes the lock icon visible */
+}
+
+/* Styles for completed state */
+.nav-item.completed {
+    color: #FFD700;
+    /* Remove any display:flex, align-items, justify-content from here */
+}
+
+.nav-item.completed::before {
+    content: "✓ "; /* Overrides empty content with checkmark */
+    visibility: visible; /* Makes the checkmark visible */
 }
