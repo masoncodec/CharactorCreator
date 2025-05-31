@@ -39,50 +39,49 @@
     padding: 1rem;
     justify-content: center;
     gap: 1rem;
+    /* Fixed positioning for navigation bar */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
 .nav-item {
     cursor: pointer;
     transition: all 0.2s;
     border-radius: 4px;
-    min-width: 120px; /* Uniform overall width */
+    min-width: 120px;
     box-sizing: border-box;
-    position: relative; /* Context for absolutely positioned ::before */
-
-    /* Adjusted padding for symmetric text centering */
-    padding-top: 0.5rem; /* Original top padding */
-    padding-bottom: 0.5rem; /* Original bottom padding */
-    padding-left: calc(0.5rem + 20px + 5px); /* Space for icon + gap (e.g., 8px + 20px + 5px = 33px) */
-    padding-right: calc(0.5rem + 20px + 5px); /* MAKE THIS SYMMETRICAL to padding-left */
-
-    /* Flexbox for vertical and horizontal centering of the *text content* (since ::before is absolute) */
-    display: flex;
-    align-items: center; /* Vertically centers the text content */
-    justify-content: center; /* Horizontally centers the text within its now symmetrical content area */
-
-    /* Add the permanent border here */
-    border: 1px solid #555; /* Example: 1px solid dark gray border */
-}
-
-/* Add hover logic for nav-item */
-.nav-item:hover {
-    background-color: #444; /* Darker background on hover */
-    border-color: #777; /* Lighter border on hover */
-}
-
-/* Styles for the ::before pseudo-element (icon) */
-.nav-item::before {
-    content: "";
-    position: absolute;
-    left: 0.5rem; /* Aligns with the original padding-left */
-    top: 50%;
-    transform: translateY(-50%);
-    width: 20px; /* Fixed width for the icon slot */
-    height: 20px; /* Fixed height for icon consistency */
+    position: relative;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    padding-left: calc(0.5rem + 20px + 5px);
+    padding-right: calc(0.5rem + 20px + 5px);
     display: flex;
     align-items: center;
     justify-content: center;
-    visibility: hidden; /* Hidden by default */
+    border: 1px solid #555;
+}
+
+.nav-item:hover {
+    background-color: #444;
+    border-color: #777;
+}
+
+.nav-item::before {
+    content: "";
+    position: absolute;
+    left: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    visibility: hidden;
 }
 
 .nav-item.active {
@@ -90,23 +89,21 @@
     color: white;
 }
 
-/* Add specific hover for active items if they have different base styles */
 .nav-item.active:hover {
-    background: #c23232; /* Slightly different hover for active items */
+    background: #c23232;
     border-color: #B22222;
 }
 
-/* Styles for disabled state */
 .nav-item.disabled {
     opacity: 0.6;
     pointer-events: none;
-    /* Optional: You might want to override hover effects for disabled 
-    items if they are accidentally applied -> current not affected */
-    /* background-color: initial; */
-    /* border-color: #555; */
 }
 
-/* Styles for completed state */
+.nav-item.disabled::before {
+    content: "🔒";
+    visibility: visible;
+}
+
 .nav-item.completed {
     color: #FFD700;
 }
@@ -114,4 +111,20 @@
 .nav-item.completed::before {
     content: "✓ ";
     visibility: visible;
+}
+
+/* I think I need to rename this? */
+.wizard-controls {
+    display: flex;
+    justify-content: space-between;
+    background: #2D2D2D;
+    border-top: 1px solid #444;
+    padding: 1rem 2rem;
+    /* Fixed positioning for controls */
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
 }

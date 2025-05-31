@@ -7,10 +7,15 @@
 
 .wizard-content {
     display: flex;
-    padding: 2rem;
+    padding-left: 2rem; /* Keep original horizontal padding */
+    padding-right: 2rem; /* Keep original horizontal padding */
     gap: 2rem;
-    min-height: 100vh;
-    flex-grow: 1;
+    /* REMOVE min-height: 100vh; - it causes content overlap and extra scrollbars */
+    flex-grow: 1; /* This makes it fill the available vertical space */
+    /* Add padding to compensate for fixed header/footer */
+    padding-top: 70px; /* Adjust this value based on the actual height of your fixed wizard-nav */
+    padding-bottom: 80px; /* Adjust this value based on the actual height of your fixed wizard-controls */
+    overflow-y: auto; /* Ensures content within this div scrolls if it overflows */
 }
 
 .panel {
@@ -47,7 +52,8 @@
 /* Responsive Adjustments */
 @media (max-width: 768px) {
     .wizard-content {
-        flex-direction: column;
+        /* REMOVE this line to prevent panels from stacking side-by-side at this breakpoint */
+        /* flex-direction: column; */
     }
 
     .selector-panel,

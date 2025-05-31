@@ -36,14 +36,6 @@
     flex: 1;
 }
 
-.wizard-controls {
-    display: flex;
-    justify-content: space-between;
-    padding: 1rem 2rem;
-    background: #2D2D2D;
-    border-top: 1px solid #444;
-}
-
 /* module selection buttons */
 .module-option {
     display: block; /* Make buttons take full width if desired, or use flex/grid for layout */
