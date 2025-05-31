@@ -275,6 +275,12 @@ body {
     border-left-color: #2196F3;
 }
 
+/* Specifically for "active" abilities that are SELECTED and ACTIVE */
+.ability-button.toggled-red {
+    background-color: #B22222; /* Red color */
+    border-color: #FFD700; /* Yellow border for emphasis */
+}
+
 /* ===== UTILITY CLASSES ===== */
 .error {
     color: #ff6b6b;
