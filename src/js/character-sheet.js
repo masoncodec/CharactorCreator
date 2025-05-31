@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (character) {
             characterSheetContent.innerHTML = `
                 <div class="character-header">
-                    <h3>${character.name}</h3>
+                    <h3>${character.info.name}</h3>
                     <p class="character-module">${character.module || 'Crescendo'}</p>
                     <p class="character-role">${character.destiny}</p>
                 </div>
@@ -29,10 +29,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 ` : ''}
 
-                ${character.bio ? `
+                ${character.info.bio ? `
                 <div class="character-bio">
                     <h4>Background</h4>
-                    <p>${character.bio}</p>
+                    <p>${character.info.bio}</p>
                 </div>
                 ` : ''}
 

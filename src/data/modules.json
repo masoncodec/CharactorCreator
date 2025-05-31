@@ -26,5 +26,16 @@
                 "drummer": "Rhythmic backbone who drives the band's energy and tempo."
             }
         }
+    },
+    "fire-hunters": {
+        "name": "Fire Hunters",
+        "destinies": ["whisperer"],
+        "attributes": ["Whimsy", "Sturdy", "Charm", "Magic", "Speed", "Nature"],
+        "descriptions": {
+            "module": "A Tale about Fae",
+            "destinies": {
+                "whisperer": "You are one with the Beasts of the Forest"
+            }
+        }
     }
 }

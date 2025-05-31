@@ -21,14 +21,15 @@ function openDB() {
     });
 }
 
-// Save character to IndexedDB
+// Save character to IndexedDB (now uses put for upsert functionality)
 function saveCharacter(character) {
     return openDB().then(db => {
         return new Promise((resolve, reject) => {
             const transaction = db.transaction(STORE_NAME, 'readwrite');
             const store = transaction.objectStore(STORE_NAME);
             
-            const request = store.add(character);
+            // Changed from store.add(character) to store.put(character)
+            const request = store.put(character); 
             
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject('Error saving character');
@@ -43,132 +44,115 @@ function getCurrentCharacter() {
             const transaction = db.transaction(STORE_NAME, 'readonly');
             const store = transaction.objectStore(STORE_NAME);
             
-            const request = store.openCursor(null, 'prev'); // Get last added
+            const request = store.openCursor(null, 'prev'); // Get the last (most recent) character
+            let character = null;
             
             request.onsuccess = (event) => {
                 const cursor = event.target.result;
-                resolve(cursor ? cursor.value : null);
+                if (cursor) {
+                    character = cursor.value;
+                }
+                resolve(character);
             };
-            
-            request.onerror = () => reject('Error getting character');
+            request.onerror = () => reject('Error getting current character');
         });
     });
 }
 
-// Export character to JSON file
-function exportCharacter() {
-    return getCurrentCharacter().then(character => {
-        if (!character) return null;
-        
-        // Create a deep copy of the character without the id
-        const exportData = JSON.parse(JSON.stringify(character));
-        
-        // Remove internal DB fields
-        delete exportData.id;
-        
-        // Ensure we have all important fields
-        if (!character.module) character.module = 'Crescendo'; // Default
+// Export ALL character data
+function exportAllCharacters() {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const getAllRequest = store.getAll();
 
-        if (!character.attributes) {
-            // Set default assignments if missing
-            character.attributes = {
-                passion: 'd8',
-                rhythm: 'd6',
-                stamina: 'd10',
-                fame: 'd4',
-                style: 'd12',
-                harmony: 'd20'
+            getAllRequest.onsuccess = () => {
+                if (getAllRequest.result.length === 0) {
+                    resolve(null); // No characters to export
+                    return;
+                }
+                const dataStr = JSON.stringify(getAllRequest.result, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const filename = `all_characters_${new Date().toISOString().slice(0, 10)}.json`;
+                resolve({ url, filename, data: getAllRequest.result });
             };
-        }
-        
-        if (!exportData.health) {
-            exportData.health = {
-                current: 10,
-                max: 10,
-                temporary: 0
-            };
-        }
-        
-        const json = JSON.stringify(exportData, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        return {
-            url,
-            filename: `character_${character.name || 'unknown'}.json`,
-            data: exportData
-        };
+            getAllRequest.onerror = () => reject('Error exporting all characters');
+        });
     });
 }
 
-// Import character from JSON file
+// Export a SINGLE character by ID
+function exportCharacter(id, characterName) {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const getRequest = store.get(id);
+
+            getRequest.onsuccess = () => {
+                const character = getRequest.result;
+                if (!character) {
+                    resolve(null); // Character not found
+                    return;
+                }
+                const dataStr = JSON.stringify(character, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                // Sanitize character name for filename and then capitalize the first letter
+                let safeCharacterName = (characterName || 'character').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                if (safeCharacterName.length > 0) {
+                    safeCharacterName = safeCharacterName.charAt(0).toUpperCase() + safeCharacterName.slice(1);
+                }
+                const filename = `${safeCharacterName}_${new Date().toISOString().slice(0, 10)}.json`;
+                resolve({ url, filename, data: character });
+            };
+            getRequest.onerror = () => reject('Error exporting character');
+        });
+    });
+}
+
+// Import character data
 function importCharacter(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        
-        reader.onload = function(event) {
+        reader.onload = (event) => {
             try {
-                const character = JSON.parse(event.target.result);
-                
-                // Remove the id if it exists
-                if (character.id) {
-                    delete character.id;
-                }
-                
-                // Set default values for required fields if missing
-                if (!character.module) character.module = 'Crescendo';
-                if (!character.name) character.name = "Unnamed Character";
-                if (!character.role) character.role = "Adventurer";
-                
-                // Ensure stats exist
-                if (!character.attributes) {
-                    // Set default assignments if missing
-                    character.attributes = {
-                        passion: 'd8',
-                        rhythm: 'd6',
-                        stamina: 'd10',
-                        fame: 'd4',
-                        style: 'd12',
-                        harmony: 'd20'
-                    };
+                const importedData = JSON.parse(event.target.result);
+                // Ensure importedData is always an array, even if a single object is imported
+                const charactersToImport = Array.isArray(importedData) ? importedData : [importedData];
 
-                }
-                if (!character.luck) {
-                    character.luck = 'd100';
-                }
-                
-                // Ensure health exists
-                if (!character.health) {
-                    character.health = {
-                        current: 10,
-                        max: 10,
-                        temporary: 0
-                    };
-                }
-                
-                // Set creation date
-                character.createdAt = new Date().toISOString();
-                
-                // Save the character
-                saveCharacter(character).then(id => {
-                    resolve({ ...character, id });
-                }).catch(err => {
-                    console.error('Detailed save error:', err);
-                    reject('Error saving character. Check console for details.');
-                });
-            } catch (err) {
-                console.error('Import parsing error:', err);
-                reject('Invalid character file: ' + err.message);
+                openDB().then(db => {
+                    const transaction = db.transaction(STORE_NAME, 'readwrite');
+                    const store = transaction.objectStore(STORE_NAME);
+                    
+                    let importCount = 0;
+                    let errorCount = 0;
+
+                    charactersToImport.forEach(char => {
+                        const request = store.put(char); // Use put for import (upsert)
+                        request.onsuccess = () => importCount++;
+                        request.onerror = (e) => {
+                            console.error('Error importing character:', char, e);
+                            errorCount++;
+                        };
+                    });
+
+                    transaction.oncomplete = () => resolve({ importCount, errorCount });
+                    transaction.onerror = () => reject('Transaction error during import');
+                }).catch(reject);
+            } catch (e) {
+                reject('Error parsing JSON file: ' + e.message);
             }
         };
-        
-        reader.onerror = () => {
-            reject('Error reading file');
-        };
+        reader.onerror = () => reject('Error reading file');
         reader.readAsText(file);
     });
 }
 
+
+// Get all characters
 function getAllCharacters() {
     return openDB().then(db => {
         return new Promise((resolve, reject) => {
@@ -177,11 +161,12 @@ function getAllCharacters() {
             const request = store.getAll();
             
             request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject('Error getting characters');
+            request.onerror = () => reject('Error getting all characters');
         });
     });
 }
 
+// Delete a character by ID
 function deleteCharacter(id) {
     return openDB().then(db => {
         return new Promise((resolve, reject) => {
@@ -195,19 +180,24 @@ function deleteCharacter(id) {
     });
 }
 
+// Set active character in local storage
 function setActiveCharacter(id) {
     localStorage.setItem('activeCharacterId', id);
+    return Promise.resolve();
 }
 
+// Get active character from IndexedDB based on ID in local storage
 function getActiveCharacter() {
-    const activeId = localStorage.getItem('activeCharacterId');
-    if (!activeId) return null;
-    
+    const activeId = parseInt(localStorage.getItem('activeCharacterId'));
+    if (isNaN(activeId)) {
+        return Promise.resolve(null); // No active character set
+    }
+
     return openDB().then(db => {
         return new Promise((resolve, reject) => {
             const transaction = db.transaction(STORE_NAME, 'readonly');
             const store = transaction.objectStore(STORE_NAME);
-            const request = store.get(Number(activeId));
+            const request = store.get(activeId);
             
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject('Error getting active character');
@@ -250,7 +240,8 @@ function updateCharacterHealth(id, healthUpdate) {
 window.db = {
     saveCharacter,
     getCurrentCharacter,
-    exportCharacter,
+    exportAllCharacters, // Changed this
+    exportCharacter,     // Added this
     importCharacter,
     getAllCharacters,
     deleteCharacter,
