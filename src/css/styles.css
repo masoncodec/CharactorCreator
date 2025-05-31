@@ -18,19 +18,33 @@ body {
     height: 100vh;
 }
 
-.play-area {
+/* Updated: Added .wizard-content to control the flex behavior of panels */
+.wizard-content {
     display: flex;
     padding: 2rem;
     gap: 2rem;
     min-height: 100vh;
+    flex-grow: 1; /* Allows it to take available space */
 }
 
 .panel {
     background: #2D2D2D;
     padding: 1.5rem;
     border-radius: 8px;
+    overflow-y: auto; /* Enable scrolling for content that exceeds panel height */
 }
 
+/* Updated: Assign flex grow to panels for the desired left/right split */
+.selector-panel { /* Targets the left panel for selection */
+    flex: 2; /* Selector takes more space */
+}
+
+.informer-panel { /* Targets the right panel for information */
+    flex: 1; /* Informer takes less space */
+    max-width: 350px; /* Optional: cap informer width to prevent it from getting too wide */
+}
+
+/* Existing panels that are not part of the primary selector/informer split */
 .character-sheet {
     flex: 1;
 }
@@ -83,13 +97,15 @@ body {
     display: flex;
     background: #2D2D2D;
     padding: 1rem;
+    justify-content: center; /* Center wizard navigation items */
+    gap: 1rem; /* Space between nav items */
 }
 
 .nav-item {
     padding: 0.5rem 1rem;
-    margin-right: 1rem;
     cursor: pointer;
     transition: all 0.2s;
+    border-radius: 4px; /* Rounded corners for nav items */
 }
 
 .nav-item.active {
@@ -137,10 +153,20 @@ body {
 .button-group {
     display: flex;
     gap: 0.5rem;
+    margin-top: 1.5rem; /* Space above button group */
 }
 
 .button-group .btn {
     flex: 1;
+}
+
+/* Wizard controls for prev/next buttons */
+.wizard-controls {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem 2rem; /* Add padding to match play-area */
+    background: #2D2D2D;
+    border-top: 1px solid #444;
 }
 
 /* ===== CHARACTER MANAGEMENT ===== */
@@ -203,6 +229,17 @@ body {
     border-radius: 4px;
 }
 
+/* Styling for the flaw selection dropdown */
+#characterFlaw {
+    padding: 0.8rem;
+    background: #1A1A1A;
+    border: 1px solid #444;
+    color: white;
+    border-radius: 4px;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
 .form-section {
     margin-bottom: 2rem;
     padding-bottom: 1rem;
@@ -259,21 +296,176 @@ body {
 }
 
 /* ===== ABILITIES ===== */
-.ability-item {
-    background: #1A1A1A;
-    padding: 1rem;
+/* Overall section for abilities */
+.abilities-section {
+    margin-top: 1.5rem;
+}
+
+.abilities-section h4 {
     margin-bottom: 1rem;
+    color: #FFD700; /* Gold color for section header */
+    border-bottom: 1px solid #444;
+    padding-bottom: 0.5rem;
+}
+
+/* Styling for each individual ability item */
+.ability {
+    background: #1A1A1A;
+    padding: 1.2rem 1.5rem; /* Increased padding */
+    margin-bottom: 1.2rem; /* More space between abilities */
+    border-radius: 8px; /* Slightly more rounded corners */
+    border: 1px solid #3A3A3A; /* Softer border */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Subtle shadow for depth */
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+/* Hover effect for abilities */
+.ability:hover {
+    transform: translateY(-3px);
+    border-color: #B22222; /* Red border on hover */
+}
+
+/* Style for selected ability */
+.ability.selected {
+    border: 2px solid #B22222; /* Prominent red border when selected */
+    background-color: #252525; /* Slightly darker background for selected item */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Header within each ability (radio button, name, type tag) */
+.ability-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Pushes type-tag to the right */
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px dashed #3A3A3A; /* Dotted line for separation */
+}
+
+.ability-header label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    flex-grow: 1; /* Allows label to take available space */
+}
+
+.ability-header input[type="radio"] {
+    margin-right: 0.8rem;
+    transform: scale(1.2); /* Slightly larger radio button */
+    accent-color: #B22222; /* Red accent for radio button */
+}
+
+.ability-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #FFD700; /* Gold color for ability names */
+}
+
+.ability-types {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Styling for the ability type tags (e.g., Passive, Active) */
+.type-tag {
+    background-color: #444;
+    color: #eee;
+    padding: 0.3rem 0.7rem;
+    border-radius: 15px; /* Pill shape */
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap; /* Prevent wrapping */
+    display: flex;
+    align-items: center;
+    gap: 0.3rem; /* Space between icon and text */
+}
+
+/* Specific colors for Passive/Active tags.
+   If your wizard.js outputs classes like 'type-passive' or 'type-active',
+   use those classes instead of ':has()' for wider browser support.
+   Example: .type-tag.type-passive { background-color: #28A745; }
+*/
+.type-tag:has(.fa-star) { /* Targeting Passive abilities by icon, if used */
+    background-color: #28A745; /* Green for passive */
+}
+
+.type-tag:has(.fa-bolt) { /* Targeting Active abilities by icon, if used */
+    background-color: #007BFF; /* Blue for active */
+}
+
+
+/* Ability description */
+.ability-description {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #ccc;
+    margin-bottom: 1rem;
+}
+
+/* Tier Headers for abilities */
+.tier-header {
+    font-size: 1.3rem;
+    color: #FFF; /* White color for tier headers */
+    margin-top: 2rem;
+    margin-bottom: 1.5rem;
+    padding-left: 0.5rem;
+    border-left: 4px solid #FFD700; /* Gold border for emphasis */
+    background-color: #2A2A2A; /* Slightly lighter background for tier */
+    padding: 0.7rem 1rem;
     border-radius: 4px;
-    border-left: 3px solid #444;
 }
 
-.ability-item.required {
-    border-left-color: #4CAF50;
+
+/* Options section for abilities (checkboxes) */
+.ability-options {
+    background-color: #252525; /* Slightly darker background for options */
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px dashed #3A3A3A;
+    margin-top: 1rem;
 }
 
-.ability-item.optional {
-    border-left-color: #2196F3;
+.ability-options p {
+    font-weight: bold;
+    margin-bottom: 0.8rem;
+    color: #FFD700; /* Gold color for "Choose X" text */
+    font-size: 0.95rem;
 }
+
+.ability-option {
+    display: flex;
+    align-items: flex-start; /* Align checkbox with text top */
+    margin-bottom: 0.8rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #E0E0E0; /* Lighter text for options */
+}
+
+.ability-option:last-child {
+    margin-bottom: 0;
+}
+
+.ability-option input[type="checkbox"] {
+    margin-right: 0.7rem;
+    margin-top: 0.2rem; /* Align checkbox better with text */
+    transform: scale(1.1); /* Slightly larger checkbox */
+    accent-color: #4CAF50; /* Green accent for checkboxes */
+}
+
+/* Styling for disabled ability options */
+.ability-option input[type="checkbox"]:disabled + span {
+    color: #777; /* Grey out disabled text */
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Visually indicate disabled options */
+.ability-option input[type="checkbox"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 
 /* Specifically for "active" abilities that are SELECTED and ACTIVE */
 .ability-button.toggled-red {
@@ -306,6 +498,53 @@ body {
     color: white;
 }
 
+/* Styles for Destiny info in informer */
+.destiny-info {
+    padding: 1rem;
+}
+
+.destiny-info h3 {
+    color: #FFD700;
+    margin-bottom: 0.5rem;
+}
+
+.destiny-info p {
+    color: #E0E0E0;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.destiny-info .stats {
+    background-color: #252525;
+    padding: 0.8rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    border: 1px solid #3A3A3A;
+}
+
+.destiny-info .stats strong {
+    color: #FFD700;
+}
+
+.destiny-info .tags {
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.destiny-info .flaw-info {
+    background-color: #381a1a; /* Darker red background for flaw */
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid #B22222;
+    margin-top: 1.5rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.destiny-info .flaw-info h4 {
+    color: #FFD700;
+    margin-bottom: 0.5rem;
+}
+
 /* ===== ANIMATIONS ===== */
 @keyframes pulseError {
     0% { opacity: 0.5; }
@@ -315,15 +554,31 @@ body {
 
 /* ===== RESPONSIVE ADJUSTMENTS ===== */
 @media (max-width: 768px) {
-    .play-area {
+    .wizard-content {
         flex-direction: column;
     }
-    
+
+    /* On smaller screens, allow panels to take full width */
+    .selector-panel,
+    .informer-panel {
+        flex: auto;
+        max-width: 100%;
+    }
+
     .tools-panel {
         max-width: 100%;
     }
-    
+
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .ability-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .ability-types {
+        margin-top: 0.5rem;
     }
 }
