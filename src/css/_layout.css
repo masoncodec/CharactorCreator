@@ -1,8 +1,17 @@
 /* Layout & Containers */
+.character-creator {
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Make the character creator fill the screen */
+    box-sizing: border-box; /* Ensure padding/border don't add to height */
+}
+
 .wizard-container {
     display: flex;
     flex-direction: column;
-    height: 100vh; /* This makes the container fill the screen */
+    /* REMOVED: height: 100vh;  This is now handled by character-creator and flex-grow */
+    flex-grow: 1; /* Make wizard-container fill remaining vertical space within character-creator */
+    min-height: 0; /* Important for flex items with flex-grow and internal scrolling */
 }
 
 .wizard-content {
@@ -11,12 +20,7 @@
     padding-left: 2rem;
     padding-right: 2rem;
     gap: 2rem;
-    flex-grow: 1; /* This makes it fill all available vertical space */
-
-    /* REMOVED: height: calc(100vh - 69px - 48px); */
-    /* REMOVED: padding-top: 1rem; */
-    /* REMOVED: padding-bottom: 1rem; */
-
+    flex-grow: 1; /* This makes it fill all available vertical space within wizard-container */
     overflow-y: auto; /* Allow wizard-content itself to scroll if its internal content overflows */
     box-sizing: border-box; /* Ensures padding doesn't add to element's total height */
 }
