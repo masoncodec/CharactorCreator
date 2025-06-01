@@ -27,6 +27,13 @@
     background: #1A1A1A;
     cursor: pointer;
     transition: all 0.2s;
+    color: white; /* Set text color to white */
+}
+
+.dice-assignment-table button:hover {
+    /* Applying the same hover effect as .btn:hover from _buttons.css */
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
 .dice-assignment-table button.selected {
