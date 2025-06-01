@@ -47,6 +47,24 @@
     background-color: #C23232; /* A slightly lighter red than #B22222 */
 }
 
+/* Styles for disabled dice buttons */
+.dice-assignment-table button[disabled] {
+    opacity: 0.5; /* Grey out the button */
+    cursor: not-allowed; /* Change cursor to 'not-allowed' */
+    background-color: #1A1A1A; /* Ensure background is the base dark, or a specific grey */
+    border-color: #444; /* Keep original border or make it grey */
+    transform: none; /* Remove any transform on disabled state */
+    box-shadow: none; /* Remove any box-shadow on disabled state */
+}
+
+/* Ensure disabled buttons don't react to hover */
+.dice-assignment-table button[disabled]:hover {
+    background-color: #1A1A1A; /* Revert to base background on hover if disabled */
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
 .roll-result {
     min-width: 40px;
     text-align: center;
