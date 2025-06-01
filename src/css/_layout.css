@@ -27,44 +27,56 @@
     flex-direction: column;
     flex-grow: 1; /* This will make wizard-container fill the remaining vertical space */
     /* No height: 100vh here, as flex-grow manages its height within character-creator */
-    position: relative; /* Useful if you need to absolutely position children later, but not strictly for this fix */
+    /* REMOVE position: relative; if it's not strictly needed for other positioned children. */
+    /* It's usually harmless but can sometimes interfere if misused. */
 }
 
 .wizard-content {
     display: flex;
     flex-direction: row; /* Ensure panels are side-by-side */
-    padding-left: 2rem;
-    padding-right: 2rem;
-    gap: 2rem;
-    flex-grow: 1; /* Allow wizard-content to fill available space within wizard-container */
+    gap: 2rem; /* Keep your gap */
+    padding-left: 2rem; /* Keep your left/right padding */
+    padding-right: 2rem; /* Keep your left/right padding */
 
-    /* Crucial padding adjustment for fixed elements:
-       Top padding:
-       - 60px for the height of .header-controls (in flow)
-       - 69px for the height of .wizard-nav (fixed, positioned below .header-controls)
-       Total top padding = 60px + 69px = 129px
-       Bottom padding:
-       - 48px for the height of .wizard-controls (fixed)
-    */
-    padding-top: 129px; /* Accounts for header-controls and wizard-nav */
-    padding-bottom: 48px; /* Accounts for fixed wizard-controls */
+    /* CRITICAL CHANGE: Set the height directly using calc() */
+    /* Subtract the fixed heights from the total available height (100% of wizard-container's height) */
+    /* header-controls: 60px */
+    /* wizard-nav: ~69px (padding + content height) */
+    /* wizard-controls: ~48px (padding + content height) */
+    /* Total fixed height to subtract: 60px (header) + 69px (nav) + 48px (controls) = 177px */
+    height: calc(100% - (60px + 69px + 48px)); /* Or calculate these precisely, e.g., 100% - 177px */
+    height: calc(100% - 177px); /* Simpler if you confirm the total fixed height */
 
-    /* IMPORTANT: Remove overflow-y: auto from wizard-content. */
-    /* Let the individual panels handle their own scrolling. */
-    /* overflow-y: auto; -- REMOVED */
+    /* Ensure wizard-content itself can scroll if its content area exceeds this calc() height */
+    /* But we want the panels to scroll, so remove this if it's there from previous attempts: */
+    overflow-y: hidden; /* Prevent wizard-content itself from scrolling, let panels scroll */
 
-    box-sizing: border-box;
+    box-sizing: border-box; /* Crucial for calc() to work correctly with padding */
+
+    /* REMOVE these paddings if wizard-nav and wizard-controls are truly fixed and */
+    /* we are setting wizard-content's height with calc() */
+    /* padding-top: 129px; */
+    /* padding-bottom: 48px; */
+    /* Instead, the top/bottom spacing is visually handled by the fixed elements overlaying */
+    /* the wizard-content. We are calculating the *actual content height* for wizard-content. */
 }
+
+/* IMPORTANT: Re-adjust the fixed positions of wizard-nav and wizard-controls */
+/* in _navigation.css if they are overlapping content unexpectedly. */
+/* The calc() on wizard-content is for its internal height. */
+/* The visual spacing will be created by the fixed elements themselves. */
+
 
 .panel {
     background: #2D2D2D;
     padding: 1.5rem;
     border-radius: 8px;
-    height: 100%; /* Ensures panel takes full height of wizard-content */
-    overflow-y: auto; /* Enable scrolling for content that exceeds panel height */
+    height: 100%; /* Now, 100% of the *calculated* height of wizard-content */
+    overflow-y: auto; /* This should now correctly enable scrolling */
     flex-shrink: 1; /* Allow panels to shrink */
-    min-height: 0; /* Important for flex items with overflow-y: auto */
-    box-sizing: border-box; /* Ensure panel's padding is included in its height calculation */
+    min-height: 0; /* Still essential for flex items with overflow-y: auto */
+    box-sizing: border-box;
+    flex-grow: 1; /* Still good to have to fill available space */
 }
 
 /* Specific panel sizing (keep existing) */
