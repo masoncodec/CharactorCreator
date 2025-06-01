@@ -34,11 +34,17 @@
     /* Applying the same hover effect as .btn:hover from _buttons.css */
     transform: translateY(-2px);
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    background-color: #2A2A2A; /* Slightly lighter on hover */
 }
 
 .dice-assignment-table button.selected {
     background: #B22222;
     border-color: #FFD700;
+}
+
+.dice-assignment-table button.selected:hover {
+    /* Slightly lighter on hover for selected buttons */
+    background-color: #C23232; /* A slightly lighter red than #B22222 */
 }
 
 .roll-result {
