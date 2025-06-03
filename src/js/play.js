@@ -70,7 +70,7 @@ function getActiveModifiersForAttribute(attributeName) {
 }
 
 // Helper function to render modifier display elements and the unmodified result
-// This function is now responsible for re-rendering the modifier columns within the dice-assignment
+// This function is now responsible for re-rendering the modifier columns within the attribute-row
 // It replaces the previous renderModifierDisplays functionality for dynamic updates
 function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResult, activeModifiers) {
     // Select existing elements or create placeholders if they don't exist
@@ -146,7 +146,7 @@ function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResul
     }
 
     // Display blue unmodified result (Column 4 + MAX_MODIFIER_COLUMNS)
-    // This element should always be the last one in the grid row for dice-assignment
+    // This element should always be the last one in the grid row for attribute-row
     if (activeModifiers.length > 0) {
         blueResultEl.textContent = baseResult;
         blueResultEl.classList.add('visible');
@@ -163,7 +163,7 @@ function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResul
 function attachAttributeRollListeners() {
     document.querySelectorAll('.attribute-roll').forEach(btn => {
         btn.addEventListener('click', function() {
-            const assignment = this.closest('.dice-assignment');
+            const assignment = this.closest('.attribute-row');
             const attributeName = assignment.getAttribute('data-attribute');
             const dieType = assignment.getAttribute('data-dice');
             const baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
@@ -173,7 +173,7 @@ function attachAttributeRollListeners() {
 
             const modifiedResult = baseResult + totalModifier; // Apply modifier to the result
 
-            // Update the display for this specific dice-assignment
+            // Update the display for this specific attribute-row
             updateAttributeRollDisplay(assignment, baseResult, modifiedResult, activeModifiers);
         });
     });
@@ -405,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`; // Placeholder
 
                             return `
-                                <div class="dice-assignment" data-attribute="${attr}" data-dice="${die}">
+                                <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
                                     <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
                                     <div class="die-type-container">
                                         <span class="die-type">${die.toUpperCase()}</span>
@@ -434,7 +434,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`; // Placeholder
 
                         attributesHtml += `
-                            <div class="dice-assignment" data-attribute="luck" data-dice="d100">
+                            <div class="attribute-row" data-attribute="luck" data-dice="d100">
                                 <label>Luck</label>
                                 <div class="die-type-container">
                                     <span class="die-type">D100</span>
@@ -545,7 +545,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
 
                                             return `
-                                                <div class="dice-assignment" data-attribute="${attr}" data-dice="${die}">
+                                                <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
                                                     <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
                                                     <div class="die-type-container">
                                                         <span class="die-type">${die.toUpperCase()}</span>
@@ -576,7 +576,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                             : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
 
                                         newAttributesHtml += `
-                                            <div class="dice-assignment" data-attribute="luck" data-dice="d100">
+                                            <div class="attribute-row" data-attribute="luck" data-dice="d100">
                                                 <label>Luck</label>
                                                 <div class="die-type-container">
                                                     <span class="die-type">D100</span>

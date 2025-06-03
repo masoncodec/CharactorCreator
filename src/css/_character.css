@@ -3,7 +3,7 @@
 /* --- Revised CSS Grid Structure for Attributes --- */
 
 /* Container for the grid of attributes */
-/* This container will now stack the individual dice-assignment rows vertically */
+/* This container will now stack the individual attribute-row rows vertically */
 .attributes-grid-container {
     display: flex; /* Use flexbox to stack attribute rows */
     flex-direction: column; /* Stack them vertically */
@@ -16,16 +16,16 @@
 }
 
 /* Each dice-assignment will now be its own independent CSS Grid row */
-.dice-assignment {
+.attribute-row {
     display: grid; /* Make this div a grid container itself */
     /* Define grid template columns based on the max number of modifiers (5) */
     /* Total columns: 1 (Name) + 1 (Die/Roll) + 1 (Yellow Result) + 5 (Modifiers) + 1 (Unmod Result) = 9 columns */
-    /* auto: Attribute Name (content-based width) */
-    /* 1fr: Die Type & Roll Button (flexible width) */
+    /* 1fr: Attribute Name (flexible width) */
+    /* 1.2fr: Die Type & Roll Button (flexible width, slightly larger for contents) */
     /* 0.7fr: Yellow Roll Result (flexible, slightly smaller) */
-    /* repeat(5, minmax(40px, 0.5fr)): 5 modifier columns (min 40px, flexible 0.5fr each) */
+    /* repeat(5, 0.6fr): 5 modifier columns (flexible 0.6fr each, slightly larger) */
     /* 0.7fr: Unmodified Roll Result (flexible, slightly smaller) */
-    grid-template-columns: auto 1fr 0.7fr repeat(5, minmax(40px, 0.5fr)) 0.7fr;
+    grid-template-columns: 1fr 1.2fr 0.7fr repeat(5, 0.6fr) 0.7fr;
     gap: 10px; /* Space between columns within a single row */
     padding: 8px 12px; /* Padding for the entire row */
     border-radius: 4px; /* Slight rounding for the row background */
@@ -34,22 +34,22 @@
 }
 
 /* Remove bottom border from the last attribute row */
-.dice-assignment:last-child {
+.attribute-row:last-child {
     border-bottom: none;
 }
 
 
-/* Alternating row backgrounds applied directly to the dice-assignment rows */
-.dice-assignment:nth-child(odd) {
+/* Alternating row backgrounds applied directly to the attribute-row rows */
+.attribute-row:nth-child(odd) {
     background-color: #1A1A1A; /* Darker background for odd rows */
 }
 
-.dice-assignment:nth-child(even) {
+.attribute-row:nth-child(even) {
     background-color: #252525; /* Lighter background for even rows */
 }
 
 /* Specific column alignment and styling */
-.dice-assignment label {
+.attribute-row label {
     font-weight: bold;
     color: #FFD700; /* Gold for attribute names */
     grid-column: 1; /* Explicitly place in column 1 */
@@ -85,7 +85,7 @@
 }
 
 /* Modifiers (Columns 4 to 8) */
-/* Each modifier span gets its own implicit grid column based on HTML order within dice-assignment */
+/* Each modifier span gets its own implicit grid column based on HTML order within attribute-row */
 .modifier-display {
     color: #03AC13; /* Green for modifiers */
     text-align: center;
@@ -111,11 +111,11 @@
     visibility: hidden; /* Hides content but maintains grid column */
 }
 
-/* Ensure all relevant text is the same size within dice-assignment */
-.dice-assignment label,
-.dice-assignment span,
-.dice-assignment div,
-.dice-assignment button {
+/* Ensure all relevant text is the same size within attribute-row */
+.attribute-row label,
+.attribute-row span,
+.attribute-row div,
+.attribute-row button {
     font-size: 1rem; /* Base font size for all children */
     line-height: 1.2; /* Adjust line height for compactness */
 }
