@@ -97,13 +97,13 @@ function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResul
     // Clear previous dynamic modifier spans
     assignmentElement.querySelectorAll('.modifier-display, .empty-modifier-cell').forEach(el => el.remove());
 
-    // Display yellow modified result (Column 3)
+    // Display yellow modified result (Column 4)
     yellowResultEl.textContent = modifiedResult;
     yellowResultEl.classList.add('visible');
     setTimeout(() => yellowResultEl.classList.add('fade-out'), 2000);
 
 
-    // Re-render Modifiers (Columns 4 to 4 + MAX_MODIFIER_COLUMNS - 1)
+    // Re-render Modifiers (Columns 5 to 5 + MAX_MODIFIER_COLUMNS - 1)
     const modifiersToDisplay = activeModifiers.slice(0, MAX_MODIFIER_COLUMNS); // Cap at MAX_MODIFIER_COLUMNS
 
     // Add actual modifiers and append them directly after the roll-result element
@@ -145,7 +145,7 @@ function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResul
         lastInsertedElement = emptyModSpan; // Update last inserted element
     }
 
-    // Display blue unmodified result (Column 4 + MAX_MODIFIER_COLUMNS)
+    // Display blue unmodified result (Column 10)
     // This element should always be the last one in the grid row for attribute-row
     if (activeModifiers.length > 0) {
         blueResultEl.textContent = baseResult;
@@ -407,11 +407,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             return `
                                 <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
                                     <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
-                                    <div class="die-type-container">
-                                        <span class="die-type">${die.toUpperCase()}</span>
-                                        <button class="btn-roll attribute-roll">Roll</button>
-                                    </div>
-                                    <div class="roll-result"></div> ${modifierSpans} ${unmodifiedResultHtml} </div>
+                                    <span class="die-type">${die.toUpperCase()}</span>
+                                    <button class="btn-roll attribute-roll">Roll</button>
+                                    <div class="roll-result"></div>
+                                    ${modifierSpans}
+                                    ${unmodifiedResultHtml}
+                                </div>
                             `;
                         }).join('');
 
@@ -436,10 +437,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         attributesHtml += `
                             <div class="attribute-row" data-attribute="luck" data-dice="d100">
                                 <label>Luck</label>
-                                <div class="die-type-container">
-                                    <span class="die-type">D100</span>
-                                    <button class="btn-roll attribute-roll">Roll</button>
-                                </div>
+                                <span class="die-type">D100</span>
+                                <button class="btn-roll attribute-roll">Roll</button>
                                 <div class="roll-result"></div>
                                 ${luckModifierSpans}
                                 ${unmodifiedLuckResultHtml}
@@ -480,7 +479,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         ` : ''}
 
-                        ${renderAbilities(character)}  <div class="character-info">
+                        ${renderAbilities(character)}
+                        <div class="character-info">
                             <h4>Info</h4>
                             <p><strong>Name:</strong> ${character.info.name}</p>
                             <p><strong>Bio:</strong> ${character.info.bio || 'N/A'}</p>
@@ -547,10 +547,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                             return `
                                                 <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
                                                     <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
-                                                    <div class="die-type-container">
-                                                        <span class="die-type">${die.toUpperCase()}</span>
-                                                        <button class="btn-roll attribute-roll">Roll</button>
-                                                    </div>
+                                                    <span class="die-type">${die.toUpperCase()}</span>
+                                                    <button class="btn-roll attribute-roll">Roll</button>
                                                     <div class="roll-result"></div>
                                                     ${modifierSpans}
                                                     ${unmodifiedResultHtml}
@@ -578,10 +576,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                         newAttributesHtml += `
                                             <div class="attribute-row" data-attribute="luck" data-dice="d100">
                                                 <label>Luck</label>
-                                                <div class="die-type-container">
-                                                    <span class="die-type">D100</span>
-                                                    <button class="btn-roll attribute-roll">Roll</button>
-                                                </div>
+                                                <span class="die-type">D100</span>
+                                                <button class="btn-roll attribute-roll">Roll</button>
                                                 <div class="roll-result"></div>
                                                 ${luckModifierSpans}
                                                 ${unmodifiedLuckResultHtml}

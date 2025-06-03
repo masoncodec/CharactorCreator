@@ -19,13 +19,14 @@
 .attribute-row {
     display: grid; /* Make this div a grid container itself */
     /* Define grid template columns based on the max number of modifiers (5) */
-    /* Total columns: 1 (Name) + 1 (Die/Roll) + 1 (Yellow Result) + 5 (Modifiers) + 1 (Unmod Result) = 9 columns */
+    /* Total columns: 1 (Name) + 1 (Die Type) + 1 (Roll Button) + 1 (Yellow Result) + 5 (Modifiers) + 1 (Unmod Result) = 10 columns */
     /* 1fr: Attribute Name (flexible width) */
-    /* 1.2fr: Die Type & Roll Button (flexible width, slightly larger for contents) */
+    /* 0.8fr: Die Type (flexible width, slightly smaller) */
+    /* 0.6fr: Roll Button (fixed smaller width for button) */
     /* 0.7fr: Yellow Roll Result (flexible, slightly smaller) */
     /* repeat(5, 0.6fr): 5 modifier columns (flexible 0.6fr each, slightly larger) */
     /* 0.7fr: Unmodified Roll Result (flexible, slightly smaller) */
-    grid-template-columns: 1fr 1.2fr 0.7fr repeat(5, 0.6fr) 0.7fr;
+    grid-template-columns: 1fr 0.8fr 0.6fr 0.7fr repeat(5, 0.6fr) 0.7fr;
     gap: 10px; /* Space between columns within a single row */
     padding: 8px 12px; /* Padding for the entire row */
     border-radius: 4px; /* Slight rounding for the row background */
@@ -56,35 +57,33 @@
     white-space: nowrap; /* Prevent wrapping for attribute names */
 }
 
-/* Container for Die Type and Roll Button - now in one column */
-.die-type-container {
-    display: flex; /* Use flexbox to arrange items within this cell */
-    gap: 8px; /* Space between die type and roll button */
-    align-items: center;
-    grid-column: 2; /* Explicitly place in column 2 */
-}
-
-.die-type-container .die-type {
+/* Die Type - now in its own column */
+.die-type {
     font-weight: bold;
     color: #E0E0E0;
     white-space: nowrap; /* Prevent wrapping for die type */
+    grid-column: 2; /* Explicitly place in column 2 */
+    text-align: left; /* Left align the die type */
 }
 
-.die-type-container .btn-roll {
+/* Roll Button - now in its own column */
+.btn-roll {
     font-size: 0.9em; /* Smaller button text */
     padding: 5px 10px;
     white-space: nowrap; /* Prevent button text from wrapping */
+    grid-column: 3; /* Explicitly place in column 3 */
+    justify-self: center; /* Center the button within its grid cell */
 }
 
-/* Roll Results - Yellow Modified (Column 3) */
+/* Roll Results - Yellow Modified (Column 4) */
 .roll-result {
     font-weight: bold;
     color: #FFD700; /* Yellow for modified result */
     text-align: center;
-    grid-column: 3; /* Explicitly place in column 3 */
+    grid-column: 4; /* Explicitly place in column 4 */
 }
 
-/* Modifiers (Columns 4 to 8) */
+/* Modifiers (Columns 5 to 9) */
 /* Each modifier span gets its own implicit grid column based on HTML order within attribute-row */
 .modifier-display {
     color: #03AC13; /* Green for modifiers */
@@ -98,12 +97,12 @@
     /* A non-breaking space (set in JS) also helps ensure the cell takes up space */
 }
 
-/* Unmodified Roll Result - Blue (Column 9) */
+/* Unmodified Roll Result - Blue (Column 10) */
 .unmodified-roll-result {
     color: #6495ED; /* Blue for unmodified result */
     text-align: center;
     font-style: italic;
-    grid-column: 9; /* Explicitly place in the last column */
+    grid-column: 10; /* Explicitly place in the last column */
 }
 
 /* Hide empty unmodified result cells (these are added by JS for structure if no modifiers) */
@@ -121,8 +120,9 @@
 }
 
 /* Specific adjustment for die-type-container items if needed (ensure they don't get overridden) */
-.die-type-container .die-type,
-.die-type-container .btn-roll {
+/* .die-type-container was removed */
+.die-type, /* Directly target die-type */
+.btn-roll { /* Directly target btn-roll */
     font-size: 1rem; /* Ensure consistent font size */
 }
 
