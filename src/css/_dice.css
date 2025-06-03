@@ -1,3 +1,4 @@
+/* _dice.css */
 /* Dice System */
 .dice-container {
     display: flex;
@@ -65,15 +66,30 @@
     box-shadow: none;
 }
 
+/* Existing roll-result adjustments to ensure consistent fading */
 .roll-result {
-    min-width: 40px;
-    text-align: center;
+    font-size: 1.5em; /* Keep original size */
     font-weight: bold;
-    color: #FFD700;
-    opacity: 0;
-    transition: opacity 0.3s;
+    color: yellow;
+    min-width: 40px; /* Ensure space */
+    text-align: center;
+    margin-left: auto; /* Pushes the element to the far right */
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.5s ease-out;
 }
 
 .roll-result.visible {
-    opacity: 1;
+    opacity: 1; /* Visible when result is displayed */
+}
+
+.roll-result.fade-out {
+    opacity: 0; /* Fades out */
+}
+
+/* Adjust dice-assignment to use flexbox for proper alignment */
+.dice-assignment {
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Adjust spacing between elements */
+    margin-bottom: 10px;
 }

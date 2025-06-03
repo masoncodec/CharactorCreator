@@ -1,3 +1,4 @@
+/* _roll.css */
 /* Styles for the blue unmodified roll result */
 .unmodified-roll-result {
     font-size: 1.2em;
@@ -57,33 +58,4 @@
     10% { opacity: 1; } /* Fully visible quickly */
     90% { opacity: 1; }
     100% { opacity: 0; } /* Fades out at the end */
-}
-
-/* Existing roll-result adjustments to ensure consistent fading */
-.roll-result {
-    font-size: 1.5em; /* Keep original size */
-    font-weight: bold;
-    color: yellow;
-    min-width: 40px; /* Ensure space */
-    text-align: center;
-    /* margin-left: 10px; This was causing it not to be far right */
-    margin-left: auto; /* Pushes the element to the far right */
-    opacity: 0; /* Hidden by default */
-    transition: opacity 0.5s ease-out;
-}
-
-.roll-result.visible {
-    opacity: 1; /* Visible when result is displayed */
-}
-
-.roll-result.fade-out {
-    opacity: 0; /* Fades out */
-}
-
-/* Adjust dice-assignment to use flexbox for proper alignment */
-.dice-assignment {
-    display: flex;
-    align-items: center;
-    gap: 5px; /* Adjust spacing between elements */
-    margin-bottom: 10px;
 }

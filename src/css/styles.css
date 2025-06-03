@@ -1,3 +1,4 @@
+/* styles.css */
 /*
  * Main Stylesheet for Character Creator
  * Imports all component-specific stylesheets.
@@ -15,5 +16,6 @@
  @import './_abilities.css';
  @import './_informer.css';
  @import './_utilities.css';
+ @import './_roll.css'; /* Added _roll.css for roll results and modifiers */
  
  /* Any global overrides or very specific styles that don't fit elsewhere could go here */
