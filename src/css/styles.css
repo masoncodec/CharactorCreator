@@ -19,3 +19,30 @@
  @import './_roll.css'; /* Added _roll.css for roll results and modifiers */
  
  /* Any global overrides or very specific styles that don't fit elsewhere could go here */
+ /* General typography enhancements for readability */
+ body {
+    font-size: 16px; /* Base font size */
+    line-height: 1.6; /* Improved line height for readability */
+ }
+
+ h1, h2, h3, h4, h5, h6 {
+    color: #FFD700; /* Gold for all headings by default */
+    margin-bottom: 1rem;
+    margin-top: 1.5rem;
+    font-weight: 700; /* Bolder headings */
+ }
+
+ p {
+    color: #E0E0E0; /* Lighter grey for body text */
+    margin-bottom: 1rem;
+ }
+
+ /* Subtle background variation for main content areas if desired */
+ .play-area, .character-creator {
+    background-color: #1A1A1A; /* Base dark background */
+ }
+
+ /* Enhancements for panels (already in _layout.css, but adding here for emphasis on general polish) */
+ .panel {
+    border: 1px solid #3A3A3A; /* Slightly more defined border */
+ }

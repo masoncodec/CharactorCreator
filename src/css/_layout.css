@@ -10,7 +10,6 @@
 .wizard-container {
     display: flex;
     flex-direction: column;
-    /* REMOVED: height: 100vh;  This is now handled by character-creator and flex-grow */
     flex-grow: 1; /* Make wizard-container fill remaining vertical space within character-creator */
     min-height: 0; /* Important for flex items with flex-grow and internal scrolling */
 }
@@ -34,7 +33,15 @@
     flex-shrink: 1; /* Allow panels to shrink */
     min-height: 0; /* Important for flex items with overflow-y: auto */
     box-sizing: border-box; /* Ensure panel's padding is included in its height calculation */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); /* Enhanced shadow for polish */
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; /* Smooth transition */
 }
+
+.panel:hover {
+    transform: translateY(-3px); /* Subtle lift on hover */
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5); /* Enhanced shadow on hover */
+}
+
 
 /* Specific panel sizing */
 .selector-panel {
@@ -46,35 +53,52 @@
     max-width: 350px;
 }
 
-/* Other specific panel layouts (if used elsewhere in the app) */
-.character-sheet {
-    flex: 1;
+/* Play Area Specific Layout */
+.play-area {
+    display: flex;
+    flex-direction: column; /* Stack header/link and content */
+    padding: 1.5rem 2rem; /* Consistent padding around the play area */
+    flex-grow: 1;
+    min-height: 0;
+    box-sizing: border-box;
 }
 
-.narrative-panel {
-    flex: 2;
+.play-area-content {
+    display: flex;
+    flex-direction: row; /* Panels side-by-side */
+    gap: 2rem; /* Spacing between panels */
+    flex-grow: 1; /* Allows content to fill available space */
+    min-height: 0;
+    margin-top: 1.5rem; /* Space below the home link */
+}
+
+.character-sheet {
+    flex: 2; /* Character sheet takes more space */
 }
 
 .tools-panel {
     flex: 1;
-    max-width: 250px;
+    max-width: 400px; /* Max width for tools panel */
 }
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
-    .wizard-content {
+    .wizard-content, .play-area-content {
         flex-direction: column; /* Stack panels on smaller screens */
-        /* height: auto; // Let flex-grow handle height, no fixed height needed */
+        padding-left: 1rem;
+        padding-right: 1rem;
     }
 
     .selector-panel,
-    .informer-panel {
+    .informer-panel,
+    .character-sheet,
+    .tools-panel {
         flex: auto;
         max-width: 100%;
         height: auto; /* Allow natural height for stacked panels */
     }
 
-    .tools-panel {
-        max-width: 100%;
+    .play-area {
+        padding: 1rem;
     }
 }
