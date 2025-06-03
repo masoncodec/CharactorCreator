@@ -1,3 +1,11 @@
+// play.js
+
+// === Configuration for Attribute Display ===
+// IMPORTANT: This constant defines the maximum number of modifier columns.
+// If an attribute has more modifiers than this, they will not be displayed.
+// If an attribute has fewer, empty columns will be created to maintain grid structure.
+const MAX_MODIFIER_COLUMNS = 5; // User-defined maximum number of modifiers
+
 // A simple alerter utility for displaying messages.
 // This uses alert() for immediate feedback and console.log() for logging.
 const alerter = {
@@ -61,36 +69,92 @@ function getActiveModifiersForAttribute(attributeName) {
     return activeModifiers;
 }
 
-// Helper function to render modifier display elements
-function renderModifierDisplays(modifiers, containerElement) {
-    containerElement.innerHTML = ''; // Clear previous modifiers
-    if (modifiers.length > 0) {
-        modifiers.forEach(mod => {
-            const modSpan = document.createElement('span');
-            modSpan.classList.add('modifier-display');
-            modSpan.textContent = (mod.value > 0 ? '+' : '') + mod.value;
-            modSpan.style.color = mod.value > 0 ? '#03AC13' : '#FF0000'; // Apply colors
-            modSpan.dataset.abilityName = mod.abilityName; // Store ability name for tooltip
+// Helper function to render modifier display elements and the unmodified result
+// This function is now responsible for re-rendering the modifier columns within the dice-assignment
+// It replaces the previous renderModifierDisplays functionality for dynamic updates
+function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResult, activeModifiers) {
+    // Select existing elements or create placeholders if they don't exist
+    let yellowResultEl = assignmentElement.querySelector('.roll-result');
+    let blueResultEl = assignmentElement.querySelector('.unmodified-roll-result');
 
-            // Add click listener for tooltip
-            modSpan.addEventListener('click', function(event) {
-                const tooltip = document.createElement('div');
-                tooltip.classList.add('modifier-tooltip');
-                tooltip.textContent = this.dataset.abilityName;
-                // Position the tooltip over the number
-                tooltip.style.left = `${event.clientX}px`;
-                tooltip.style.top = `${event.clientY - 20}px`; // Adjust for vertical positioning
-                document.body.appendChild(tooltip);
+    // Ensure elements exist. They should be created during initial rendering, but this is a fallback.
+    if (!yellowResultEl) {
+        yellowResultEl = document.createElement('div');
+        yellowResultEl.classList.add('roll-result');
+        assignmentElement.appendChild(yellowResultEl);
+    }
+    if (!blueResultEl) {
+        blueResultEl = document.createElement('div');
+        blueResultEl.classList.add('unmodified-roll-result');
+        assignmentElement.appendChild(blueResultEl);
+    }
 
-                // Remove tooltip after a few seconds
-                setTimeout(() => {
-                    if (document.body.contains(tooltip)) { // Check if it still exists before removing
-                        document.body.removeChild(tooltip);
-                    }
-                }, 3000); // Visible for 3 seconds
-            });
-            containerElement.appendChild(modSpan);
+    // --- IMPORTANT FIX: Reset classes to ensure display on subsequent rolls ---
+    yellowResultEl.classList.remove('visible', 'fade-out');
+    blueResultEl.classList.remove('visible', 'fade-out');
+    blueResultEl.classList.remove('empty-unmodified-cell'); // Ensure visibility if it becomes active
+
+    // Clear previous dynamic modifier spans
+    assignmentElement.querySelectorAll('.modifier-display, .empty-modifier-cell').forEach(el => el.remove());
+
+    // Display yellow modified result (Column 3)
+    yellowResultEl.textContent = modifiedResult;
+    yellowResultEl.classList.add('visible');
+    setTimeout(() => yellowResultEl.classList.add('fade-out'), 2000);
+
+
+    // Re-render Modifiers (Columns 4 to 4 + MAX_MODIFIER_COLUMNS - 1)
+    const modifiersToDisplay = activeModifiers.slice(0, MAX_MODIFIER_COLUMNS); // Cap at MAX_MODIFIER_COLUMNS
+
+    // Add actual modifiers and append them directly after the roll-result element
+    // This ensures they are inserted in the correct grid column order after the yellow result.
+    const rollResultColumn = assignmentElement.querySelector('.roll-result');
+    let lastInsertedElement = rollResultColumn; // Start inserting after the roll result
+
+    modifiersToDisplay.forEach(mod => {
+        const modSpan = document.createElement('span');
+        modSpan.classList.add('modifier-display');
+        modSpan.textContent = (mod.value > 0 ? '+' : '') + mod.value;
+        modSpan.style.color = mod.value > 0 ? '#03AC13' : '#FF0000';
+        modSpan.dataset.abilityName = mod.abilityName;
+
+        modSpan.addEventListener('click', function(event) {
+            const tooltip = document.createElement('div');
+            tooltip.classList.add('modifier-tooltip');
+            tooltip.textContent = this.dataset.abilityName;
+            tooltip.style.left = `${event.clientX}px`;
+            tooltip.style.top = `${event.clientY - 20}px`;
+            document.body.appendChild(tooltip);
+            setTimeout(() => {
+                if (document.body.contains(tooltip)) {
+                    document.body.removeChild(tooltip);
+                }
+            }, 3000);
         });
+        // Insert modifiers after the last inserted element
+        lastInsertedElement.insertAdjacentElement('afterend', modSpan);
+        lastInsertedElement = modSpan; // Update last inserted element
+    });
+
+    // Add empty modifier cells to maintain grid columns (if needed)
+    for (let i = modifiersToDisplay.length; i < MAX_MODIFIER_COLUMNS; i++) {
+        const emptyModSpan = document.createElement('span');
+        emptyModSpan.classList.add('modifier-display', 'empty-modifier-cell');
+        emptyModSpan.innerHTML = '&nbsp;'; // Non-breaking space to maintain height
+        lastInsertedElement.insertAdjacentElement('afterend', emptyModSpan);
+        lastInsertedElement = emptyModSpan; // Update last inserted element
+    }
+
+    // Display blue unmodified result (Column 4 + MAX_MODIFIER_COLUMNS)
+    // This element should always be the last one in the grid row for dice-assignment
+    if (activeModifiers.length > 0) {
+        blueResultEl.textContent = baseResult;
+        blueResultEl.classList.add('visible');
+        setTimeout(() => blueResultEl.classList.add('fade-out'), 2000);
+    } else {
+        // If no modifiers, ensure it's hidden but space is maintained
+        blueResultEl.textContent = '';
+        blueResultEl.classList.add('empty-unmodified-cell');
     }
 }
 
@@ -109,30 +173,8 @@ function attachAttributeRollListeners() {
 
             const modifiedResult = baseResult + totalModifier; // Apply modifier to the result
 
-            const blueResultEl = assignment.querySelector('.unmodified-roll-result'); // Blue unmodified result
-            const yellowResultEl = assignment.querySelector('.roll-result'); // Yellow modified result
-            const modifiersContainer = assignment.querySelector('.modifiers-container'); // Container for modifiers
-
-            // Reset visibility
-            blueResultEl.textContent = '';
-            yellowResultEl.textContent = '';
-            blueResultEl.classList.remove('visible', 'fade-out');
-            yellowResultEl.classList.remove('visible', 'fade-out');
-
-            // Display blue unmodified result if there are mods
-            if (activeModifiers.length > 0) {
-                blueResultEl.textContent = baseResult;
-                blueResultEl.classList.add('visible');
-                setTimeout(() => blueResultEl.classList.add('fade-out'), 2000); // Fade out after 2 seconds
-            }
-
-            // Display yellow modified result
-            yellowResultEl.textContent = modifiedResult;
-            yellowResultEl.classList.add('visible');
-            setTimeout(() => yellowResultEl.classList.add('fade-out'), 2000); // Fade out after 2 seconds
-
-            // Re-render modifiers explicitly on roll
-            renderModifierDisplays(activeModifiers, modifiersContainer);
+            // Update the display for this specific dice-assignment
+            updateAttributeRollDisplay(assignment, baseResult, modifiedResult, activeModifiers);
         });
     });
 }
@@ -339,6 +381,73 @@ document.addEventListener('DOMContentLoaded', function() {
                 activeCharacter = character; // Store the active character
 
                 if (character) {
+                    // Start of modified attribute rendering logic
+                    let attributesHtml = '';
+                    if (character.attributes) {
+                        attributesHtml = Object.entries(character.attributes).map(([attr, die]) => {
+                            // Get initial modifiers for the attribute
+                            const initialModifiers = getActiveModifiersForAttribute(attr);
+                            const hasModifiers = initialModifiers.length > 0;
+
+                            let modifierSpans = '';
+                            for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                                const mod = initialModifiers[i];
+                                if (mod) {
+                                    modifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                                } else {
+                                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`; // Placeholder
+                                }
+                            }
+
+                            // Render unmodified result conditionally
+                            const unmodifiedResultHtml = hasModifiers
+                                ? `<div class="unmodified-roll-result">${attr.unmodifiedResult !== undefined ? attr.unmodifiedResult : ''}</div>`
+                                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`; // Placeholder
+
+                            return `
+                                <div class="dice-assignment" data-attribute="${attr}" data-dice="${die}">
+                                    <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
+                                    <div class="die-type-container">
+                                        <span class="die-type">${die.toUpperCase()}</span>
+                                        <button class="btn-roll attribute-roll">Roll</button>
+                                    </div>
+                                    <div class="roll-result"></div> ${modifierSpans} ${unmodifiedResultHtml} </div>
+                            `;
+                        }).join('');
+
+                        // Add Luck attribute specifically
+                        const initialLuckModifiers = getActiveModifiersForAttribute('luck');
+                        const hasLuckModifiers = initialLuckModifiers.length > 0;
+
+                        let luckModifierSpans = '';
+                        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                            const mod = initialLuckModifiers[i];
+                            if (mod) {
+                                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                            } else {
+                                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`; // Placeholder
+                            }
+                        }
+
+                        const unmodifiedLuckResultHtml = hasLuckModifiers
+                            ? `<div class="unmodified-roll-result"></div>` // Content filled by JS on roll
+                            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`; // Placeholder
+
+                        attributesHtml += `
+                            <div class="dice-assignment" data-attribute="luck" data-dice="d100">
+                                <label>Luck</label>
+                                <div class="die-type-container">
+                                    <span class="die-type">D100</span>
+                                    <button class="btn-roll attribute-roll">Roll</button>
+                                </div>
+                                <div class="roll-result"></div>
+                                ${luckModifierSpans}
+                                ${unmodifiedLuckResultHtml}
+                            </div>
+                        `;
+                    }
+                    // End of modified attribute rendering logic
+
                     characterDetails.innerHTML = `
                         <div class="character-header">
                             <h3>${character.info.name}</h3>
@@ -348,30 +457,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         <div class="character-stats">
                             <h4>Attributes</h4>
-                            <div class="dice-assignments">
-                                ${Object.entries(character.attributes).map(([attr, die]) => `
-                                    <div class="dice-assignment" data-attribute="${attr}" data-dice="${die}">
-                                        <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
-                                        <div class="die-type">${die.toUpperCase()}</div>
-                                        <button class="btn-roll attribute-roll">Roll</button>
-                                        <div class="unmodified-roll-result"></div>
-                                        <div class="modifiers-container"></div>
-                                        <div class="roll-result"></div>
-                                    </div>
-                                `).join('')}
-                                <div class="dice-assignment" data-attribute="luck" data-dice="d100">
-                                    <label>Luck</label>
-                                    <div class="die-type">D100</div>
-                                    <button class="btn-roll attribute-roll">Roll</button>
-                                    <div class="unmodified-roll-result"></div>
-                                    <div class="modifiers-container"></div>
-                                    <div class="roll-result"></div>
-                                </div>
+                            <div class="attributes-grid-container"> ${attributesHtml}
                             </div>
                         </div>
 
                         <div class="character-health health-display">
-                            </div>
+                        </div>
 
                         ${character.selectedFlaw ? `
                         <div class="character-flaw">
@@ -398,14 +489,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Render initial health display
                     renderHealthDisplay(activeCharacter); // Call the new function here
 
-                    // After character details are rendered, initialize modifier displays
-                    document.querySelectorAll('.dice-assignment').forEach(assignment => {
-                        const attributeName = assignment.getAttribute('data-attribute');
-                        const modifiersContainer = assignment.querySelector('.modifiers-container');
-                        const activeModifiers = getActiveModifiersForAttribute(attributeName);
-                        renderModifierDisplays(activeModifiers, modifiersContainer);
-                    });
-
+                    // After character details are rendered, attach event listeners
                     attachAttributeRollListeners(); // Attach listeners after content is loaded
 
                     // Attach event listener for active ability buttons
@@ -424,12 +508,95 @@ document.addEventListener('DOMContentLoaded', function() {
                                 button.classList.add('toggled-red');
                                 console.log(`Ability ${abilityId} turned ON.`);
                             }
-                            // Re-render all modifier displays across attributes
-                            document.querySelectorAll('.dice-assignment').forEach(assignment => {
-                                const attributeName = assignment.getAttribute('data-attribute');
-                                const modifiersContainer = assignment.querySelector('.modifiers-container');
-                                const activeModifiers = getActiveModifiersForAttribute(attributeName);
-                                renderModifierDisplays(activeModifiers, modifiersContainer);
+                            // Re-render all attribute displays to update modifiers
+                            // This is a comprehensive re-render of attributes section
+                            const currentCharacter = activeCharacter; // Use the current active character
+                            // Temporarily remove and re-add the entire character display to force re-render
+                            // More efficient would be to only re-render attributes, but this ensures consistency
+                            // For a full page re-render, reload the active character and then render
+                            db.getActiveCharacter().then(updatedChar => {
+                                activeCharacter = updatedChar; // Update global active character
+                                // Instead of full innerHTML replace, target the attributes section
+                                // Need to get the parent of .attributes-grid-container and re-render that specific section.
+                                // For now, the existing full refresh of characterDetails will work.
+                                // If renderCharacterAttributes was a separate function, we'd call it here
+                                // For this example, we re-load and replace the relevant section:
+                                const attributesSection = document.querySelector('.character-stats');
+                                if (attributesSection) {
+                                    // Construct the HTML for just the attributes section again
+                                    let newAttributesHtml = '';
+                                    if (updatedChar.attributes) {
+                                        newAttributesHtml = Object.entries(updatedChar.attributes).map(([attr, die]) => {
+                                            const initialModifiers = getActiveModifiersForAttribute(attr);
+                                            const hasModifiers = initialModifiers.length > 0;
+
+                                            let modifierSpans = '';
+                                            for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                                                const mod = initialModifiers[i];
+                                                if (mod) {
+                                                    modifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                                                } else {
+                                                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+                                                }
+                                            }
+
+                                            const unmodifiedResultHtml = hasModifiers
+                                                ? `<div class="unmodified-roll-result">${attr.unmodifiedResult !== undefined ? attr.unmodifiedResult : ''}</div>`
+                                                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+
+                                            return `
+                                                <div class="dice-assignment" data-attribute="${attr}" data-dice="${die}">
+                                                    <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
+                                                    <div class="die-type-container">
+                                                        <span class="die-type">${die.toUpperCase()}</span>
+                                                        <button class="btn-roll attribute-roll">Roll</button>
+                                                    </div>
+                                                    <div class="roll-result"></div>
+                                                    ${modifierSpans}
+                                                    ${unmodifiedResultHtml}
+                                                </div>
+                                            `;
+                                        }).join('');
+
+                                        const initialLuckModifiers = getActiveModifiersForAttribute('luck');
+                                        const hasLuckModifiers = initialLuckModifiers.length > 0;
+
+                                        let luckModifierSpans = '';
+                                        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                                            const mod = initialLuckModifiers[i];
+                                            if (mod) {
+                                                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                                            } else {
+                                                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+                                            }
+                                        }
+
+                                        const unmodifiedLuckResultHtml = hasLuckModifiers
+                                            ? `<div class="unmodified-roll-result"></div>`
+                                            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+
+                                        newAttributesHtml += `
+                                            <div class="dice-assignment" data-attribute="luck" data-dice="d100">
+                                                <label>Luck</label>
+                                                <div class="die-type-container">
+                                                    <span class="die-type">D100</span>
+                                                    <button class="btn-roll attribute-roll">Roll</button>
+                                                </div>
+                                                <div class="roll-result"></div>
+                                                ${luckModifierSpans}
+                                                ${unmodifiedLuckResultHtml}
+                                            </div>
+                                        `;
+                                    }
+
+                                    attributesSection.innerHTML = `
+                                        <h4>Attributes</h4>
+                                        <div class="attributes-grid-container">
+                                            ${newAttributesHtml}
+                                        </div>
+                                    `;
+                                    attachAttributeRollListeners(); // Re-attach listeners for new buttons
+                                }
                             });
                         }
                     });
