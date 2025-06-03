@@ -236,6 +236,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 activeCharacter = character; // Store the active character
 
                 if (character) {
+                    // Calculate health percentage and determine health class
+                    const healthPercentage = (character.health.current / character.health.max) * 100;
+                    let healthClass = '';
+                    if (healthPercentage > 60) {
+                        healthClass = 'health-full';
+                    } else if (healthPercentage > 30) {
+                        healthClass = 'health-medium';
+                    } else {
+                        healthClass = 'health-low';
+                    }
+
                     characterDetails.innerHTML = `
                         <div class="character-header">
                             <h3>${character.info.name}</h3>
@@ -267,10 +278,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
 
-                        <div class="character-health">
+                        <div class="character-health health-display">
                             <h4>Health</h4>
-                            <div class="health-bar">
-                                <div class="health-current" style="width: ${(character.health.current / character.health.max) * 100}%"></div>
+                            <div class="health-bar-container">
+                                <div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div>
                             </div>
                             <div class="health-numbers">
                                 ${character.health.current} / ${character.health.max}
