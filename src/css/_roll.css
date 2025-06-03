@@ -8,7 +8,7 @@
     min-width: 60px; /* Ensure space even when empty, consistent with roll-result */
     text-align: center;
     opacity: 0; /* Hidden by default */
-    transition: opacity 0.5s ease-out;
+    transition: opacity 1.5s ease-out;
 }
 
 .unmodified-roll-result.visible {

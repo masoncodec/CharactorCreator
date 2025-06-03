@@ -98,7 +98,7 @@
     min-width: 60px; /* Ensure space for larger number */
     text-align: center;
     opacity: 0; /* Hidden by default */
-    transition: opacity 0.5s ease-out;
+    transition: opacity 1.5s ease-out;
 }
 
 .roll-result.visible {
