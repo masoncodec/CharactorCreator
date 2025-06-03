@@ -174,8 +174,9 @@ function renderAbilities(character) {
         if (abilityDef.type === "active") {
             const isOn = activeAbilityStates.has(abilityState.id) ? 'toggled-red' : '';
             activeAbilitiesHtml.push(`
-                <li class="ability-list-item"> <button class="ability-button ability-item ${isOn}" data-ability-id="${abilityState.id}">
-                        <strong>${abilityDef.name}</strong> (Tier ${abilityState.tier})
+                <li class="ability-list-item">
+                    <button class="ability-button ability-item ${isOn}" data-ability-id="${abilityState.id}">
+                        <strong>${abilityDef.name}</strong> <span class="ability-type-tag active">ACTIVE</span> (Tier ${abilityState.tier})
                         <p>${description}</p>
                         ${optionsHtml}
                     </button>
@@ -184,7 +185,7 @@ function renderAbilities(character) {
         } else { // Passive ability
             passiveAbilitiesHtml.push(`
                 <li class="ability-item passive-ability-item">
-                    <strong>${abilityDef.name}</strong> (Tier ${abilityState.tier})
+                    <strong>${abilityDef.name}</strong> <span class="ability-type-tag passive">PASSIVE</span> (Tier ${abilityState.tier})
                     <p>${description}</p>
                     ${optionsHtml}
                 </li>
