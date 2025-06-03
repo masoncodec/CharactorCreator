@@ -71,6 +71,75 @@ function renderModifierDisplays(modifiers, containerElement) {
     }
 }
 
+// Function to render health display
+function renderHealthDisplay(character) {
+    if (!character || !character.health) {
+        console.warn("Character or health data not available for rendering health display.");
+        return;
+    }
+
+    const healthDisplayContainer = document.querySelector('.character-health.health-display');
+    if (!healthDisplayContainer) {
+        console.warn("Health display container not found.");
+        return;
+    }
+
+    // Calculate health percentage and determine health class
+    const healthPercentage = (character.health.current / character.health.max) * 100;
+    let healthClass = '';
+    if (healthPercentage > 60) {
+        healthClass = 'health-full';
+    } else if (healthPercentage > 30) {
+        healthClass = 'health-medium';
+    } else {
+        healthClass = 'health-low';
+    }
+
+    healthDisplayContainer.innerHTML = `
+        <h4>Health</h4>
+        <div class="health-controls">
+            <input type="number" id="healthAdjustmentInput" placeholder="e.g. -5, +10" class="form-control" />
+            <button id="applyHealthAdjustment" class="btn btn-primary">Apply</button>
+        </div>
+        <div class="health-bar-container">
+            <div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div>
+        </div>
+        <div class="health-numbers">
+            ${character.health.current} / ${character.health.max}
+            ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}
+        </div>
+    `;
+
+    // Attach event listener for health adjustment after rendering
+    document.getElementById('applyHealthAdjustment').addEventListener('click', function() {
+        const inputField = document.getElementById('healthAdjustmentInput');
+        const value = inputField.value;
+        const adjustment = parseInt(value, 10);
+
+        if (isNaN(adjustment) || !Number.isInteger(adjustment)) {
+            informer.show('Invalid input. Please enter a whole number.', 'error');
+            inputField.value = '';
+            return;
+        }
+
+        let newCurrentHealth = character.health.current + adjustment;
+
+        // Note for future: Temporary health logic can be implemented here.
+        // For now, adjustments only affect current health, and no min/max cap.
+
+        db.updateCharacterHealth(character.id, { current: newCurrentHealth }).then(updatedCharacter => {
+            activeCharacter = updatedCharacter; // Update the global activeCharacter
+            renderHealthDisplay(activeCharacter); // Re-render with updated health
+            informer.show(`Health adjusted by ${adjustment}. New health: ${activeCharacter.health.current}`, 'success');
+            console.log(`Health adjusted for ${activeCharacter.info.name}: ${adjustment}. New health: ${activeCharacter.health.current}`);
+            inputField.value = ''; // Clear input field
+        }).catch(err => {
+            informer.show('Error updating health. See console.', 'error');
+            console.error('Error updating character health:', err);
+        });
+    });
+}
+
 
 // Function to attach attribute roll event listeners
 function attachAttributeRollListeners() {
@@ -236,17 +305,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 activeCharacter = character; // Store the active character
 
                 if (character) {
-                    // Calculate health percentage and determine health class
-                    const healthPercentage = (character.health.current / character.health.max) * 100;
-                    let healthClass = '';
-                    if (healthPercentage > 60) {
-                        healthClass = 'health-full';
-                    } else if (healthPercentage > 30) {
-                        healthClass = 'health-medium';
-                    } else {
-                        healthClass = 'health-low';
-                    }
-
                     characterDetails.innerHTML = `
                         <div class="character-header">
                             <h3>${character.info.name}</h3>
@@ -279,15 +337,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
 
                         <div class="character-health health-display">
-                            <h4>Health</h4>
-                            <div class="health-bar-container">
-                                <div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div>
                             </div>
-                            <div class="health-numbers">
-                                ${character.health.current} / ${character.health.max}
-                                ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}
-                            </div>
-                        </div>
 
                         ${character.selectedFlaw ? `
                         <div class="character-flaw">
@@ -311,6 +361,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             <p><strong>Bio:</strong> ${character.info.bio || 'N/A'}</p>
                         </div>
                     `;
+                    // Render initial health display
+                    renderHealthDisplay(activeCharacter); // Call the new function here
+
                     // After character details are rendered, initialize modifier displays
                     document.querySelectorAll('.dice-assignment').forEach(assignment => {
                         const attributeName = assignment.getAttribute('data-attribute');

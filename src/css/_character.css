@@ -134,6 +134,30 @@
     padding-right: 5px;
 }
 
+/* New styles for health adjustment controls */
+.health-controls {
+    display: flex;
+    gap: 10px; /* Space between input and button */
+    margin-bottom: 10px;
+    align-items: center; /* Vertically align items */
+}
+
+.health-controls input[type="number"] {
+    flex-grow: 1; /* Allow input to take available space */
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid #555;
+    background-color: #333;
+    color: #eee;
+    font-size: 1rem;
+    max-width: 120px; /* Limit width of the input field */
+}
+
+.health-controls .btn-primary {
+    padding: 8px 15px;
+    font-size: 0.9rem;
+}
+
 @media (max-width: 768px) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -144,5 +168,12 @@
     .character-actions {
         flex-direction: column; /* Stack buttons on small screens */
         align-items: stretch;
+    }
+    .health-controls {
+        flex-direction: column; /* Stack input and button on small screens */
+        align-items: stretch;
+    }
+    .health-controls input[type="number"] {
+        max-width: 100%; /* Allow input to take full width on small screens */
     }
 }
