@@ -1,3 +1,26 @@
+// A simple alerter utility for displaying messages.
+// This uses alert() for immediate feedback and console.log() for logging.
+const alerter = {
+    show: function(message, type = 'info') {
+        alert(`[${type.toUpperCase()}] ${message}`);
+        console.log(`Alerter (${type}): ${message}`);
+
+        // Note for future: To implement a non-blocking UI message,
+        // you would dynamically create and display a styled message element
+        // (using _informer.css which you already have for styling purposes).
+        // Example (conceptual):
+        /*
+        const messageEl = document.createElement('div');
+        messageEl.classList.add('alerter-message', `alerter-${type}`); // Using alerter-message class
+        messageEl.textContent = message;
+        document.body.appendChild(messageEl);
+        setTimeout(() => {
+            messageEl.remove();
+        }, 3000); // Remove after 3 seconds
+        */
+    }
+};
+
 // Function to highlight the active navigation link
 function highlightActiveNav(pageName) {
     document.querySelectorAll('.nav-link').forEach(link => {
@@ -262,7 +285,7 @@ function renderHealthDisplay(character) {
         const adjustment = parseInt(value, 10);
 
         if (isNaN(adjustment) || !Number.isInteger(adjustment)) {
-            informer.show('Invalid input. Please enter a whole number.', 'error');
+            alerter.show('Invalid input. Please enter a whole number.', 'error');
             inputField.value = '';
             return;
         }
@@ -275,11 +298,11 @@ function renderHealthDisplay(character) {
         db.updateCharacterHealth(character.id, { current: newCurrentHealth }).then(updatedCharacter => {
             activeCharacter = updatedCharacter; // Update the global activeCharacter
             renderHealthDisplay(activeCharacter); // Re-render with updated health
-            informer.show(`Health adjusted by ${adjustment}. New health: ${activeCharacter.health.current}`, 'success');
+            // alerter.show(`Health adjusted by ${adjustment}. New health: ${activeCharacter.health.current}`, 'success'); // Removed success message
             console.log(`Health adjusted for ${activeCharacter.info.name}: ${adjustment}. New health: ${activeCharacter.health.current}`);
             inputField.value = ''; // Clear input field
         }).catch(err => {
-            informer.show('Error updating health. See console.', 'error');
+            alerter.show('Error updating health. See console.', 'error');
             console.error('Error updating character health:', err);
         });
     });
@@ -460,7 +483,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 100);
         }).catch(function(err) {
             console.error('Export failed:', err);
-            alert('Export failed: ' + err);
+            alerter.show('Export failed: ' + err, 'error'); // Alerter for export failure
         });
     });
 });
