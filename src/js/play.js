@@ -71,75 +71,6 @@ function renderModifierDisplays(modifiers, containerElement) {
     }
 }
 
-// Function to render health display
-function renderHealthDisplay(character) {
-    if (!character || !character.health) {
-        console.warn("Character or health data not available for rendering health display.");
-        return;
-    }
-
-    const healthDisplayContainer = document.querySelector('.character-health.health-display');
-    if (!healthDisplayContainer) {
-        console.warn("Health display container not found.");
-        return;
-    }
-
-    // Calculate health percentage and determine health class
-    const healthPercentage = (character.health.current / character.health.max) * 100;
-    let healthClass = '';
-    if (healthPercentage > 60) {
-        healthClass = 'health-full';
-    } else if (healthPercentage > 30) {
-        healthClass = 'health-medium';
-    } else {
-        healthClass = 'health-low';
-    }
-
-    healthDisplayContainer.innerHTML = `
-        <h4>Health</h4>
-        <div class="health-controls">
-            <input type="number" id="healthAdjustmentInput" placeholder="e.g. -5, +10" class="form-control" />
-            <button id="applyHealthAdjustment" class="btn btn-primary">Apply</button>
-        </div>
-        <div class="health-bar-container">
-            <div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div>
-        </div>
-        <div class="health-numbers">
-            ${character.health.current} / ${character.health.max}
-            ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}
-        </div>
-    `;
-
-    // Attach event listener for health adjustment after rendering
-    document.getElementById('applyHealthAdjustment').addEventListener('click', function() {
-        const inputField = document.getElementById('healthAdjustmentInput');
-        const value = inputField.value;
-        const adjustment = parseInt(value, 10);
-
-        if (isNaN(adjustment) || !Number.isInteger(adjustment)) {
-            informer.show('Invalid input. Please enter a whole number.', 'error');
-            inputField.value = '';
-            return;
-        }
-
-        let newCurrentHealth = character.health.current + adjustment;
-
-        // Note for future: Temporary health logic can be implemented here.
-        // For now, adjustments only affect current health, and no min/max cap.
-
-        db.updateCharacterHealth(character.id, { current: newCurrentHealth }).then(updatedCharacter => {
-            activeCharacter = updatedCharacter; // Update the global activeCharacter
-            renderHealthDisplay(activeCharacter); // Re-render with updated health
-            informer.show(`Health adjusted by ${adjustment}. New health: ${activeCharacter.health.current}`, 'success');
-            console.log(`Health adjusted for ${activeCharacter.info.name}: ${adjustment}. New health: ${activeCharacter.health.current}`);
-            inputField.value = ''; // Clear input field
-        }).catch(err => {
-            informer.show('Error updating health. See console.', 'error');
-            console.error('Error updating character health:', err);
-        });
-    });
-}
-
 
 // Function to attach attribute roll event listeners
 function attachAttributeRollListeners() {
@@ -282,6 +213,86 @@ function renderAbilities(character) {
 }
 
 let activeCharacter = null; // Variable to store the active character
+
+// Function to render health display
+function renderHealthDisplay(character) {
+    if (!character || !character.health) {
+        console.warn("Character or health data not available for rendering health display.");
+        return;
+    }
+
+    const healthDisplayContainer = document.querySelector('.character-health.health-display');
+    if (!healthDisplayContainer) {
+        console.warn("Health display container not found.");
+        return;
+    }
+
+    // Calculate health percentage and determine health class
+    const healthPercentage = (character.health.current / character.health.max) * 100;
+    let healthClass = '';
+    if (healthPercentage > 60) {
+        healthClass = 'health-full';
+    } else if (healthPercentage > 30) {
+        healthClass = 'health-medium';
+    } else {
+        healthClass = 'health-low';
+    }
+
+    healthDisplayContainer.innerHTML = `
+        <h4>Health</h4>
+        <div class="health-controls">
+            <input type="number" id="healthAdjustmentInput" placeholder="e.g. -5, +10" class="form-control" />
+            <button id="applyHealthAdjustment" class="btn btn-primary">Apply</button>
+        </div>
+        <div class="health-bar-container">
+            <div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div>
+        </div>
+        <div class="health-numbers">
+            ${character.health.current} / ${character.health.max}
+            ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}
+        </div>
+    `;
+
+    // Attach event listener for health adjustment after rendering
+    const applyButton = document.getElementById('applyHealthAdjustment');
+    const inputField = document.getElementById('healthAdjustmentInput');
+
+    applyButton.addEventListener('click', function() {
+        const value = inputField.value;
+        const adjustment = parseInt(value, 10);
+
+        if (isNaN(adjustment) || !Number.isInteger(adjustment)) {
+            informer.show('Invalid input. Please enter a whole number.', 'error');
+            inputField.value = '';
+            return;
+        }
+
+        let newCurrentHealth = character.health.current + adjustment;
+
+        // Note for future: Temporary health logic can be implemented here.
+        // For now, adjustments only affect current health, and no min/max cap.
+
+        db.updateCharacterHealth(character.id, { current: newCurrentHealth }).then(updatedCharacter => {
+            activeCharacter = updatedCharacter; // Update the global activeCharacter
+            renderHealthDisplay(activeCharacter); // Re-render with updated health
+            informer.show(`Health adjusted by ${adjustment}. New health: ${activeCharacter.health.current}`, 'success');
+            console.log(`Health adjusted for ${activeCharacter.info.name}: ${adjustment}. New health: ${activeCharacter.health.current}`);
+            inputField.value = ''; // Clear input field
+        }).catch(err => {
+            informer.show('Error updating health. See console.', 'error');
+            console.error('Error updating character health:', err);
+        });
+    });
+
+    // Add event listener for 'Enter' key press on the input field
+    inputField.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault(); // Prevent default form submission if any
+            applyButton.click(); // Trigger the click event on the Apply button
+        }
+    });
+}
+
 
 // Initialize play page
 document.addEventListener('DOMContentLoaded', function() {
