@@ -143,14 +143,6 @@
     border-color: #FFD700;
 }
 
-.character-header {
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #444;
-    color: #FFD700; /* Use accent color for headers */
-    font-size: 1.8rem; /* Larger font size for main character header */
-}
-
 .character-subheader {
     font-size: 0.6em; /* Adjust this value as needed to make it smaller */
     font-weight: normal; /* To counteract any bolding from parent h2 */

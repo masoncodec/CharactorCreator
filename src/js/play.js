@@ -466,12 +466,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
 
                     characterDetails.innerHTML = `
-                        <div class="character-header">
-                            <h3>${character.info.name}</h3>
-                            <p class="character-module">${character.module || 'Crescendo'}</p>
-                            <p class="character-role">${character.destiny}</p>
-                        </div>
-
                         <div class="character-stats">
                             <h4>Attributes</h4>
                             <div class="attributes-grid-container"> ${attributesHtml}</div>
