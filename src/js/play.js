@@ -622,6 +622,24 @@ document.addEventListener('DOMContentLoaded', function() {
                                         </div>
                                     `;
                                     attachAttributeRollListeners(); // Re-attach listeners for new buttons
+
+                                    //Consider dividing this out into a function too
+                                    // NEW: Re-attach tooltip listeners to the newly created modifier spans
+                                    document.querySelectorAll('.modifier-display').forEach(modSpan => {
+                                        modSpan.addEventListener('click', function(event) {
+                                            // Your existing tooltip logic
+                                            this.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove()); // Remove existing
+                                            const tooltip = document.createElement('div');
+                                            tooltip.classList.add('modifier-tooltip');
+                                            tooltip.textContent = this.dataset.abilityName;
+                                            this.appendChild(tooltip);
+                                            setTimeout(() => {
+                                                if (this.contains(tooltip)) {
+                                                    this.removeChild(tooltip);
+                                                }
+                                            }, 3000);
+                                        });
+                                    });
                                 }
                             });
                         }
