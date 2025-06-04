@@ -371,6 +371,42 @@ function renderHealthDisplay(character) {
 document.addEventListener('DOMContentLoaded', function() {
     highlightActiveNav('play.html'); // Highlight "Play" link
 
+    const characterDetails = document.getElementById('characterDetails'); // Get this element early
+
+    // --- ONE AND ONLY ONE DELEGATED EVENT LISTENER FOR TOOLTIPS ---
+    // This listener will be active for ALL clicks within characterDetails,
+    // and it will check if the click originated from a .modifier-display.
+    if (characterDetails) {
+        characterDetails.addEventListener('click', function(event) {
+            // Use .closest() to find the .modifier-display element that was clicked or is an ancestor of the click target
+            let targetModSpan = event.target.closest('.modifier-display');
+
+            // Ensure a .modifier-display was clicked AND it's not an empty placeholder
+            if (targetModSpan && !targetModSpan.classList.contains('empty-modifier-cell')) {
+                // Remove any existing tooltips on this specific element before creating a new one
+                // This prevents multiple tooltips if clicked rapidly on the same span
+                targetModSpan.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove());
+
+                const tooltip = document.createElement('div');
+                tooltip.classList.add('modifier-tooltip');
+                tooltip.textContent = targetModSpan.dataset.abilityName;
+
+                // Append the tooltip directly to the clicked modifier span
+                targetModSpan.appendChild(tooltip);
+
+                // Set a timeout to remove the tooltip after 3 seconds
+                setTimeout(() => {
+                    // Ensure the tooltip is still a child of targetModSpan before trying to remove it
+                    if (targetModSpan.contains(tooltip)) {
+                        targetModSpan.removeChild(tooltip);
+                    }
+                }, 3000);
+            }
+        });
+    }
+    // --- END OF DELEGATED EVENT LISTENER ---
+
+
     // Load abilities.json first
     fetch('data/abilities.json')
         .then(response => {
@@ -385,33 +421,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Now load active character, as abilityData is available
             db.getActiveCharacter().then(function(character) {
-                const characterDetails = document.getElementById('characterDetails');
                 activeCharacter = character; // Store the active character
 
                 if (character) {
-                    // Start of modified attribute rendering logic
+                    // This entire characterDetails.innerHTML section should ideally be in its own function
+                    // like `renderCharacterDetails(character)` to avoid duplication.
                     let attributesHtml = '';
                     if (character.attributes) {
                         attributesHtml = Object.entries(character.attributes).map(([attr, die]) => {
-                            // Get initial modifiers for the attribute
                             const initialModifiers = getActiveModifiersForAttribute(attr);
-                            const hasModifiers = initialModifiers.length > 0;
-
                             let modifierSpans = '';
                             for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
                                 const mod = initialModifiers[i];
                                 if (mod) {
                                     modifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
                                 } else {
-                                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`; // Placeholder
+                                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
                                 }
                             }
-
-                            // Render unmodified result conditionally
-                            const unmodifiedResultHtml = hasModifiers
+                            const unmodifiedResultHtml = initialModifiers.length > 0
                                 ? `<div class="unmodified-roll-result">${attr.unmodifiedResult !== undefined ? attr.unmodifiedResult : ''}</div>`
-                                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`; // Placeholder
-
+                                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
                             return `
                                 <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
                                     <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
@@ -424,24 +454,19 @@ document.addEventListener('DOMContentLoaded', function() {
                             `;
                         }).join('');
 
-                        // Add Luck attribute specifically
                         const initialLuckModifiers = getActiveModifiersForAttribute('luck');
-                        const hasLuckModifiers = initialLuckModifiers.length > 0;
-
                         let luckModifierSpans = '';
                         for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
                             const mod = initialLuckModifiers[i];
                             if (mod) {
                                 luckModifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
                             } else {
-                                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`; // Placeholder
+                                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
                             }
                         }
-
-                        const unmodifiedLuckResultHtml = hasLuckModifiers
-                            ? `<div class="unmodified-roll-result"></div>` // Content filled by JS on roll
-                            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`; // Placeholder
-
+                        const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
+                            ? `<div class="unmodified-roll-result"></div>`
+                            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
                         attributesHtml += `
                             <div class="attribute-row" data-attribute="luck" data-dice="d100">
                                 <label>Luck</label>
@@ -453,7 +478,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         `;
                     }
-                    // End of modified attribute rendering logic
 
                     characterDetails.innerHTML = `
                         <div class="character-header">
@@ -464,12 +488,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         <div class="character-stats">
                             <h4>Attributes</h4>
-                            <div class="attributes-grid-container"> ${attributesHtml}
-                            </div>
+                            <div class="attributes-grid-container"> ${attributesHtml}</div>
                         </div>
 
-                        <div class="character-health health-display">
-                        </div>
+                        <div class="character-health health-display"></div>
 
                         ${character.selectedFlaw ? `
                         <div class="character-flaw">
@@ -495,19 +517,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     `;
 
-                    // AFTER characterDetails.innerHTML is set, attach listeners to the *newly created* modifier spans
+                    // --- IMPORTANT: REMOVE THIS BLOCK ---
+                    /*
                     document.querySelectorAll('.modifier-display').forEach(modSpan => {
                         modSpan.addEventListener('click', function(event) {
-                             // Remove any existing tooltips on this element before creating a new one
-                            this.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove());
-
+                             this.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove());
                             const tooltip = document.createElement('div');
                             tooltip.classList.add('modifier-tooltip');
                             tooltip.textContent = this.dataset.abilityName;
-
-                            // Append the tooltip directly to the clicked modifier span
-                            this.appendChild(tooltip); // KEY CHANGE: Append to 'this' (modSpan)
-
+                            this.appendChild(tooltip);
                             setTimeout(() => {
                                 if (this.contains(tooltip)) {
                                     this.removeChild(tooltip);
@@ -515,133 +533,91 @@ document.addEventListener('DOMContentLoaded', function() {
                             }, 3000);
                         });
                     });
+                    */
+                    // --- END REMOVAL ---
 
-                    // Render initial health display
-                    renderHealthDisplay(activeCharacter); // Call the new function here
 
-                    // After character details are rendered, attach event listeners
-                    attachAttributeRollListeners(); // Attach listeners after content is loaded
+                    renderHealthDisplay(activeCharacter);
+                    attachAttributeRollListeners();
 
-                    // Attach event listener for active ability buttons
                     document.getElementById('activeAbilitiesList').addEventListener('click', function(event) {
                         const button = event.target.closest('.ability-button');
                         if (button) {
                             const abilityId = button.dataset.abilityId;
 
-                            // Check if the ability is currently active
                             if (activeAbilityStates.has(abilityId)) {
-                                activeAbilityStates.delete(abilityId); // Turn off
+                                activeAbilityStates.delete(abilityId);
                                 button.classList.remove('toggled-red');
                                 console.log(`Ability ${abilityId} turned OFF.`);
                             } else {
-                                activeAbilityStates.add(abilityId); // Turn on
+                                activeAbilityStates.add(abilityId);
                                 button.classList.add('toggled-red');
                                 console.log(`Ability ${abilityId} turned ON.`);
                             }
-                            // Re-render all attribute displays to update modifiers
-                            // This is a comprehensive re-render of attributes section
-                            const currentCharacter = activeCharacter; // Use the current active character
-                            // Temporarily remove and re-add the entire character display to force re-render
-                            // More efficient would be to only re-render attributes, but this ensures consistency
-                            // For a full page re-render, reload the active character and then render
-                            db.getActiveCharacter().then(updatedChar => {
-                                activeCharacter = updatedChar; // Update global active character
-                                // Instead of full innerHTML replace, target the attributes section
-                                // Need to get the parent of .attributes-grid-container and re-render that specific section.
-                                // For now, the existing full refresh of characterDetails will work.
-                                // If renderCharacterAttributes was a separate function, we'd call it here
-                                // For this example, we re-load and replace the relevant section:
-                                const attributesSection = document.querySelector('.character-stats');
-                                if (attributesSection) {
-                                    // Construct the HTML for just the attributes section again
-                                    let newAttributesHtml = '';
-                                    if (updatedChar.attributes) {
-                                        newAttributesHtml = Object.entries(updatedChar.attributes).map(([attr, die]) => {
-                                            const initialModifiers = getActiveModifiersForAttribute(attr);
-                                            const hasModifiers = initialModifiers.length > 0;
 
-                                            let modifierSpans = '';
-                                            for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-                                                const mod = initialModifiers[i];
-                                                if (mod) {
-                                                    modifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
-                                                } else {
-                                                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
-                                                }
-                                            }
-
-                                            const unmodifiedResultHtml = hasModifiers
-                                                ? `<div class="unmodified-roll-result">${attr.unmodifiedResult !== undefined ? attr.unmodifiedResult : ''}</div>`
-                                                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-
-                                            return `
-                                                <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
-                                                    <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
-                                                    <span class="die-type">${die.toUpperCase()}</span>
-                                                    <button class="btn-roll attribute-roll">Roll</button>
-                                                    <div class="roll-result"></div>
-                                                    ${modifierSpans}
-                                                    ${unmodifiedResultHtml}
-                                                </div>
-                                            `;
-                                        }).join('');
-
-                                        const initialLuckModifiers = getActiveModifiersForAttribute('luck');
-                                        const hasLuckModifiers = initialLuckModifiers.length > 0;
-
-                                        let luckModifierSpans = '';
+                            const attributesSection = document.querySelector('.character-stats');
+                            if (attributesSection) {
+                                let newAttributesHtml = '';
+                                if (activeCharacter.attributes) { // Use activeCharacter for the latest state
+                                    newAttributesHtml = Object.entries(activeCharacter.attributes).map(([attr, die]) => {
+                                        const initialModifiers = getActiveModifiersForAttribute(attr);
+                                        let modifierSpans = '';
                                         for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-                                            const mod = initialLuckModifiers[i];
+                                            const mod = initialModifiers[i];
                                             if (mod) {
-                                                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                                                modifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
                                             } else {
-                                                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+                                                modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
                                             }
                                         }
-
-                                        const unmodifiedLuckResultHtml = hasLuckModifiers
-                                            ? `<div class="unmodified-roll-result"></div>`
+                                        const unmodifiedResultHtml = initialModifiers.length > 0
+                                            ? `<div class="unmodified-roll-result">${attr.unmodifiedResult !== undefined ? attr.unmodifiedResult : ''}</div>`
                                             : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-
-                                        newAttributesHtml += `
-                                            <div class="attribute-row" data-attribute="luck" data-dice="d100">
-                                                <label>Luck</label>
-                                                <span class="die-type">D100</span>
+                                        return `
+                                            <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
+                                                <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
+                                                <span class="die-type">${die.toUpperCase()}</span>
                                                 <button class="btn-roll attribute-roll">Roll</button>
                                                 <div class="roll-result"></div>
-                                                ${luckModifierSpans}
-                                                ${unmodifiedLuckResultHtml}
+                                                ${modifierSpans}
+                                                ${unmodifiedResultHtml}
                                             </div>
                                         `;
-                                    }
+                                    }).join('');
 
-                                    attributesSection.innerHTML = `
-                                        <h4>Attributes</h4>
-                                        <div class="attributes-grid-container">
-                                            ${newAttributesHtml}
+                                    const initialLuckModifiers = getActiveModifiersForAttribute('luck');
+                                    let luckModifierSpans = '';
+                                    for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                                        const mod = initialLuckModifiers[i];
+                                        if (mod) {
+                                            luckModifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                                        } else {
+                                            luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+                                        }
+                                    }
+                                    const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
+                                        ? `<div class="unmodified-roll-result"></div>`
+                                        : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+                                    newAttributesHtml += `
+                                        <div class="attribute-row" data-attribute="luck" data-dice="d100">
+                                            <label>Luck</label>
+                                            <span class="die-type">D100</span>
+                                            <button class="btn-roll attribute-roll">Roll</button>
+                                            <div class="roll-result"></div>
+                                            ${luckModifierSpans}
+                                            ${unmodifiedLuckResultHtml}
                                         </div>
                                     `;
-                                    attachAttributeRollListeners(); // Re-attach listeners for new buttons
-
-                                    //Consider dividing this out into a function too
-                                    // NEW: Re-attach tooltip listeners to the newly created modifier spans
-                                    document.querySelectorAll('.modifier-display').forEach(modSpan => {
-                                        modSpan.addEventListener('click', function(event) {
-                                            // Your existing tooltip logic
-                                            this.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove()); // Remove existing
-                                            const tooltip = document.createElement('div');
-                                            tooltip.classList.add('modifier-tooltip');
-                                            tooltip.textContent = this.dataset.abilityName;
-                                            this.appendChild(tooltip);
-                                            setTimeout(() => {
-                                                if (this.contains(tooltip)) {
-                                                    this.removeChild(tooltip);
-                                                }
-                                            }, 3000);
-                                        });
-                                    });
                                 }
-                            });
+
+                                attributesSection.innerHTML = `
+                                    <h4>Attributes</h4>
+                                    <div class="attributes-grid-container">
+                                        ${newAttributesHtml}
+                                    </div>
+                                `;
+                                attachAttributeRollListeners(); // Re-attach listeners for new buttons
+                            }
                         }
                     });
 
