@@ -59,22 +59,30 @@
 
 /* Styles for modifier tooltips */
 .modifier-tooltip {
-    position: absolute; /* Changed to absolute for better positioning relative to modifier-display */
+    position: absolute;
     bottom: 120%; /* Position above the modifier-display */
     left: 50%;
     transform: translateX(-50%); /* Center the tooltip */
     background-color: #333;
     color: #fff;
-    padding: 8px 12px; /* More padding */
-    border-radius: 6px; /* Larger border radius */
-    font-size: 0.85em; /* Slightly larger font */
-    z-index: 1000; /* Ensure it appears above other elements */
-    white-space: nowrap; /* Prevent text wrapping */
-    pointer-events: none; /* Allows clicks to pass through to elements below */
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.85em;
+    z-index: 1000;
+    white-space: nowrap;
+    pointer-events: none;
     opacity: 0;
-    animation: fade-in-out 3s forwards; /* Animation for visibility */
-    box-shadow: 0 2px 8px rgba(0,0,0,0.5); /* Subtle shadow for tooltip */
-    border: 1px solid #555; /* Border for definition */
+    animation: fade-in-out 3s forwards;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    border: 1px solid #555;
+}
+
+/* Add this to your CSS */
+.modifier-display {
+    position: relative; /* This is the key change */
+    /* Keep other styles for modifier-display here */
+    display: inline-block; /* Ensure it behaves like a block for positioning, if not already */
+    /* You might need to adjust margin/padding if you haven't already */
 }
 
 @keyframes fade-in-out {
