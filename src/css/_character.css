@@ -130,17 +130,46 @@
 
 
 /* Character Management */
+.characters-grid { /* New class for the grid container */
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* 2 columns, adjust minmax as needed */
+    gap: 1.5rem; /* Space between character cards */
+    margin-top: 1.5rem;
+}
+
 .character-card {
     background: #1A1A1A;
-    padding: 1.5rem;
+    padding: 1rem; /* Smaller padding */
     border-radius: 8px;
     border: 1px solid #444;
     transition: transform 0.2s;
+    display: flex; /* Use flex for internal layout of card content */
+    flex-direction: column; /* Stack content vertically */
+    justify-content: space-between; /* Push buttons to the bottom */
+    min-height: 150px; /* Ensure a minimum height for consistency */
 }
 
 .character-card:hover {
     transform: translateY(-5px);
     border-color: #FFD700;
+}
+
+.character-card h3 {
+    margin-top: 0; /* Remove top margin for character name */
+    margin-bottom: 0.5rem; /* Space below character name */
+    font-size: 1.3rem; /* Slightly smaller heading for cards */
+}
+
+.character-card p {
+    font-size: 0.95rem; /* Slightly smaller text for card details */
+    margin-bottom: 0.3rem; /* Less space between paragraphs */
+}
+
+.character-card .meta {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 0.5rem;
+    margin-bottom: 0.8rem;
 }
 
 .character-subheader {
@@ -211,7 +240,23 @@
     color: #FFD700; /* Gold for values */
 }
 
-.character-actions {
+.card-actions { /* Style the action buttons within the card */
+    display: flex;
+    gap: 0.5rem;
+    margin-top: auto; /* Push buttons to the bottom of the card */
+    padding-top: 0.8rem;
+    border-top: 1px solid #2A2A2A; /* Subtle separator */
+}
+
+.card-actions .btn-select,
+.card-actions .btn-delete {
+    flex: 1; /* Make buttons take equal width */
+    padding: 0.6rem 0.8rem; /* Smaller padding for card buttons */
+    font-size: 0.9rem; /* Smaller font size for card buttons */
+}
+
+
+.character-actions { /* This is for the main action buttons at the bottom of the page */
     display: flex;
     gap: 1rem;
     margin-top: 2rem;
@@ -305,5 +350,9 @@
     }
     .health-controls input[type="number"] {
         max-width: 100%; /* Allow input to take full width on small screens */
+    }
+
+    .characters-grid { /* On smaller screens, allow characters to stack more columns or single column */
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Adjust for smaller cards */
     }
 }

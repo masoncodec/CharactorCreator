@@ -28,7 +28,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 characterCard.className = 'character-card';
                 characterCard.innerHTML = `
                     <h3>${character.info.name}</h3>
-                    <p>${character.destiny}</p>
+                    <p>Module: ${character.module || 'N/A'}</p>
+                    <p>Destiny: ${character.destiny || 'N/A'}</p>
                     <p class="meta">Created: ${new Date(character.createdAt).toLocaleDateString()}</p>
                     <div class="card-actions">
                         <button class="btn-select" data-id="${character.id}">Select</button>
