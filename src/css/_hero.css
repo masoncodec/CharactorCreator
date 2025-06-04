@@ -1,0 +1,44 @@
+ /* Hero Section Specific Styles */
+ .hero {
+    position: relative; /* Needed for absolute positioning of overlay and background */
+    height: 100vh; /* Full viewport height */
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    text-align: center; /* Center text within hero-content */
+    color: white; /* Ensure text is visible */
+    background: url('../images/paths.webp') no-repeat center center/cover; /* Example background image */
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6); /* Dark overlay for readability */
+}
+
+.hero-content {
+    position: relative; /* Bring content above the overlay */
+    z-index: 1; /* Ensure content is above the overlay */
+    display: flex;
+    flex-direction: column; /* Stack elements vertically */
+    align-items: center; /* Center items horizontally within the flex container */
+    padding: 20px; /* Add some padding around the content */
+}
+
+.hero-content h1 {
+    font-family: 'Cinzel', serif; /* Apply Cinzel font to the main title */
+    font-size: 4em; /* Larger font size for the title */
+    margin-bottom: 0.2em; /* Reduced margin for closer spacing to subtitle */
+    color: #FFD700; /* Gold color for the title */
+}
+
+.hero-content p {
+    font-family: 'Roboto', sans-serif; /* Apply Roboto font to the subtitle */
+    font-size: 1.5em; /* Larger font size for the subtitle */
+    margin-top: 0; /* Remove top margin */
+    margin-bottom: 1.5em; /* Space between subtitle and buttons */
+    color: #E0E0E0; /* Lighter grey for the subtitle */
+}
