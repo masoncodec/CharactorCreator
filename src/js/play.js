@@ -118,27 +118,6 @@ function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResul
         modSpan.style.color = mod.value > 0 ? '#03AC13' : '#FF0000';
         modSpan.dataset.abilityName = mod.abilityName;
 
-        modSpan.addEventListener('click', function(event) {
-            // Remove any existing tooltips on this element before creating a new one
-            // This prevents multiple tooltips if clicked rapidly
-            this.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove());
-
-            const tooltip = document.createElement('div');
-            tooltip.classList.add('modifier-tooltip');
-            tooltip.textContent = this.dataset.abilityName;
-
-            // NO NEED FOR JS positioning (left, top, transform) here,
-            // because CSS 'bottom', 'left', 'transform' will handle it relative to 'this'.
-
-            // Append the tooltip directly to the clicked modifier span
-            this.appendChild(tooltip); // KEY CHANGE: Append to 'this' (modSpan)
-
-            setTimeout(() => {
-                if (this.contains(tooltip)) { // Check if the tooltip is still a child of 'this'
-                    this.removeChild(tooltip);
-                }
-            }, 3000);
-        });
         // Insert modifiers after the last inserted element
         lastInsertedElement.insertAdjacentElement('afterend', modSpan);
         lastInsertedElement = modSpan; // Update last inserted element
@@ -516,26 +495,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <p><strong>Bio:</strong> ${character.info.bio || 'N/A'}</p>
                         </div>
                     `;
-
-                    // --- IMPORTANT: REMOVE THIS BLOCK ---
-                    /*
-                    document.querySelectorAll('.modifier-display').forEach(modSpan => {
-                        modSpan.addEventListener('click', function(event) {
-                             this.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove());
-                            const tooltip = document.createElement('div');
-                            tooltip.classList.add('modifier-tooltip');
-                            tooltip.textContent = this.dataset.abilityName;
-                            this.appendChild(tooltip);
-                            setTimeout(() => {
-                                if (this.contains(tooltip)) {
-                                    this.removeChild(tooltip);
-                                }
-                            }, 3000);
-                        });
-                    });
-                    */
-                    // --- END REMOVAL ---
-
 
                     renderHealthDisplay(activeCharacter);
                     attachAttributeRollListeners();
