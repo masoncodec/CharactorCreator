@@ -151,6 +151,14 @@
     font-size: 1.8rem; /* Larger font size for main character header */
 }
 
+.character-subheader {
+    font-size: 0.6em; /* Adjust this value as needed to make it smaller */
+    font-weight: normal; /* To counteract any bolding from parent h2 */
+    display: block; /* To ensure it appears on a new line or allows for better spacing */
+    margin-top: 5px; /* Optional: adds a little space below the name */
+    color: #ffffff;
+}
+
 /* New styles for character details display */
 #characterDetails {
     margin-top: 1rem;

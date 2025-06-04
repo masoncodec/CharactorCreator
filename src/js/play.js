@@ -403,6 +403,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 activeCharacter = character; // Store the active character
 
                 if (character) {
+                    const characterNameHeader = document.getElementById('characterNameHeader');
+                    if (characterNameHeader) {
+                        characterNameHeader.innerHTML = `
+                            ${character.info.name}
+                            <span class="character-subheader">Destiny: ${character.destiny} | Class: ${character.module || 'Crescendo'}</span>
+                        `;
+                    }
                     // This entire characterDetails.innerHTML section should ideally be in its own function
                     // like `renderCharacterDetails(character)` to avoid duplication.
                     let attributesHtml = '';
