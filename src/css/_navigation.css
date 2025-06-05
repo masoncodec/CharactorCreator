@@ -1,0 +1,116 @@
+/* _navigation.css */
+/* Navigation */
+.main-nav {
+    background-color: #333;
+    padding: 10px 0;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.main-nav ul {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.main-nav a {
+    color: white;
+    text-decoration: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.main-nav a:hover {
+    background-color: #555;
+}
+
+.main-nav a.active {
+    background-color: #B22222;
+    box-shadow: 0 0 8px rgba(178, 34, 34, 0.5);
+}
+
+.wizard-nav {
+    display: flex;
+    background: #2D2D2D;
+    padding: 1rem;
+    justify-content: center;
+    gap: 1rem;
+    /* REMOVED: position: fixed; */
+    /* REMOVED: top: 0; */
+    /* REMOVED: left: 0; */
+    /* REMOVED: width: 100%; */
+    /* REMOVED: z-index: 1000; */
+    /* REMOVED: box-shadow: 0 2px 5px rgba(0,0,0,0.2); */
+}
+
+.nav-item {
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 4px;
+    min-width: 120px;
+    box-sizing: border-box;
+    position: relative;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    padding-left: calc(0.5rem + 20px + 5px);
+    padding-right: calc(0.5rem + 20px + 5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #555;
+}
+
+.nav-item:hover {
+    background-color: #444;
+    border-color: #777;
+}
+
+.nav-item.active {
+    background: #B22222;
+    color: white;
+}
+
+.nav-item.active:hover {
+    background: #c23232;
+    border-color: #B22222;
+}
+
+.nav-item.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.nav-item.disabled::before {
+    content: "🔒";
+    visibility: visible;
+}
+
+.nav-item.completed {
+    color: #FFD700;
+}
+
+.nav-item.completed::before {
+    content: "✓ ";
+    visibility: visible;
+}
+
+/* Consolidated and updated wizard-controls styles */
+.wizard-controls {
+    display: flex;
+    justify-content: space-between;
+    background: #2D2D2D;
+    border-top: 1px solid #444;
+    padding: 1rem 2rem;
+    /* REMOVED: Styles for fixed position at the bottom */
+    /* REMOVED: position: fixed; */
+    /* REMOVED: bottom: 0; */
+    /* REMOVED: left: 0; */
+    /* REMOVED: width: 100%; */
+    /* REMOVED: z-index: 1000; */
+    /* REMOVED: box-shadow: 0 -2px 5px rgba(0,0,0,0.2); */
+}

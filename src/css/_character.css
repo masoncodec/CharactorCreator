@@ -1,0 +1,358 @@
+/* _character.css */
+
+/* --- Revised CSS Grid Structure for Attributes --- */
+
+/* Container for the grid of attributes */
+/* This container will now stack the individual attribute-row rows vertically */
+.attributes-grid-container {
+    display: flex; /* Use flexbox to stack attribute rows */
+    flex-direction: column; /* Stack them vertically */
+    gap: 8px; /* Space between each attribute row */
+    margin-top: 1.5rem;
+    padding: 0.5rem;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background-color: #222; /* Slightly darker background for the overall section */
+}
+
+/* Each dice-assignment will now be its own independent CSS Grid row */
+.attribute-row {
+    display: grid; /* Make this div a grid container itself */
+    /* Define grid template columns based on the max number of modifiers (5) */
+    /* Total columns: 1 (Name) + 1 (Die Type) + 1 (Roll Button) + 1 (Yellow Result) + 5 (Modifiers) + 1 (Unmod Result) = 10 columns */
+    /* 1fr: Attribute Name (flexible width) */
+    /* 0.8fr: Die Type (flexible width, slightly smaller) */
+    /* 0.6fr: Roll Button (fixed smaller width for button) */
+    /* 0.7fr: Yellow Roll Result (flexible, slightly smaller) */
+    /* repeat(5, 0.6fr): 5 modifier columns (flexible 0.6fr each, slightly larger) */
+    /* 0.7fr: Unmodified Roll Result (flexible, slightly smaller) */
+    grid-template-columns: 1fr 0.8fr 0.6fr 0.7fr repeat(5, 0.6fr) 0.7fr;
+    gap: 10px; /* Space between columns within a single row */
+    padding: 8px 12px; /* Padding for the entire row */
+    border-radius: 4px; /* Slight rounding for the row background */
+    align-items: center; /* Vertically align content within the grid row */
+    border-bottom: 1px solid #333; /* Separator between rows */
+}
+
+/* Remove bottom border from the last attribute row */
+.attribute-row:last-child {
+    border-bottom: none;
+}
+
+
+/* Alternating row backgrounds applied directly to the attribute-row rows */
+.attribute-row:nth-child(odd) {
+    background-color: #1A1A1A; /* Darker background for odd rows */
+}
+
+.attribute-row:nth-child(even) {
+    background-color: #252525; /* Lighter background for even rows */
+}
+
+/* Specific column alignment and styling */
+.attribute-row label {
+    font-weight: bold;
+    color: #FFD700; /* Gold for attribute names */
+    grid-column: 1; /* Explicitly place in column 1 */
+    white-space: nowrap; /* Prevent wrapping for attribute names */
+}
+
+/* Die Type - now in its own column */
+.die-type {
+    font-weight: bold;
+    color: #E0E0E0;
+    white-space: nowrap; /* Prevent wrapping for die type */
+    grid-column: 2; /* Explicitly place in column 2 */
+    text-align: left; /* Left align the die type */
+}
+
+/* Roll Button - now in its own column */
+.btn-roll {
+    font-size: 0.9em; /* Smaller button text */
+    padding: 5px 10px;
+    white-space: nowrap; /* Prevent button text from wrapping */
+    grid-column: 3; /* Explicitly place in column 3 */
+    justify-self: center; /* Center the button within its grid cell */
+}
+
+/* Roll Results - Yellow Modified (Column 4) */
+.roll-result {
+    font-weight: bold;
+    color: #FFD700; /* Yellow for modified result */
+    text-align: center;
+    grid-column: 4; /* Explicitly place in column 4 */
+}
+
+/* Modifiers (Columns 5 to 9) */
+/* Each modifier span gets its own implicit grid column based on HTML order within attribute-row */
+.modifier-display {
+    color: #03AC13; /* Green for modifiers */
+    text-align: center;
+    white-space: nowrap; /* Prevent modifiers from wrapping */
+}
+
+/* Empty modifier cells - make them visually absent but maintain grid structure */
+.empty-modifier-cell {
+    visibility: hidden; /* Hides the content but keeps the space */
+    /* A non-breaking space (set in JS) also helps ensure the cell takes up space */
+}
+
+/* Unmodified Roll Result - Blue (Column 10) */
+.unmodified-roll-result {
+    color: #6495ED; /* Blue for unmodified result */
+    text-align: center;
+    font-style: italic;
+    grid-column: 10; /* Explicitly place in the last column */
+}
+
+/* Hide empty unmodified result cells (these are added by JS for structure if no modifiers) */
+.empty-unmodified-cell {
+    visibility: hidden; /* Hides content but maintains grid column */
+}
+
+/* Ensure all relevant text is the same size within attribute-row */
+.attribute-row label,
+.attribute-row span,
+.attribute-row div,
+.attribute-row button {
+    font-size: 1rem; /* Base font size for all children */
+    line-height: 1.2; /* Adjust line height for compactness */
+}
+
+/* Specific adjustment for die-type-container items if needed (ensure they don't get overridden) */
+/* .die-type-container was removed */
+.die-type, /* Directly target die-type */
+.btn-roll { /* Directly target btn-roll */
+    font-size: 1rem; /* Ensure consistent font size */
+}
+
+/* --- End of Revised CSS Grid Structure for Attributes --- */
+
+
+/* Character Management */
+.characters-grid { /* New class for the grid container */
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* 2 columns, adjust minmax as needed */
+    gap: 1.5rem; /* Space between character cards */
+    margin-top: 1.5rem;
+}
+
+.character-card {
+    background: #1A1A1A;
+    padding: 1rem; /* Smaller padding */
+    border-radius: 8px;
+    border: 1px solid #444;
+    transition: transform 0.2s;
+    display: flex; /* Use flex for internal layout of card content */
+    flex-direction: column; /* Stack content vertically */
+    justify-content: space-between; /* Push buttons to the bottom */
+    min-height: 150px; /* Ensure a minimum height for consistency */
+}
+
+.character-card:hover {
+    transform: translateY(-5px);
+    border-color: #FFD700;
+}
+
+.character-card h3 {
+    margin-top: 0; /* Remove top margin for character name */
+    margin-bottom: 0.5rem; /* Space below character name */
+    font-size: 1.3rem; /* Slightly smaller heading for cards */
+}
+
+.character-card p {
+    font-size: 0.95rem; /* Slightly smaller text for card details */
+    margin-bottom: 0.3rem; /* Less space between paragraphs */
+}
+
+.character-card .meta {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 0.5rem;
+    margin-bottom: 0.8rem;
+}
+
+.character-subheader {
+    font-size: 0.6em; /* Adjust this value as needed to make it smaller */
+    font-weight: normal; /* To counteract any bolding from parent h2 */
+    display: block; /* To ensure it appears on a new line or allows for better spacing */
+    margin-top: 5px; /* Optional: adds a little space below the name */
+    color: #ffffff;
+}
+
+/* New styles for character details display */
+#characterDetails {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed #3A3A3A; /* Subtle separator */
+}
+
+#characterDetails h3 {
+    color: #FFD700;
+    margin-top: 1.5rem;
+    margin-bottom: 0.8rem;
+    border-bottom: 1px solid #555;
+    padding-bottom: 0.4rem;
+    font-size: 1.4rem;
+}
+
+#characterDetails p {
+    color: #E0E0E0;
+    line-height: 1.6;
+    margin-bottom: 0.5rem;
+}
+
+/* General text within character details for better readability */
+#characterDetails strong {
+    color: #FFD700; /* Highlight key info */
+}
+
+/* Grid for stats or similar structured data */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 1rem 0;
+    background-color: #252525; /* Slightly different background for the grid */
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid #3A3A3A;
+}
+
+.stat {
+    background: #1A1A1A;
+    padding: 0.75rem;
+    border-radius: 4px;
+    text-align: center;
+    border: 1px solid #3A3A3A; /* Add border for definition */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #ccc;
+    margin-bottom: 0.2rem;
+}
+
+.stat-value {
+    font-size: 1.7rem; /* Slightly larger for emphasis */
+    font-weight: bold;
+    color: #FFD700; /* Gold for values */
+}
+
+.card-actions { /* Style the action buttons within the card */
+    display: flex;
+    gap: 0.5rem;
+    margin-top: auto; /* Push buttons to the bottom of the card */
+    padding-top: 0.8rem;
+    border-top: 1px solid #2A2A2A; /* Subtle separator */
+}
+
+.card-actions .btn-select,
+.card-actions .btn-delete {
+    flex: 1; /* Make buttons take equal width */
+    padding: 0.6rem 0.8rem; /* Smaller padding for card buttons */
+    font-size: 0.9rem; /* Smaller font size for card buttons */
+}
+
+
+.character-actions { /* This is for the main action buttons at the bottom of the page */
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #444;
+    justify-content: flex-end; /* Align buttons to the right */
+}
+
+.character-actions .btn {
+    flex-grow: 0; /* Prevent buttons from stretching */
+}
+
+/* Health Bar Styling */
+.health-display {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.health-bar-container {
+    width: 100%;
+    background-color: #4A0000; /* Dark red background for the bar container */
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+    border: 1px solid #6A0000; /* Slightly lighter border for definition */
+}
+
+.health-bar {
+    height: 25px; /* Height of the health bar */
+    border-radius: 5px;
+    transition: width 0.5s ease-in-out, background-color 0.5s ease-in-out; /* Smooth transition for width and color */
+}
+
+.health-full {
+    background-color: #03AC13; /* Green for full health */
+}
+
+.health-medium {
+    background-color: #FFA500; /* Orange for medium health */
+}
+
+.health-low {
+    background-color: #FF0000; /* Red for low health */
+}
+
+.health-numbers {
+    color: #E0E0E0;
+    font-size: 1rem;
+    text-align: right;
+    padding-right: 5px;
+}
+
+/* New styles for health adjustment controls */
+.health-controls {
+    display: flex;
+    gap: 10px; /* Space between input and button */
+    margin-bottom: 10px;
+    align-items: center; /* Vertically align items */
+}
+
+.health-controls input[type="number"] {
+    flex-grow: 1; /* Allow input to take available space */
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid #555;
+    background-color: #333;
+    color: #eee;
+    font-size: 1rem;
+    max-width: 120px; /* Limit width of the input field */
+}
+
+.health-controls .btn-primary {
+    padding: 8px 15px;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .character-header {
+        font-size: 1.5rem;
+    }
+    .character-actions {
+        flex-direction: column; /* Stack buttons on small screens */
+        align-items: stretch;
+    }
+    .health-controls {
+        flex-direction: column; /* Stack input and button on small screens */
+        align-items: stretch;
+    }
+    .health-controls input[type="number"] {
+        max-width: 100%; /* Allow input to take full width on small screens */
+    }
+
+    .characters-grid { /* On smaller screens, allow characters to stack more columns or single column */
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Adjust for smaller cards */
+    }
+}

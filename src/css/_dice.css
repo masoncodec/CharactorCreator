@@ -1,0 +1,118 @@
+/* _dice.css */
+/* Dice System */
+.dice-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem; /* Increased gap for better spacing */
+    margin: 1.5rem 0; /* More vertical margin */
+    padding: 1rem;
+    border: 1px solid #3A3A3A; /* Subtle border for the container */
+    border-radius: 8px;
+    background-color: #252525; /* Slightly lighter background than body */
+}
+
+/* Specific styling for the roll button in play.html */
+.tools-panel #rollD20 {
+    font-size: 1.3rem; /* Larger font for the main roll button */
+    padding: 1rem 2rem;
+    width: auto; /* Allow button to size based on content */
+    min-width: 150px; /* Ensure a decent minimum width */
+    /* Inherits .btn .btn-primary styles */
+}
+
+/* Ensure diceResult has a minimum height to prevent layout shifts */
+#diceResult {
+    min-height: 50px; /* Provide space for the result text */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px; /* Spacing between roll result, unmodified result, and modifiers */
+    width: 100%; /* Take full width of its container */
+    flex-wrap: wrap; /* Allow items to wrap if needed */
+}
+
+.dice-assignment-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.dice-assignment-table th,
+.dice-assignment-table td {
+    padding: 0.8rem;
+    text-align: center;
+    border: 1px solid #444;
+}
+
+.dice-assignment-table button {
+    width: 50px;
+    height: 40px;
+    border: 2px solid #444;
+    border-radius: 4px;
+    background: #1A1A1A;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: white; /* Set text color to white */
+}
+
+.dice-assignment-table button:hover {
+    /* Applying the same hover effect as .btn:hover from _buttons.css */
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    background-color: #2A2A2A; /* Slightly lighter on hover */
+}
+
+.dice-assignment-table button.selected {
+    background: #B22222;
+    border-color: #FFD700;
+}
+
+.dice-assignment-table button.selected:hover {
+    /* Slightly lighter on hover for selected buttons */
+    background-color: #C23232; /* A slightly lighter red than #B22222 */
+}
+
+/* Styles for disabled dice buttons */
+.dice-assignment-table button[disabled] {
+    opacity: 0.5; /* Grey out the button */
+    cursor: not-allowed; /* Change cursor to 'not-allowed' */
+    background-color: #1A1A1A; /* Ensure background is the base dark, or a specific grey */
+    border-color: #444; /* Keep original border or make it grey */
+    transform: none; /* Remove any transform on disabled state */
+    box-shadow: none; /* Remove any box-shadow on disabled state */
+}
+
+/* Ensure disabled buttons don't react to hover */
+.dice-assignment-table button[disabled]:hover {
+    background-color: #1A1A1A; /* Revert to base background on hover if disabled */
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Existing roll-result adjustments to ensure consistent fading */
+.roll-result {
+    font-size: 2.2em; /* Larger font size for primary roll result */
+    font-weight: bold;
+    color: #FFD700; /* Gold color for the primary result */
+    min-width: 60px; /* Ensure space for larger number */
+    text-align: center;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 1.5s ease-out;
+}
+
+.roll-result.visible {
+    opacity: 1; /* Visible when result is displayed */
+}
+
+.roll-result.fade-out {
+    opacity: 0; /* Fades out */
+}
+
+/* Adjust dice-assignment to use flexbox for proper alignment */
+.dice-assignment {
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Adjust spacing between elements */
+    margin-bottom: 10px;
+}

@@ -1,3 +1,34 @@
+// play.js
+
+// === Configuration for Attribute Display ===
+// IMPORTANT: This constant defines the maximum number of modifier columns.
+// If an attribute has more modifiers than this, they will not be displayed.
+// If an attribute has fewer, empty columns will be created to maintain grid structure.
+const MAX_MODIFIER_COLUMNS = 5; // User-defined maximum number of modifiers
+
+// A simple alerter utility for displaying messages.
+// This uses alert() for immediate feedback and console.log() for logging.
+const alerter = {
+    show: function(message, type = 'info') {
+        alert(`[${type.toUpperCase()}] ${message}`);
+        console.log(`Alerter (${type}): ${message}`);
+
+        // Note for future: To implement a non-blocking UI message,
+        // you would dynamically create and display a styled message element
+        // (using _informer.css which you already have for styling purposes).
+        // Example (conceptual):
+        /*
+        const messageEl = document.createElement('div');
+        messageEl.classList.add('alerter-message', `alerter-${type}`); // Using alerter-message class
+        messageEl.textContent = message;
+        document.body.appendChild(messageEl);
+        setTimeout(() => {
+            messageEl.remove();
+        }, 3000); // Remove after 3 seconds
+        */
+    }
+};
+
 // Function to highlight the active navigation link
 function highlightActiveNav(pageName) {
     document.querySelectorAll('.nav-link').forEach(link => {
@@ -38,36 +69,79 @@ function getActiveModifiersForAttribute(attributeName) {
     return activeModifiers;
 }
 
-// Helper function to render modifier display elements
-function renderModifierDisplays(modifiers, containerElement) {
-    containerElement.innerHTML = ''; // Clear previous modifiers
-    if (modifiers.length > 0) {
-        modifiers.forEach(mod => {
-            const modSpan = document.createElement('span');
-            modSpan.classList.add('modifier-display');
-            modSpan.textContent = (mod.value > 0 ? '+' : '') + mod.value;
-            modSpan.style.color = mod.value > 0 ? '#03AC13' : '#FF0000'; // Apply colors
-            modSpan.dataset.abilityName = mod.abilityName; // Store ability name for tooltip
+// Helper function to render modifier display elements and the unmodified result
+// This function is now responsible for re-rendering the modifier columns within the attribute-row
+// It replaces the previous renderModifierDisplays functionality for dynamic updates
+function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResult, activeModifiers) {
+    // Select existing elements or create placeholders if they don't exist
+    let yellowResultEl = assignmentElement.querySelector('.roll-result');
+    let blueResultEl = assignmentElement.querySelector('.unmodified-roll-result');
 
-            // Add click listener for tooltip
-            modSpan.addEventListener('click', function(event) {
-                const tooltip = document.createElement('div');
-                tooltip.classList.add('modifier-tooltip');
-                tooltip.textContent = this.dataset.abilityName;
-                // Position the tooltip over the number
-                tooltip.style.left = `${event.clientX}px`;
-                tooltip.style.top = `${event.clientY - 20}px`; // Adjust for vertical positioning
-                document.body.appendChild(tooltip);
+    // Ensure elements exist. They should be created during initial rendering, but this is a fallback.
+    if (!yellowResultEl) {
+        yellowResultEl = document.createElement('div');
+        yellowResultEl.classList.add('roll-result');
+        assignmentElement.appendChild(yellowResultEl);
+    }
+    if (!blueResultEl) {
+        blueResultEl = document.createElement('div');
+        blueResultEl.classList.add('unmodified-roll-result');
+        assignmentElement.appendChild(blueResultEl);
+    }
 
-                // Remove tooltip after a few seconds
-                setTimeout(() => {
-                    if (document.body.contains(tooltip)) { // Check if it still exists before removing
-                        document.body.removeChild(tooltip);
-                    }
-                }, 3000); // Visible for 3 seconds
-            });
-            containerElement.appendChild(modSpan);
-        });
+    // --- IMPORTANT FIX: Reset classes to ensure display on subsequent rolls ---
+    yellowResultEl.classList.remove('visible', 'fade-out');
+    blueResultEl.classList.remove('visible', 'fade-out');
+    blueResultEl.classList.remove('empty-unmodified-cell'); // Ensure visibility if it becomes active
+
+    // Clear previous dynamic modifier spans
+    assignmentElement.querySelectorAll('.modifier-display, .empty-modifier-cell').forEach(el => el.remove());
+
+    // Display yellow modified result (Column 4)
+    yellowResultEl.textContent = modifiedResult;
+    yellowResultEl.classList.add('visible');
+    setTimeout(() => yellowResultEl.classList.add('fade-out'), 2000);
+
+
+    // Re-render Modifiers (Columns 5 to 5 + MAX_MODIFIER_COLUMNS - 1)
+    const modifiersToDisplay = activeModifiers.slice(0, MAX_MODIFIER_COLUMNS); // Cap at MAX_MODIFIER_COLUMNS
+
+    // Add actual modifiers and append them directly after the roll-result element
+    // This ensures they are inserted in the correct grid column order after the yellow result.
+    const rollResultColumn = assignmentElement.querySelector('.roll-result');
+    let lastInsertedElement = rollResultColumn; // Start inserting after the roll result
+
+    modifiersToDisplay.forEach(mod => {
+        const modSpan = document.createElement('span');
+        modSpan.classList.add('modifier-display');
+        modSpan.textContent = (mod.value > 0 ? '+' : '') + mod.value;
+        modSpan.style.color = mod.value > 0 ? '#03AC13' : '#FF0000';
+        modSpan.dataset.abilityName = mod.abilityName;
+
+        // Insert modifiers after the last inserted element
+        lastInsertedElement.insertAdjacentElement('afterend', modSpan);
+        lastInsertedElement = modSpan; // Update last inserted element
+    });
+
+    // Add empty modifier cells to maintain grid columns (if needed)
+    for (let i = modifiersToDisplay.length; i < MAX_MODIFIER_COLUMNS; i++) {
+        const emptyModSpan = document.createElement('span');
+        emptyModSpan.classList.add('modifier-display', 'empty-modifier-cell');
+        emptyModSpan.innerHTML = '&nbsp;'; // Non-breaking space to maintain height
+        lastInsertedElement.insertAdjacentElement('afterend', emptyModSpan);
+        lastInsertedElement = emptyModSpan; // Update last inserted element
+    }
+
+    // Display blue unmodified result (Column 10)
+    // This element should always be the last one in the grid row for attribute-row
+    if (activeModifiers.length > 0) {
+        blueResultEl.textContent = baseResult;
+        blueResultEl.classList.add('visible');
+        setTimeout(() => blueResultEl.classList.add('fade-out'), 2000);
+    } else {
+        // If no modifiers, ensure it's hidden but space is maintained
+        blueResultEl.textContent = '';
+        blueResultEl.classList.add('empty-unmodified-cell');
     }
 }
 
@@ -76,7 +150,7 @@ function renderModifierDisplays(modifiers, containerElement) {
 function attachAttributeRollListeners() {
     document.querySelectorAll('.attribute-roll').forEach(btn => {
         btn.addEventListener('click', function() {
-            const assignment = this.closest('.dice-assignment');
+            const assignment = this.closest('.attribute-row');
             const attributeName = assignment.getAttribute('data-attribute');
             const dieType = assignment.getAttribute('data-dice');
             const baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
@@ -86,30 +160,8 @@ function attachAttributeRollListeners() {
 
             const modifiedResult = baseResult + totalModifier; // Apply modifier to the result
 
-            const blueResultEl = assignment.querySelector('.unmodified-roll-result'); // Blue unmodified result
-            const yellowResultEl = assignment.querySelector('.roll-result'); // Yellow modified result
-            const modifiersContainer = assignment.querySelector('.modifiers-container'); // Container for modifiers
-
-            // Reset visibility
-            blueResultEl.textContent = '';
-            yellowResultEl.textContent = '';
-            blueResultEl.classList.remove('visible', 'fade-out');
-            yellowResultEl.classList.remove('visible', 'fade-out');
-
-            // Display blue unmodified result if there are mods
-            if (activeModifiers.length > 0) {
-                blueResultEl.textContent = baseResult;
-                blueResultEl.classList.add('visible');
-                setTimeout(() => blueResultEl.classList.add('fade-out'), 2000); // Fade out after 2 seconds
-            }
-
-            // Display yellow modified result
-            yellowResultEl.textContent = modifiedResult;
-            yellowResultEl.classList.add('visible');
-            setTimeout(() => yellowResultEl.classList.add('fade-out'), 2000); // Fade out after 2 seconds
-
-            // Re-render modifiers explicitly on roll
-            renderModifierDisplays(activeModifiers, modifiersContainer);
+            // Update the display for this specific attribute-row
+            updateAttributeRollDisplay(assignment, baseResult, modifiedResult, activeModifiers);
         });
     });
 }
@@ -174,8 +226,9 @@ function renderAbilities(character) {
         if (abilityDef.type === "active") {
             const isOn = activeAbilityStates.has(abilityState.id) ? 'toggled-red' : '';
             activeAbilitiesHtml.push(`
-                <li class="ability-list-item"> <button class="ability-button ability-item ${isOn}" data-ability-id="${abilityState.id}">
-                        <strong>${abilityDef.name}</strong> (Tier ${abilityState.tier})
+                <li class="ability-list-item">
+                    <button class="ability-button ability-item ${isOn}" data-ability-id="${abilityState.id}">
+                        <strong>${abilityDef.name}</strong> <span class="ability-type-tag active">ACTIVE</span> (Tier ${abilityState.tier})
                         <p>${description}</p>
                         ${optionsHtml}
                     </button>
@@ -184,7 +237,7 @@ function renderAbilities(character) {
         } else { // Passive ability
             passiveAbilitiesHtml.push(`
                 <li class="ability-item passive-ability-item">
-                    <strong>${abilityDef.name}</strong> (Tier ${abilityState.tier})
+                    <strong>${abilityDef.name}</strong> <span class="ability-type-tag passive">PASSIVE</span> (Tier ${abilityState.tier})
                     <p>${description}</p>
                     ${optionsHtml}
                 </li>
@@ -213,9 +266,125 @@ function renderAbilities(character) {
 
 let activeCharacter = null; // Variable to store the active character
 
+// Function to render health display
+function renderHealthDisplay(character) {
+    if (!character || !character.health) {
+        console.warn("Character or health data not available for rendering health display.");
+        return;
+    }
+
+    const healthDisplayContainer = document.querySelector('.character-health.health-display');
+    if (!healthDisplayContainer) {
+        console.warn("Health display container not found.");
+        return;
+    }
+
+    // Calculate health percentage and determine health class
+    const healthPercentage = (character.health.current / character.health.max) * 100;
+    let healthClass = '';
+    if (healthPercentage > 60) {
+        healthClass = 'health-full';
+    } else if (healthPercentage > 30) {
+        healthClass = 'health-medium';
+    } else {
+        healthClass = 'health-low';
+    }
+
+    healthDisplayContainer.innerHTML = `
+        <h4>Health</h4>
+        <div class="health-controls">
+            <input type="number" id="healthAdjustmentInput" placeholder="e.g. -5, +10" class="form-control" />
+            <button id="applyHealthAdjustment" class="btn btn-primary">Apply</button>
+        </div>
+        <div class="health-bar-container">
+            <div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div>
+        </div>
+        <div class="health-numbers">
+            ${character.health.current} / ${character.health.max}
+            ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}
+        </div>
+    `;
+
+    // Attach event listener for health adjustment after rendering
+    const applyButton = document.getElementById('applyHealthAdjustment');
+    const inputField = document.getElementById('healthAdjustmentInput');
+
+    applyButton.addEventListener('click', function() {
+        const value = inputField.value;
+        const adjustment = parseInt(value, 10);
+
+        if (isNaN(adjustment) || !Number.isInteger(adjustment)) {
+            alerter.show('Invalid input. Please enter a whole number.', 'error');
+            inputField.value = '';
+            return;
+        }
+
+        let newCurrentHealth = character.health.current + adjustment;
+
+        // Note for future: Temporary health logic can be implemented here.
+        // For now, adjustments only affect current health, and no min/max cap.
+
+        db.updateCharacterHealth(character.id, { current: newCurrentHealth }).then(updatedCharacter => {
+            activeCharacter = updatedCharacter; // Update the global activeCharacter
+            renderHealthDisplay(activeCharacter); // Re-render with updated health
+            // alerter.show(`Health adjusted by ${adjustment}. New health: ${activeCharacter.health.current}`, 'success'); // Removed success message
+            console.log(`Health adjusted for ${activeCharacter.info.name}: ${adjustment}. New health: ${activeCharacter.health.current}`);
+            inputField.value = ''; // Clear input field
+        }).catch(err => {
+            alerter.show('Error updating health. See console.', 'error');
+            console.error('Error updating character health:', err);
+        });
+    });
+
+    // Add event listener for 'Enter' key press on the input field
+    inputField.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault(); // Prevent default form submission if any
+            applyButton.click(); // Trigger the click event on the Apply button
+        }
+    });
+}
+
+
 // Initialize play page
 document.addEventListener('DOMContentLoaded', function() {
     highlightActiveNav('play.html'); // Highlight "Play" link
+
+    const characterDetails = document.getElementById('characterDetails'); // Get this element early
+
+    // --- ONE AND ONLY ONE DELEGATED EVENT LISTENER FOR TOOLTIPS ---
+    // This listener will be active for ALL clicks within characterDetails,
+    // and it will check if the click originated from a .modifier-display.
+    if (characterDetails) {
+        characterDetails.addEventListener('click', function(event) {
+            // Use .closest() to find the .modifier-display element that was clicked or is an ancestor of the click target
+            let targetModSpan = event.target.closest('.modifier-display');
+
+            // Ensure a .modifier-display was clicked AND it's not an empty placeholder
+            if (targetModSpan && !targetModSpan.classList.contains('empty-modifier-cell')) {
+                // Remove any existing tooltips on this specific element before creating a new one
+                // This prevents multiple tooltips if clicked rapidly on the same span
+                targetModSpan.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove());
+
+                const tooltip = document.createElement('div');
+                tooltip.classList.add('modifier-tooltip');
+                tooltip.textContent = targetModSpan.dataset.abilityName;
+
+                // Append the tooltip directly to the clicked modifier span
+                targetModSpan.appendChild(tooltip);
+
+                // Set a timeout to remove the tooltip after 3 seconds
+                setTimeout(() => {
+                    // Ensure the tooltip is still a child of targetModSpan before trying to remove it
+                    if (targetModSpan.contains(tooltip)) {
+                        targetModSpan.removeChild(tooltip);
+                    }
+                }, 3000);
+            }
+        });
+    }
+    // --- END OF DELEGATED EVENT LISTENER ---
+
 
     // Load abilities.json first
     fetch('data/abilities.json')
@@ -231,51 +400,78 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Now load active character, as abilityData is available
             db.getActiveCharacter().then(function(character) {
-                const characterDetails = document.getElementById('characterDetails');
                 activeCharacter = character; // Store the active character
 
                 if (character) {
-                    characterDetails.innerHTML = `
-                        <div class="character-header">
-                            <h3>${character.info.name}</h3>
-                            <p class="character-module">${character.module || 'Crescendo'}</p>
-                            <p class="character-role">${character.destiny}</p>
-                        </div>
+                    const characterNameHeader = document.getElementById('characterNameHeader');
+                    if (characterNameHeader) {
+                        characterNameHeader.innerHTML = `
+                            ${character.info.name}
+                            <span class="character-subheader">Destiny: ${character.destiny} | Class: ${character.module || 'Crescendo'}</span>
+                        `;
+                    }
+                    // This entire characterDetails.innerHTML section should ideally be in its own function
+                    // like `renderCharacterDetails(character)` to avoid duplication.
+                    let attributesHtml = '';
+                    if (character.attributes) {
+                        attributesHtml = Object.entries(character.attributes).map(([attr, die]) => {
+                            const initialModifiers = getActiveModifiersForAttribute(attr);
+                            let modifierSpans = '';
+                            for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                                const mod = initialModifiers[i];
+                                if (mod) {
+                                    modifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                                } else {
+                                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+                                }
+                            }
+                            const unmodifiedResultHtml = initialModifiers.length > 0
+                                ? `<div class="unmodified-roll-result">${attr.unmodifiedResult !== undefined ? attr.unmodifiedResult : ''}</div>`
+                                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+                            return `
+                                <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
+                                    <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
+                                    <span class="die-type">${die.toUpperCase()}</span>
+                                    <button class="btn-roll attribute-roll">Roll</button>
+                                    <div class="roll-result"></div>
+                                    ${modifierSpans}
+                                    ${unmodifiedResultHtml}
+                                </div>
+                            `;
+                        }).join('');
 
+                        const initialLuckModifiers = getActiveModifiersForAttribute('luck');
+                        let luckModifierSpans = '';
+                        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                            const mod = initialLuckModifiers[i];
+                            if (mod) {
+                                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                            } else {
+                                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+                            }
+                        }
+                        const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
+                            ? `<div class="unmodified-roll-result"></div>`
+                            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+                        attributesHtml += `
+                            <div class="attribute-row" data-attribute="luck" data-dice="d100">
+                                <label>Luck</label>
+                                <span class="die-type">D100</span>
+                                <button class="btn-roll attribute-roll">Roll</button>
+                                <div class="roll-result"></div>
+                                ${luckModifierSpans}
+                                ${unmodifiedLuckResultHtml}
+                            </div>
+                        `;
+                    }
+
+                    characterDetails.innerHTML = `
                         <div class="character-stats">
                             <h4>Attributes</h4>
-                            <div class="dice-assignments">
-                                ${Object.entries(character.attributes).map(([attr, die]) => `
-                                    <div class="dice-assignment" data-attribute="${attr}" data-dice="${die}">
-                                        <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
-                                        <div class="die-type">${die.toUpperCase()}</div>
-                                        <button class="btn-roll attribute-roll">Roll</button>
-                                        <div class="unmodified-roll-result"></div>
-                                        <div class="modifiers-container"></div>
-                                        <div class="roll-result"></div>
-                                    </div>
-                                `).join('')}
-                                <div class="dice-assignment" data-attribute="luck" data-dice="d100">
-                                    <label>Luck</label>
-                                    <div class="die-type">D100</div>
-                                    <button class="btn-roll attribute-roll">Roll</button>
-                                    <div class="unmodified-roll-result"></div>
-                                    <div class="modifiers-container"></div>
-                                    <div class="roll-result"></div>
-                                </div>
-                            </div>
+                            <div class="attributes-grid-container"> ${attributesHtml}</div>
                         </div>
 
-                        <div class="character-health">
-                            <h4>Health</h4>
-                            <div class="health-bar">
-                                <div class="health-current" style="width: ${(character.health.current / character.health.max) * 100}%"></div>
-                            </div>
-                            <div class="health-numbers">
-                                ${character.health.current} / ${character.health.max}
-                                ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}
-                            </div>
-                        </div>
+                        <div class="character-health health-display"></div>
 
                         ${character.selectedFlaw ? `
                         <div class="character-flaw">
@@ -293,45 +489,95 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         ` : ''}
 
-                        ${renderAbilities(character)}  <div class="character-info">
+                        ${renderAbilities(character)}
+                        <div class="character-info">
                             <h4>Info</h4>
                             <p><strong>Name:</strong> ${character.info.name}</p>
                             <p><strong>Bio:</strong> ${character.info.bio || 'N/A'}</p>
                         </div>
                     `;
-                    // After character details are rendered, initialize modifier displays
-                    document.querySelectorAll('.dice-assignment').forEach(assignment => {
-                        const attributeName = assignment.getAttribute('data-attribute');
-                        const modifiersContainer = assignment.querySelector('.modifiers-container');
-                        const activeModifiers = getActiveModifiersForAttribute(attributeName);
-                        renderModifierDisplays(activeModifiers, modifiersContainer);
-                    });
 
-                    attachAttributeRollListeners(); // Attach listeners after content is loaded
+                    renderHealthDisplay(activeCharacter);
+                    attachAttributeRollListeners();
 
-                    // Attach event listener for active ability buttons
                     document.getElementById('activeAbilitiesList').addEventListener('click', function(event) {
                         const button = event.target.closest('.ability-button');
                         if (button) {
                             const abilityId = button.dataset.abilityId;
 
-                            // Check if the ability is currently active
                             if (activeAbilityStates.has(abilityId)) {
-                                activeAbilityStates.delete(abilityId); // Turn off
+                                activeAbilityStates.delete(abilityId);
                                 button.classList.remove('toggled-red');
                                 console.log(`Ability ${abilityId} turned OFF.`);
                             } else {
-                                activeAbilityStates.add(abilityId); // Turn on
+                                activeAbilityStates.add(abilityId);
                                 button.classList.add('toggled-red');
                                 console.log(`Ability ${abilityId} turned ON.`);
                             }
-                            // Re-render all modifier displays across attributes
-                            document.querySelectorAll('.dice-assignment').forEach(assignment => {
-                                const attributeName = assignment.getAttribute('data-attribute');
-                                const modifiersContainer = assignment.querySelector('.modifiers-container');
-                                const activeModifiers = getActiveModifiersForAttribute(attributeName);
-                                renderModifierDisplays(activeModifiers, modifiersContainer);
-                            });
+
+                            const attributesSection = document.querySelector('.character-stats');
+                            if (attributesSection) {
+                                let newAttributesHtml = '';
+                                if (activeCharacter.attributes) { // Use activeCharacter for the latest state
+                                    newAttributesHtml = Object.entries(activeCharacter.attributes).map(([attr, die]) => {
+                                        const initialModifiers = getActiveModifiersForAttribute(attr);
+                                        let modifierSpans = '';
+                                        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                                            const mod = initialModifiers[i];
+                                            if (mod) {
+                                                modifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                                            } else {
+                                                modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+                                            }
+                                        }
+                                        const unmodifiedResultHtml = initialModifiers.length > 0
+                                            ? `<div class="unmodified-roll-result">${attr.unmodifiedResult !== undefined ? attr.unmodifiedResult : ''}</div>`
+                                            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+                                        return `
+                                            <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
+                                                <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
+                                                <span class="die-type">${die.toUpperCase()}</span>
+                                                <button class="btn-roll attribute-roll">Roll</button>
+                                                <div class="roll-result"></div>
+                                                ${modifierSpans}
+                                                ${unmodifiedResultHtml}
+                                            </div>
+                                        `;
+                                    }).join('');
+
+                                    const initialLuckModifiers = getActiveModifiersForAttribute('luck');
+                                    let luckModifierSpans = '';
+                                    for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                                        const mod = initialLuckModifiers[i];
+                                        if (mod) {
+                                            luckModifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                                        } else {
+                                            luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+                                        }
+                                    }
+                                    const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
+                                        ? `<div class="unmodified-roll-result"></div>`
+                                        : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+                                    newAttributesHtml += `
+                                        <div class="attribute-row" data-attribute="luck" data-dice="d100">
+                                            <label>Luck</label>
+                                            <span class="die-type">D100</span>
+                                            <button class="btn-roll attribute-roll">Roll</button>
+                                            <div class="roll-result"></div>
+                                            ${luckModifierSpans}
+                                            ${unmodifiedLuckResultHtml}
+                                        </div>
+                                    `;
+                                }
+
+                                attributesSection.innerHTML = `
+                                    <h4>Attributes</h4>
+                                    <div class="attributes-grid-container">
+                                        ${newAttributesHtml}
+                                    </div>
+                                `;
+                                attachAttributeRollListeners(); // Re-attach listeners for new buttons
+                            }
                         }
                     });
 
@@ -384,7 +630,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 100);
         }).catch(function(err) {
             console.error('Export failed:', err);
-            alert('Export failed: ' + err);
+            alerter.show('Export failed: ' + err, 'error'); // Alerter for export failure
         });
     });
 });

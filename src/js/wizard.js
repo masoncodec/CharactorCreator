@@ -479,7 +479,7 @@ class CharacterWizard {
       container.className = 'destiny-details';
       container.innerHTML = `
         <div class="flaw-selection">
-          <label for="characterFlaw">Choose Your Flaw:</label>
+          <h4>Choose your Flaw:</h4>
           <select id="characterFlaw">
             <option value="">Select a Flaw</option>
             ${destiny.flaws.map(flawId => {

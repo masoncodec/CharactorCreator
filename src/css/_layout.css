@@ -1,0 +1,122 @@
+/* _layout.css */
+/* Layout & Containers */
+.character-creator {
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Make the character creator fill the screen */
+    box-sizing: border-box; /* Ensure padding/border don't add to height */
+}
+
+/* Add this new style for header-controls */
+.header-controls {
+    display: flex;
+    align-items: center; /* Vertically align items */
+    gap: 1rem; /* Space between the home link and the heading */
+    padding: 1rem 2rem 0; /* Add padding consistent with wizard-content, 0 padding at bottom */
+    background-color: #1A1A1A; /* Match body background or wizard-controls background */
+    border-bottom: 1px solid #444; /* Optional: A subtle separator line */
+    /* Create a bottom shadow that acts as a line */
+    box-shadow: 0 1px 0 0 #444;
+    margin-bottom: 1rem; /* Space below the header controls */
+}
+
+.header-controls h2 {
+    margin: 0; /* Remove default margin from h2 inside this container */
+    margin-bottom: .75rem;
+}
+
+.wizard-container {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Make wizard-container fill remaining vertical space within character-creator */
+    min-height: 0; /* Important for flex items with flex-grow and internal scrolling */
+}
+
+.wizard-content {
+    display: flex;
+    flex-direction: row; /* Ensure panels are side-by-side */
+    padding-left: 2rem;
+    padding-right: 2rem;
+    gap: 2rem;
+    flex-grow: 1; /* This makes it fill all available vertical space within wizard-container */
+    overflow-y: auto; /* Allow wizard-content itself to scroll if its internal content overflows */
+    box-sizing: border-box; /* Ensures padding doesn't add to element's total height */
+}
+
+.panel {
+    background: #2D2D2D;
+    padding: 1.5rem;
+    border-radius: 8px;
+    overflow-y: auto; /* Enable scrolling for content that exceeds panel height */
+    flex-shrink: 1; /* Allow panels to shrink */
+    min-height: 0; /* Important for flex items with overflow-y: auto */
+    box-sizing: border-box; /* Ensure panel's padding is included in its height calculation */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); /* Enhanced shadow for polish */
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; /* Smooth transition */
+}
+
+.panel:hover {
+    transform: translateY(-3px); /* Subtle lift on hover */
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5); /* Enhanced shadow on hover */
+}
+
+
+/* Specific panel sizing */
+.selector-panel {
+    flex: 2;
+}
+
+.informer-panel {
+    flex: 1;
+    max-width: 350px;
+}
+
+/* Play Area Specific Layout */
+.play-area {
+    display: flex;
+    flex-direction: column; /* Stack header/link and content */
+    padding: 1.5rem 2rem; /* Consistent padding around the play area */
+    flex-grow: 1;
+    min-height: 0;
+    box-sizing: border-box;
+}
+
+.play-area-content {
+    display: flex;
+    flex-direction: row; /* Panels side-by-side */
+    gap: 2rem; /* Spacing between panels */
+    flex-grow: 1; /* Allows content to fill available space */
+    min-height: 0;
+    margin-top: 1.5rem; /* Space below the home link */
+}
+
+.character-sheet {
+    flex: 2; /* Character sheet takes more space */
+}
+
+.tools-panel {
+    flex: 1;
+    max-width: 400px; /* Max width for tools panel */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .wizard-content, .play-area-content {
+        flex-direction: column; /* Stack panels on smaller screens */
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .selector-panel,
+    .informer-panel,
+    .character-sheet,
+    .tools-panel {
+        flex: auto;
+        max-width: 100%;
+        height: auto; /* Allow natural height for stacked panels */
+    }
+
+    .play-area {
+        padding: 1rem;
+    }
+}

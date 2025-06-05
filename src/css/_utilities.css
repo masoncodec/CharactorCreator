@@ -1,0 +1,31 @@
+/* Utility Classes */
+.error {
+    color: #ff6b6b;
+}
+
+.error-highlight {
+    animation: pulseError 1s infinite;
+    border-color: #B22222 !important;
+}
+
+.hint {
+    font-size: 0.8rem;
+    color: #aaa;
+    margin-top: 0.25rem;
+}
+
+.tag {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 1rem;
+    margin: 0 0.3rem;
+    font-size: 0.8em;
+    color: white;
+}
+
+/* Animations */
+@keyframes pulseError {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
