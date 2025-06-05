@@ -1,0 +1,18 @@
+{
+    "displayName": "Divine Cleric",
+    "description": "Holy warrior who channels divine power.",
+    "health": {
+        "title": "Resilient",
+        "value": 9
+    },
+    "flaws": ["dogmatic", "zealotry"],
+    "tags": [
+        { "id": "healing", "display": "Healing", "color": "#32cd32", "icon": "❤️" },
+        { "id": "holy", "display": "Holy", "color": "#ffd700", "icon": "✝️" }
+    ],
+    "levelUnlocks": [
+        { "level": 1, "ability": "divine-smite" },
+        { "level": 3, "ability": "lay-on-hands" },
+        { "level": 5, "ability": "turn-undead" }
+    ]
+}

@@ -1,0 +1,18 @@
+{
+    "displayName": "Lead Guitarist",
+    "description": "Stage-dominating riff machine.",
+    "health": {
+        "title": "Charismatic",
+        "value": 8
+    },
+    "flaws": ["ego", "rivalry"],
+    "tags": [
+        { "id": "strings", "display": "Strings", "color": "#ff4500", "icon": "🎸" },
+        { "id": "lead", "display": "Lead", "color": "#ffd700", "icon": "🌟" }
+    ],
+    "levelUnlocks": [
+        { "level": 1, "ability": "power-chord" },
+        { "level": 3, "ability": "face-melter" },
+        { "level": 5, "ability": "feedback-loop" }
+    ]
+}

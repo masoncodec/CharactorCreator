@@ -1,0 +1,18 @@
+{
+    "displayName": "Virtuoso Pianist",
+    "description": "Keyboard master with technical precision.",
+    "health": {
+        "title": "Artistic",
+        "value": 7
+    },
+    "flaws": ["perfectionist", "stage-fright"],
+    "tags": [
+        { "id": "keys", "display": "Keys", "color": "#000000", "icon": "🎹" },
+        { "id": "solo", "display": "Solo", "color": "#ffffff", "icon": "🎼" }
+    ],
+    "levelUnlocks": [
+        { "level": 1, "ability": "virtuoso" },
+        { "level": 3, "ability": "improvisation" },
+        { "level": 5, "ability": "grand-finale" }
+    ]
+}

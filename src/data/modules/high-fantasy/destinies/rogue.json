@@ -1,0 +1,18 @@
+{
+    "displayName": "Shadow Rogue",
+    "description": "Stealthy opportunist who thrives in shadows.",
+    "health": {
+        "title": "Agile",
+        "value": 8
+    },
+    "flaws": ["greed", "recklessness"],
+    "tags": [
+        { "id": "stealth", "display": "Stealth", "color": "#696969", "icon": "👤" },
+        { "id": "trap", "display": "Traps", "color": "#ff8c00", "icon": "⚠️" }
+    ],
+    "levelUnlocks": [
+        { "level": 1, "ability": "backstab" },
+        { "level": 3, "ability": "lockpick" },
+        { "level": 5, "ability": "poison-mastery" }
+    ]
+}

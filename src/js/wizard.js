@@ -12,9 +12,9 @@ class CharacterWizard {
       info: { name: '', bio: '' }
     };
     // Assign the loaded data to instance properties
-    this.moduleSystem = moduleSystem;
+    this.moduleSystem = moduleSystem; // This will now be an object where keys are module IDs
     this.flawData = flawData;
-    this.destinyData = destinyData;
+    this.destinyData = destinyData; // This will now be an object where keys are destiny IDs
     this.abilityData = abilityData;
 
     this.db = db;
@@ -166,6 +166,7 @@ class CharacterWizard {
           roleSelect.innerHTML = '<option value="">Select a Destiny</option>';
         
           if (this.state.module) {
+            // Access destinies directly from the moduleSystem data for the selected module
             this.moduleSystem[this.state.module].destinies.forEach(destinyId => {
               const destiny = this.destinyData[destinyId];
               if (!destiny) {
@@ -858,6 +859,7 @@ class CharacterWizard {
 
   validateData() {
       Object.keys(this.moduleSystem).forEach(moduleId => {
+        // Access destinies directly from the moduleSystem data for the current module
         this.moduleSystem[moduleId].destinies.forEach(destinyId => {
           if (!this.destinyData[destinyId]) {
             console.error(`Missing destiny data for: ${destinyId}`);
@@ -1141,21 +1143,14 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
 
   console.log('CharacterWizard: DOMContentLoaded event fired. Loading data...');
 
-  let moduleSystemData = null;
+  // Global data stores
+  const moduleSystemData = {};
+  const destinyData = {};
   let flawData = null;
-  let destinyData = null;
   let abilityData = null;
 
   try {
-      // Load modules.json
-      console.log('CharacterWizard: Fetching modules.json...');
-      const moduleResponse = await fetch('data/modules.json');
-      if (!moduleResponse.ok) throw new Error(`HTTP error! status: ${moduleResponse.status}`);
-      moduleSystemData = await moduleResponse.json();
-      console.log('CharacterWizard: modules.json loaded successfully.');
-      console.debug('CharacterWizard: modules.json data:', moduleSystemData);
-
-      // Load abilities.json
+      // 1. Load abilities.json
       console.log('CharacterWizard: Fetching abilities.json...');
       const abilityResponse = await fetch('data/abilities.json');
       if (!abilityResponse.ok) throw new Error(`HTTP error! status: ${abilityResponse.status}`);
@@ -1163,7 +1158,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
       console.log('CharacterWizard: abilities.json loaded successfully.');
       console.debug('CharacterWizard: abilities.json data:', abilityData);
 
-      // Load flaws.json
+      // 2. Load flaws.json
       console.log('CharacterWizard: Fetching flaws.json...');
       const flawResponse = await fetch('data/flaws.json');
       if (!flawResponse.ok) throw new Error(`HTTP error! status: ${flawResponse.status}`);
@@ -1171,13 +1166,45 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
       console.log('CharacterWizard: flaws.json loaded successfully.');
       console.debug('CharacterWizard: flaws.json data:', flawData);
 
-      // Load destinies.json
-      console.log('CharacterWizard: Fetching destinies.json...');
-      const destinyResponse = await fetch('data/destinies.json');
-      if (!destinyResponse.ok) throw new Error(`HTTP error! status: ${destinyResponse.status}`);
-      destinyData = await destinyResponse.json();
-      console.log('CharacterWizard: destinies.json loaded successfully.');
-      console.debug('CharacterWizard: destinies.json data:', destinyData);
+      // 3. Discover and Load all Module data
+      // IMPORTANT: In a real application, 'allModuleIds' would likely come from a manifest file or server-side API.
+      // For this refactor, we are hardcoding the known module IDs based on the provided structure.
+      const allModuleIds = ['high-fantasy', 'crescendo', 'fire-hunters'];
+      
+      console.log('CharacterWizard: Fetching all module metadata...');
+      const moduleFetchPromises = allModuleIds.map(async moduleId => {
+          const response = await fetch(`data/modules/${moduleId}/module.json`);
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status} for module ${moduleId}`);
+          const moduleJson = await response.json();
+          moduleSystemData[moduleId] = moduleJson;
+          console.log(`CharacterWizard: Loaded module: ${moduleId}`);
+      });
+      await Promise.all(moduleFetchPromises);
+      console.log('CharacterWizard: All module metadata loaded successfully.');
+      console.debug('CharacterWizard: moduleSystemData:', moduleSystemData);
+
+      // 4. Load all Destiny data based on loaded modules
+      console.log('CharacterWizard: Fetching all destiny data...');
+      const destinyFetchPromises = [];
+      for (const moduleId of allModuleIds) {
+          const module = moduleSystemData[moduleId];
+          if (module && module.destinies) { // Assuming module.json now lists destinies
+              module.destinies.forEach(destinyId => {
+                  destinyFetchPromises.push(
+                      (async () => {
+                          const response = await fetch(`data/modules/${moduleId}/destinies/${destinyId}.json`);
+                          if (!response.ok) throw new Error(`HTTP error! status: ${response.status} for destiny ${destinyId} in module ${moduleId}`);
+                          const destinyJson = await response.json();
+                          destinyData[destinyId] = destinyJson;
+                          console.log(`CharacterWizard: Loaded destiny: ${destinyId} for module ${moduleId}`);
+                      })()
+                  );
+              });
+          }
+      }
+      await Promise.all(destinyFetchPromises);
+      console.log('CharacterWizard: All destiny data loaded successfully.');
+      console.debug('CharacterWizard: destinyData:', destinyData);
 
       // Initialize CharacterWizard with all loaded data
       console.log('CharacterWizard: All data loaded. Initializing CharacterWizard.');

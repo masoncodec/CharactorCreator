@@ -1,0 +1,8 @@
+{
+    "name": "Fire Hunters",
+    "attributes": ["Whimsy", "Sturdy", "Charm", "Magic", "Speed", "Nature"],
+    "descriptions": {
+        "module": "A Tale about Fae"
+    },
+    "destinies": ["whisperer"]
+}

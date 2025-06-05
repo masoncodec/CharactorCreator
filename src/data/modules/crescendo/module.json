@@ -1,0 +1,8 @@
+{
+    "name": "Crescendo",
+    "attributes": ["Passion", "Rhythm", "Stamina", "Fame", "Style", "Harmony"],
+    "descriptions": {
+        "module": "Musical storytelling game about fame, artistry, and creative struggles."
+    },
+    "destinies": ["pianist", "guitarist", "singer", "drummer"]
+}

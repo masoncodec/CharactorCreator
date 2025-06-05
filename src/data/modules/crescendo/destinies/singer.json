@@ -1,0 +1,18 @@
+{
+    "displayName": "Soulful Singer",
+    "description": "Voice that moves audiences to tears.",
+    "health": {
+        "title": "Emotive",
+        "value": 6
+    },
+    "flaws": ["vulnerable", "melodrama"],
+    "tags": [
+        { "id": "vocals", "display": "Vocals", "color": "#ff69b4", "icon": "🎤" },
+        { "id": "lyrics", "display": "Lyrics", "color": "#9370db", "icon": "📝" }
+    ],
+    "levelUnlocks": [
+        { "level": 1, "ability": "high-note" },
+        { "level": 3, "ability": "crowd-hush" },
+        { "level": 5, "ability": "golden-voice" }
+    ]
+}
