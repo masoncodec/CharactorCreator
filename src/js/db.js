@@ -255,6 +255,38 @@ function updateCharacterResources(characterId, newResources) {
     });
 };
 
+function updateCharacter(id, updates) {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+
+            const getRequest = store.get(id);
+
+            getRequest.onsuccess = function() {
+                const character = getRequest.result;
+                if (!character) {
+                    reject('Character not found');
+                    return;
+                }
+
+                // Merge the updates into the character object
+                const updatedCharacter = {
+                    ...character,
+                    ...updates
+                };
+
+                const putRequest = store.put(updatedCharacter);
+
+                putRequest.onsuccess = () => resolve(updatedCharacter);
+                putRequest.onerror = () => reject('Error updating character');
+            };
+
+            getRequest.onerror = () => reject('Error finding character');
+        });
+    });
+};
+
 // Make functions available globally
 window.db = {
     saveCharacter,
@@ -267,5 +299,6 @@ window.db = {
     setActiveCharacter,
     getActiveCharacter,
     updateCharacterHealth,
-    updateCharacterResources
+    updateCharacterResources,
+    updateCharacter
 };

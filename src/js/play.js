@@ -8,29 +8,52 @@ const EffectHandler = {
 
     // This function will be called whenever character state might change (e.g., ability toggle, character load)
     // It processes all active abilities and compiles their effects
-    processActiveAbilities: function(character, abilityData, activeAbilityStates) {
+    processActiveAbilities: function(character, abilityData, flawData, activeAbilityStates) {
         this.activeEffects = []; // Clear previous active effects
 
-        if (!character || !character.abilities) return;
+        if (!character) return;
 
-        character.abilities.forEach(abilityState => {
-            const abilityDef = abilityData[abilityState.id];
-            if (abilityDef && abilityDef.effect) {
-                const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id));
+        // Process Abilities
+        if (character.abilities) {
+            character.abilities.forEach(abilityState => {
+                const abilityDef = abilityData[abilityState.id];
+                if (abilityDef && abilityDef.effect) {
+                    const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id));
 
-                if (isActive) {
-                    abilityDef.effect.forEach(effect => {
-                        // Store the raw effect data along with the ability name for context
+                    if (isActive) {
+                        abilityDef.effect.forEach(effect => {
+                            // Store the raw effect data along with the ability name for context
+                            this.activeEffects.push({
+                                ...effect,
+                                abilityName: abilityDef.name,
+                                abilityId: abilityState.id, // Include ability ID for cost deduction
+                                abilityType: abilityDef.type,
+                                sourceType: "ability" // New: Indicate source is an ability
+                            });
+                        });
+                    }
+                }
+            });
+        }
+
+
+        // Process Flaws (converted to virtual passive abilities for effect handling)
+        if (character.flaws && flawData) { // Ensure flawData is available
+            character.flaws.forEach(flawState => { // flawState might just be { id: "flaw-id" }
+                const flawDef = flawData[flawState.id];
+                if (flawDef && flawDef.effect) {
+                    flawDef.effect.forEach(effect => {
                         this.activeEffects.push({
                             ...effect,
-                            abilityName: abilityDef.name,
-                            abilityId: abilityState.id, // Include ability ID for cost deduction
-                            abilityType: abilityDef.type
+                            abilityName: flawDef.name, // Use flaw name for context
+                            abilityId: flawState.id,
+                            abilityType: "passive", // Treat functionally as passive
+                            sourceType: "flaw" // New: Indicate source is a flaw
                         });
                     });
                 }
-            }
-        });
+            });
+        }
         console.log("EffectHandler: Active Effects Processed", this.activeEffects);
     },
 
@@ -183,8 +206,9 @@ function processAndRenderCharacter(character) {
         return;
     }
 
-    // Step 1: Process all active abilities to populate EffectHandler.activeEffects
-    EffectHandler.processActiveAbilities(character, abilityData, activeAbilityStates);
+    // Step 1: Process all active abilities and flaws to populate EffectHandler.activeEffects
+    // Pass flawData to EffectHandler
+    EffectHandler.processActiveAbilities(character, abilityData, flawData, activeAbilityStates);
 
     // Step 2: Apply all active effects to a cloned version of the character data
     // This creates a 'derived' character state with all passive and active effects applied
@@ -212,7 +236,7 @@ function processAndRenderCharacter(character) {
             for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
                 const mod = initialModifiers[i];
                 if (mod) {
-                    modifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
+                    modifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
                 } else {
                     modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
                 }
@@ -238,7 +262,7 @@ function processAndRenderCharacter(character) {
         for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
             const mod = initialLuckModifiers[i];
             if (mod) {
-                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
+                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
             } else {
                 luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
             }
@@ -265,16 +289,10 @@ function processAndRenderCharacter(character) {
         </div>
 
         <div class="character-health health-display"></div>
-        ${renderResources(effectedCharacter)} // New rendering function for resources
-        ${renderLanguages(effectedCharacter)} // New rendering function for languages
-        ${renderStatuses(effectedCharacter)} // New rendering function for statuses
-
-        ${effectedCharacter.selectedFlaw ? `
-        <div class="character-flaw">
-            <h4>Selected Flaw</h4>
-            <p>${effectedCharacter.selectedFlaw.charAt(0).toUpperCase() + effectedCharacter.selectedFlaw.slice(1)}</p>
-        </div>
-        ` : ''}
+        ${renderResources(effectedCharacter)}
+        ${renderLanguages(effectedCharacter)}
+        ${renderStatuses(effectedCharacter)}
+        ${renderFlaws(effectedCharacter)}
 
         ${effectedCharacter.inventory && effectedCharacter.inventory.length > 0 ? `
         <div class="character-inventory">
@@ -339,6 +357,8 @@ function highlightActiveNav(pageName) {
 
 // Global variable to hold ability data
 let abilityData = {}; // Initialize as empty object
+// Global variable to hold flaw data
+let flawData = {}; // New: Initialize as empty object for flaws
 
 // Global variable to hold the state of active toggleable abilities
 // Resets on page refresh as requested.
@@ -353,7 +373,8 @@ function getActiveModifiersForAttribute(attributeName) {
     return EffectHandler.getEffectsForAttribute(attributeName, "modifier")
         .map(effect => ({
             value: effect.modifier, // Correctly maps 'modifier' to 'value'
-            abilityName: effect.abilityName
+            abilityName: effect.abilityName,
+            sourceType: effect.sourceType // Include sourceType
         }));
 }
 
@@ -406,6 +427,7 @@ function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResul
         modSpan.textContent = (mod.modifier > 0 ? '+' : '') + mod.modifier;
         modSpan.style.color = mod.modifier > 0 ? '#03AC13' : '#FF0000';
         modSpan.dataset.abilityName = mod.abilityName;
+        modSpan.dataset.sourceType = mod.sourceType; // Add sourceType to data-attribute
 
         // Insert modifiers after the last inserted element
         lastInsertedElement.insertAdjacentElement('afterend', modSpan);
@@ -445,8 +467,9 @@ function attachAttributeRollListeners() {
             let baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
 
             // --- Cost Deduction Logic ---
+            // Only abilities can have costs, not flaws, so filter by sourceType
             const relevantActiveEffects = EffectHandler.activeEffects.filter(effect =>
-                effect.attribute && effect.attribute.toLowerCase() === attributeName && effect.cost
+                effect.attribute && effect.attribute.toLowerCase() === attributeName && effect.cost && effect.sourceType === "ability"
             );
 
             let canAffordAll = true;
@@ -748,6 +771,33 @@ function renderStatuses(character) {
     `;
 }
 
+// New: Function to render flaws
+function renderFlaws(character) {
+    if (!character.flaws || character.flaws.length === 0) {
+        return '';
+    }
+    return `
+        <div class="character-flaws">
+            <h4>Flaws</h4>
+            <ul>
+                ${character.flaws.map(flawState => {
+                    const flawDef = flawData[flawState.id];
+                    if (!flawDef) {
+                        console.warn(`Flaw definition not found for ID: ${flawState.id}`);
+                        return `<li>Unknown Flaw (ID: ${flawState.id})</li>`;
+                    }
+                    return `
+                        <li class="flaw-item">
+                            <strong>${flawDef.name}</strong>
+                            <p>${flawDef.description}</p>
+                        </li>
+                    `;
+                }).join('')}
+            </ul>
+        </div>
+    `;
+}
+
 
 // Initialize play page
 document.addEventListener('DOMContentLoaded', function() {
@@ -771,7 +821,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const tooltip = document.createElement('div');
                 tooltip.classList.add('modifier-tooltip');
-                tooltip.textContent = targetModSpan.dataset.abilityName;
+                // Display both ability name and source type in tooltip
+                const abilityName = targetModSpan.dataset.abilityName;
+                const sourceType = targetModSpan.dataset.sourceType;
+                tooltip.textContent = `${abilityName} (Source: ${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)})`;
+
 
                 // Append the tooltip directly to the clicked modifier span
                 targetModSpan.appendChild(tooltip);
@@ -789,28 +843,53 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- END OF DELEGATED EVENT LISTENER ---
 
 
-    // Load abilities.json first
-    fetch('data/abilities.json')
-        .then(response => {
+    // Load abilities.json and flaws.json
+    Promise.all([
+        fetch('data/abilities.json').then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        }),
+        fetch('data/flaws.json').then(response => { // New: Fetch flaws.json
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
-        .then(data => {
-            abilityData = data;
-            console.log('play.js: abilities.json loaded successfully.');
+    ])
+    .then(([abilitiesDataLoaded, flawsDataLoaded]) => {
+        abilityData = abilitiesDataLoaded;
+        flawData = flawsDataLoaded; // Assign loaded flaw data
+        console.log('play.js: abilities.json and flaws.json loaded successfully.');
 
-            db.getActiveCharacter().then(function(character) {
-                activeCharacter = character;
+        db.getActiveCharacter().then(function(character) {
+            activeCharacter = character;
+            // IMPORTANT: If character.selectedFlaw exists, convert it to the new character.flaws format
+            if (activeCharacter && activeCharacter.selectedFlaw && !activeCharacter.flaws) {
+                console.warn("Converting old 'selectedFlaw' to new 'flaws' array format.");
+                activeCharacter.flaws = [{ id: activeCharacter.selectedFlaw }];
+                delete activeCharacter.selectedFlaw; // Remove the old property
+                // Persist this change to the database
+                db.updateCharacter(activeCharacter.id, { flaws: activeCharacter.flaws, selectedFlaw: null }).then(() => {
+                    processAndRenderCharacter(activeCharacter); // Initial render with updated structure
+                }).catch(err => {
+                    console.error("Error updating character flaws in DB:", err);
+                    alerter.show("Error migrating flaw data.", "error");
+                    processAndRenderCharacter(activeCharacter); // Render anyway, with potential old data issue
+                });
+            } else {
                 processAndRenderCharacter(activeCharacter); // Initial render
-            }).catch(function(err) {
-                console.error('Error loading character:', err);
-            });
-        })
-        .catch(error => {
-            console.error('play.js: Error loading abilities.json:', error);
-            alert('Failed to load ability data. Please check the console for details.');
+            }
+
+        }).catch(function(err) {
+            console.error('Error loading character:', err);
+            alerter.show('Failed to load active character.', 'error');
+        });
+    })
+    .catch(error => {
+        console.error('play.js: Error loading data files:', error);
+        alert('Failed to load game data (abilities.json or flaws.json). Please check the console for details.');
     });
 
     // Event listener for toggling active abilities

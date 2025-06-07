@@ -3,24 +3,32 @@
     "type": "flaw",
     "name": "Frail",
     "description": "Your body is weaker than others",
-    "effect": {
-      "type": "modifier",
-      "name": "Modifier",
-      "attribute": "sturdy",
-      "modifier": "-2",
-      "health": "-2"
-    }
+    "effect": [
+      {
+        "type": "modifier",
+        "name": "Modifier",
+        "attribute": "sturdy",
+        "modifier": -2
+      },
+      {
+        "type": "max_health_mod",
+        "name": "Health",
+        "value": -2
+      }
+    ]
   },
   "stranger": {
     "type": "flaw",
     "name": "Stranger",
     "description": "You are a social outcast",
-    "effect": {
-      "type": "die_num",
-      "name": "Disdvantange",
-      "attribute": "charm",
-      "modifier": "-1"
-    }
+    "effect": [
+      {
+        "type": "die_num",
+        "name": "Disdvantange",
+        "attribute": "charm",
+        "modifier": -1
+      }
+    ]
   },
   "overconfidence": {
     "name": "Overconfidence",
