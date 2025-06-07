@@ -24,7 +24,7 @@ const EffectHandler = {
                         this.activeEffects.push({
                             ...effect,
                             abilityName: abilityDef.name,
-                            abilityId: abilityDef.id, // Include ability ID for cost deduction
+                            abilityId: abilityState.id, // Include ability ID for cost deduction
                             abilityType: abilityDef.type
                         });
                     });
