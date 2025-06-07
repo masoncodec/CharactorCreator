@@ -236,6 +236,25 @@ function updateCharacterHealth(id, healthUpdate) {
     });
 }
 
+function updateCharacterResources(characterId, newResources) {
+    return new Promise((resolve, reject) => {
+        // Implement IndexedDB or other storage update logic here
+        // Find the character, update its 'resources' array, and save.
+        // For example, if using local storage or a simple object:
+        db.getCharacter(characterId).then(character => {
+            if (character) {
+                character.resources = newResources;
+                // Save character back to storage
+                // db.saveCharacter(character); // Assuming such a method exists
+                console.log(`Character ${character.id} resources updated:`, newResources);
+                resolve(character); // Resolve with the updated character object
+            } else {
+                reject(new Error("Character not found for resource update."));
+            }
+        }).catch(reject);
+    });
+};
+
 // Make functions available globally
 window.db = {
     saveCharacter,
@@ -247,5 +266,6 @@ window.db = {
     deleteCharacter,
     setActiveCharacter,
     getActiveCharacter,
-    updateCharacterHealth
+    updateCharacterHealth,
+    updateCharacterResources
 };
