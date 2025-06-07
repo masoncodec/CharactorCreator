@@ -52,17 +52,24 @@ function getActiveModifiersForAttribute(attributeName) {
     if (activeCharacter && activeCharacter.abilities) {
         activeCharacter.abilities.forEach(abilityState => {
             const abilityDef = abilityData[abilityState.id];
-            if (abilityDef && abilityDef.effect && abilityDef.effect.type === "modifier" && abilityDef.effect.attribute) {
-                const effectAttribute = abilityDef.effect.attribute.toLowerCase();
-
-                const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id));
-
-                if (isActive && effectAttribute === attributeName) {
-                    activeModifiers.push({
-                        value: abilityDef.effect.modifier,
-                        abilityName: abilityDef.name
-                    });
-                }
+            if (abilityDef && abilityDef.effect) { // Check if abilityDef and effect exist
+                // Iterate over each effect in the array
+                abilityDef.effect.forEach(effect => {
+                    //TODO: here is where we will integrate each effect logic
+                    //this will require a complete rework for this function
+                    if (effect.type === "modifier" && effect.attribute) {
+                        const effectAttribute = effect.attribute.toLowerCase();
+            
+                        const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id));
+            
+                        if (isActive && effectAttribute === attributeName) {
+                            activeModifiers.push({
+                                value: effect.modifier,
+                                abilityName: abilityDef.name
+                            });
+                        }
+                    }
+                });
             }
         });
     }

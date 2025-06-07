@@ -3,47 +3,55 @@
       "type": "passive",
       "name": "Nature's Gift",
       "description": "You feel energy flowing from the woods.",
-      "effect": {
-        "type": "modifier",
-        "name": "Modifier",
-        "attribute": "nature",
-        "modifier": 3
-      },
+      "effect": [
+        {
+          "type": "modifier",
+          "name": "Modifier",
+          "attribute": "nature",
+          "modifier": 3
+        }
+      ],
       "tier": 3
     },
     "forest-feet": {
       "type": "active",
       "name": "Forest Feet",
       "description": "You are able to move much quicker in the forest.",
-      "effect": {
-        "type": "modifier",
-        "name": "Modifier",
-        "attribute": "speed",
-        "modifier": 5
-      },
+      "effect": [
+        {
+          "type": "modifier",
+          "name": "Modifier",
+          "attribute": "speed",
+          "modifier": 5
+        }
+      ],
       "tier": 2
     },
     "speak-with-animals": {
         "type": "passive",
         "name": "Speak with Animals",
         "description": "You are able to communicate with any Animal.",
-        "effect": {
-            "type": "language",
-            "name": "Animal"
-        },
+        "effect": [
+          {
+              "type": "language",
+              "name": "Animal"
+          }
+        ],
         "tier": 1
     },
     "easter-egg": {
         "name": "Easter Egg",
         "type": "active",
         "description": "Overwhelming power flows through your veins.",
-        "effect": {
-            "type": "die_num",
-            "name": "Advantage",
-            "attribute": "speed",
-            "modifier": "1",
-            "cost": { "resource": "mana", "value": "5" }
-        },
+        "effect": [
+          {
+              "type": "die_num",
+              "name": "Advantage",
+              "attribute": "speed",
+              "modifier": "1",
+              "cost": { "resource": "mana", "value": "5" }
+          }
+        ],
         "tier": 1
     },
     "small-domain": {
