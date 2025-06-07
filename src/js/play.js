@@ -205,6 +205,9 @@ function processAndRenderCharacter(character) {
     if (effectedCharacter.attributes) {
         attributesHtml = Object.entries(effectedCharacter.attributes).map(([attr, die]) => {
             const initialModifiers = EffectHandler.getEffectsForAttribute(attr, "modifier"); // Use EffectHandler
+
+            console.debug(`Processing attribute: ${attr}, Initial Modifiers:`, initialModifiers);
+
             let modifierSpans = '';
             for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
                 const mod = initialModifiers[i];
