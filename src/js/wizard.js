@@ -86,8 +86,9 @@ class CharacterWizard {
   // Navigation control
   updateNav() {
     console.log('CharacterWizard.updateNav: Updating navigation state and buttons.');
-    this.navItems.forEach((item, index) => {
-      const page = this.pages[index];
+    this.navItems.forEach(item => {
+      const page = item.dataset.page;
+      const index = this.pages.indexOf(page);
       const canAccess = this.canAccessPage(index);
       const isCompleted = this.isPageCompleted(page);
 
@@ -166,8 +167,9 @@ class CharacterWizard {
           roleSelect.innerHTML = '<option value="">Select a Destiny</option>';
         
           if (this.state.module) {
-            // Access destinies directly from the moduleSystem data for the selected module
-            this.moduleSystem[this.state.module].destinies.forEach(destinyId => {
+            // Use moduleSystem to get destinies for the selected module
+            const destiniesForModule = this.moduleSystem[this.state.module].destinies || [];
+            destiniesForModule.forEach(destinyId => {
               const destiny = this.destinyData[destinyId];
               if (!destiny) {
                   console.error(`Missing destiny data for: ${destinyId}`);
@@ -408,7 +410,7 @@ class CharacterWizard {
                <p>${this.moduleSystem[this.state.module].descriptions.module}</p>
                <h4>Available Destinies:</h4>
                <ul>
-                 ${this.moduleSystem[this.state.module].destinies.map(d => `<li>${this.destinyData[d]?.displayName || d}</li>`).join('')}
+                 ${(this.moduleSystem[this.state.module]?.destinies || []).map(d => `<li>${this.destinyData[d]?.displayName || d}</li>`).join('')}
                </ul>
              </div>`
           : '<div class="module-info"><p>Select a module to begin your journey</p></div>';
@@ -858,11 +860,14 @@ class CharacterWizard {
   }
 
   validateData() {
+      // Loop through all module IDs defined in the moduleSystem (which now comes from module_list.json)
       Object.keys(this.moduleSystem).forEach(moduleId => {
-        // Access destinies directly from the moduleSystem data for the current module
-        this.moduleSystem[moduleId].destinies.forEach(destinyId => {
+        // Get the destinies associated with this module directly from its module.json
+        const destiniesForModule = this.moduleSystem[moduleId].destinies || [];
+        
+        destiniesForModule.forEach(destinyId => {
           if (!this.destinyData[destinyId]) {
-            console.error(`Missing destiny data for: ${destinyId}`);
+            console.error(`Missing destiny data for: ${destinyId} (from module ${moduleId})`);
           } else {
             // Validate flaws
             this.destinyData[destinyId].flaws.forEach(flawId => {
@@ -1148,6 +1153,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
   const destinyData = {};
   let flawData = null;
   let abilityData = null;
+  let moduleList = null; // New variable for the module list
 
   try {
       // 1. Load abilities.json
@@ -1166,44 +1172,45 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
       console.log('CharacterWizard: flaws.json loaded successfully.');
       console.debug('CharacterWizard: flaws.json data:', flawData);
 
-      // 3. Discover and Load all Module data
-      // IMPORTANT: In a real application, 'allModuleIds' would likely come from a manifest file or server-side API.
-      // For this refactor, we are hardcoding the known module IDs based on the provided structure.
-      const allModuleIds = ['high-fantasy', 'crescendo', 'fire-hunters'];
-      
-      console.log('CharacterWizard: Fetching all module metadata...');
-      const moduleFetchPromises = allModuleIds.map(async moduleId => {
-          const response = await fetch(`data/modules/${moduleId}/module.json`);
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status} for module ${moduleId}`);
-          const moduleJson = await response.json();
-          moduleSystemData[moduleId] = moduleJson;
-          console.log(`CharacterWizard: Loaded module: ${moduleId}`);
-      });
-      await Promise.all(moduleFetchPromises);
-      console.log('CharacterWizard: All module metadata loaded successfully.');
-      console.debug('CharacterWizard: moduleSystemData:', moduleSystemData);
+      // 3. Load module_list.json (NEW)
+      console.log('CharacterWizard: Fetching data/module_list.json...');
+      const moduleListResponse = await fetch('data/module_list.json');
+      if (!moduleListResponse.ok) throw new Error(`HTTP error! status: ${moduleListResponse.status}`);
+      moduleList = await moduleListResponse.json();
+      console.log('CharacterWizard: module_list.json loaded successfully.');
+      console.debug('CharacterWizard: moduleList:', moduleList);
 
-      // 4. Load all Destiny data based on loaded modules
-      console.log('CharacterWizard: Fetching all destiny data...');
-      const destinyFetchPromises = [];
-      for (const moduleId of allModuleIds) {
-          const module = moduleSystemData[moduleId];
-          if (module && module.destinies) { // Assuming module.json now lists destinies
-              module.destinies.forEach(destinyId => {
-                  destinyFetchPromises.push(
-                      (async () => {
-                          const response = await fetch(`data/modules/${moduleId}/destinies/${destinyId}.json`);
-                          if (!response.ok) throw new Error(`HTTP error! status: ${response.status} for destiny ${destinyId} in module ${moduleId}`);
-                          const destinyJson = await response.json();
-                          destinyData[destinyId] = destinyJson;
-                          console.log(`CharacterWizard: Loaded destiny: ${destinyId} for module ${moduleId}`);
-                      })()
-                  );
-              });
-          }
+      // 4. Discover and Load all Module and Destiny data dynamically
+      
+      console.log('CharacterWizard: Fetching all module and destiny data...');
+      const allFetches = [];
+
+      for (const moduleId of moduleList) {
+          allFetches.push(
+              (async () => {
+                  // Fetch module.json
+                  const moduleResponse = await fetch(`data/modules/${moduleId}/module.json`);
+                  if (!moduleResponse.ok) throw new Error(`HTTP error! status: ${moduleResponse.status} for module ${moduleId}`);
+                  const moduleJson = await moduleResponse.json();
+                  moduleSystemData[moduleId] = moduleJson;
+                  console.log(`CharacterWizard: Loaded module: ${moduleId}`);
+
+                  // Fetch associated destinies based on the 'destinies' array in module.json
+                  const destiniesInModule = moduleJson.destinies || [];
+                  const destinyFetches = destiniesInModule.map(async destinyId => {
+                      const destinyResponse = await fetch(`data/modules/${moduleId}/destinies/${destinyId}.json`);
+                      if (!destinyResponse.ok) throw new Error(`HTTP error! status: ${destinyResponse.status} for destiny ${destinyId} in module ${moduleId}`);
+                      const destinyJson = await destinyResponse.json();
+                      destinyData[destinyId] = destinyJson;
+                      console.log(`CharacterWizard: Loaded destiny: ${destinyId} for module ${moduleId}`);
+                  });
+                  await Promise.all(destinyFetches);
+              })()
+          );
       }
-      await Promise.all(destinyFetchPromises);
-      console.log('CharacterWizard: All destiny data loaded successfully.');
+      await Promise.all(allFetches);
+      console.log('CharacterWizard: All module and destiny data loaded successfully.');
+      console.debug('CharacterWizard: moduleSystemData:', moduleSystemData);
       console.debug('CharacterWizard: destinyData:', destinyData);
 
       // Initialize CharacterWizard with all loaded data
