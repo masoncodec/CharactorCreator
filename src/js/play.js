@@ -1,6 +1,6 @@
 // play.js
 
- // In a new file, e.g., effectHandler.js (or within play.js for now, but separation is better long-term)
+// In a new file, e.g., effectHandler.js (or within play.js for now, but separation is better long-term)
 
 const EffectHandler = {
     // Stores currently active effects that influence character stats or state
@@ -212,7 +212,7 @@ function processAndRenderCharacter(character) {
             for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
                 const mod = initialModifiers[i];
                 if (mod) {
-                    modifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                    modifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
                 } else {
                     modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
                 }
@@ -238,7 +238,7 @@ function processAndRenderCharacter(character) {
         for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
             const mod = initialLuckModifiers[i];
             if (mod) {
-                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
+                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
             } else {
                 luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
             }
@@ -345,11 +345,14 @@ let abilityData = {}; // Initialize as empty object
 let activeAbilityStates = new Set(); // It is a Set.
 
 // Helper function to calculate and get active modifiers for a given attribute
+// This function was originally intended to be used, but direct access to 'modifier'
+// in raw effects proved more straightforward for current display logic.
+// Keeping it for potential future uses where a 'value' property might be universally desired.
 function getActiveModifiersForAttribute(attributeName) {
     // Delegate to EffectHandler to get relevant modifier effects
     return EffectHandler.getEffectsForAttribute(attributeName, "modifier")
         .map(effect => ({
-            value: effect.modifier,
+            value: effect.modifier, // Correctly maps 'modifier' to 'value'
             abilityName: effect.abilityName
         }));
 }
@@ -399,8 +402,9 @@ function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResul
     modifiersToDisplay.forEach(mod => {
         const modSpan = document.createElement('span');
         modSpan.classList.add('modifier-display');
-        modSpan.textContent = (mod.value > 0 ? '+' : '') + mod.value;
-        modSpan.style.color = mod.value > 0 ? '#03AC13' : '#FF0000';
+        // CORRECTED: Access mod.modifier directly
+        modSpan.textContent = (mod.modifier > 0 ? '+' : '') + mod.modifier;
+        modSpan.style.color = mod.modifier > 0 ? '#03AC13' : '#FF0000';
         modSpan.dataset.abilityName = mod.abilityName;
 
         // Insert modifiers after the last inserted element
@@ -496,7 +500,8 @@ function attachAttributeRollListeners() {
 
             // Apply modifiers (uses the already updated EffectHandler.activeEffects from processAndRenderCharacter)
             const activeModifiers = EffectHandler.getEffectsForAttribute(attributeName, "modifier");
-            let totalModifier = activeModifiers.reduce((sum, mod) => sum + mod.value, 0);
+            // CORRECTED: Access mod.modifier directly
+            let totalModifier = activeModifiers.reduce((sum, mod) => sum + mod.modifier, 0);
 
             const modifiedResult = baseResult + totalModifier; // Apply modifier to the result
 
