@@ -194,34 +194,41 @@ class CharacterWizard {
             if (destinyOptionDiv) {
               const selectedDestinyId = destinyOptionDiv.dataset.destinyId;
               
-              // Remove 'selected' class from all other destiny options
-              document.querySelectorAll('.destiny-option').forEach(opt => {
-                opt.classList.remove('selected');
-              });
+              // Only reset if the selected destiny is *different* from the current one
+              if (this.state.destiny !== selectedDestinyId) { // <<< ADD THIS CONDITION
+                // Remove 'selected' class from all other destiny options
+                document.querySelectorAll('.destiny-option').forEach(opt => {
+                  opt.classList.remove('selected');
+                });
 
-              // Add the newly selected destiny to the state
-              this.state.destiny = selectedDestinyId;
-              this.state.abilities = []; // Reset on destiny change
-              this.state.flaws = this.state.flaws.filter(f => !f.destiny); // Clear only 'destiny' flaws
-              
-              // Add 'selected' to the clicked one
-              destinyOptionDiv.classList.add('selected');
-              
-              console.log(`CharacterWizard.setupPageEvents (destiny): Destiny selected: ${selectedDestinyId}. Current destiny:`, this.state.destiny);
-              
-              this.renderDestinyDetails();
-              this.renderAbilitiesSection();
-              this.updateInformer(page);
-              this.updateNav();
+                // Add the newly selected destiny to the state
+                this.state.destiny = selectedDestinyId;
+                this.state.abilities = []; // Reset on destiny change
+                this.state.flaws = this.state.flaws.filter(f => !f.destiny); // Clear only 'destiny' flaws
+                
+                // Add 'selected' to the clicked one
+                destinyOptionDiv.classList.add('selected');
+                
+                console.log(`CharacterWizard.setupPageEvents (destiny): Destiny selected: ${selectedDestinyId}. Current destiny:`, this.state.destiny);
+                
+                this.renderDestinyDetails();
+                this.renderAbilitiesSection();
+                this.updateInformer(page);
+                this.updateNav();
+              } else {
+                  console.log(`CharacterWizard.setupPageEvents (destiny): Re-selected same destiny: ${selectedDestinyId}. No reset performed.`);
+              }
             }
           });
 
-          // Existing flaw selection listener remains as is
+          // Existing flaw selection listener remains as is (no change needed here)
           document.querySelector('#selectorPanel').addEventListener('click', (e) => {
             const flawOptionDiv = e.target.closest('.flaw-option');
             if (flawOptionDiv) {
               const selectedFlawId = flawOptionDiv.dataset.flawId;
 
+              // This part should still allow re-selection of a flaw, just ensuring it's the *only* destiny flaw
+              // and updating the UI accordingly.
               this.state.flaws = this.state.flaws.filter(f => !f.destiny);
               document.querySelectorAll('.flaw-option').forEach(opt => {
                 opt.classList.remove('selected');
