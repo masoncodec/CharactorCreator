@@ -865,22 +865,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         db.getActiveCharacter().then(function(character) {
             activeCharacter = character;
-            // IMPORTANT: If character.selectedFlaw exists, convert it to the new character.flaws format
-            if (activeCharacter && activeCharacter.selectedFlaw && !activeCharacter.flaws) {
-                console.warn("Converting old 'selectedFlaw' to new 'flaws' array format.");
-                activeCharacter.flaws = [{ id: activeCharacter.selectedFlaw }];
-                delete activeCharacter.selectedFlaw; // Remove the old property
-                // Persist this change to the database
-                db.updateCharacter(activeCharacter.id, { flaws: activeCharacter.flaws, selectedFlaw: null }).then(() => {
-                    processAndRenderCharacter(activeCharacter); // Initial render with updated structure
-                }).catch(err => {
-                    console.error("Error updating character flaws in DB:", err);
-                    alerter.show("Error migrating flaw data.", "error");
-                    processAndRenderCharacter(activeCharacter); // Render anyway, with potential old data issue
-                });
-            } else {
-                processAndRenderCharacter(activeCharacter); // Initial render
-            }
+            processAndRenderCharacter(activeCharacter); // Initial render
 
         }).catch(function(err) {
             console.error('Error loading character:', err);
