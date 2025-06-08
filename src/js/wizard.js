@@ -163,11 +163,10 @@ class CharacterWizard {
         break;
         
         case 'destiny':
-          const roleSelect = document.getElementById('characterRole');
-          roleSelect.innerHTML = '<option value="">Select a Destiny</option>';
-        
+          const destinyOptionsContainer = document.getElementById('destiny-options-container');
+          destinyOptionsContainer.innerHTML = ''; // Clear previous options
+
           if (this.state.module) {
-            // Use moduleSystem to get destinies for the selected module
             const destiniesForModule = this.moduleSystem[this.state.module].destinies || [];
             destiniesForModule.forEach(destinyId => {
               const destiny = this.destinyData[destinyId];
@@ -175,49 +174,59 @@ class CharacterWizard {
                   console.error(`Missing destiny data for: ${destinyId}`);
                   return;
               }
-        
-              const option = document.createElement('option');
-              option.value = destinyId;
-              option.textContent = destiny.displayName;
-              roleSelect.appendChild(option);
+              const isSelected = this.state.destiny === destinyId;
+              const destinyOptionDiv = document.createElement('div');
+              destinyOptionDiv.classList.add('destiny-option');
+              if (isSelected) {
+                  destinyOptionDiv.classList.add('selected');
+              }
+              destinyOptionDiv.dataset.destinyId = destinyId;
+              destinyOptionDiv.innerHTML = `
+                <span class="destiny-name">${destiny.displayName}</span>
+              `;
+              destinyOptionsContainer.appendChild(destinyOptionDiv);
             });
-        
-            if (this.state.destiny) {
-              roleSelect.value = this.state.destiny;
-            }
           }
-        
-          roleSelect.addEventListener('change', (e) => {
-            this.state.destiny = e.target.value;
-            this.state.abilities = []; // Reset on destiny change
-            // Clear only 'destiny' flaws when destiny changes
-            this.state.flaws = this.state.flaws.filter(f => !f.destiny); 
-            this.renderDestinyDetails(); // Render new flaw selection
-            this.renderAbilitiesSection(); // New method
-            this.updateInformer(page); // Update informer
-            this.updateNav();
+
+          // Listener for dynamically created destiny option divs
+          destinyOptionsContainer.addEventListener('click', (e) => {
+            const destinyOptionDiv = e.target.closest('.destiny-option');
+            if (destinyOptionDiv) {
+              const selectedDestinyId = destinyOptionDiv.dataset.destinyId;
+              
+              // Remove 'selected' class from all other destiny options
+              document.querySelectorAll('.destiny-option').forEach(opt => {
+                opt.classList.remove('selected');
+              });
+
+              // Add the newly selected destiny to the state
+              this.state.destiny = selectedDestinyId;
+              this.state.abilities = []; // Reset on destiny change
+              this.state.flaws = this.state.flaws.filter(f => !f.destiny); // Clear only 'destiny' flaws
+              
+              // Add 'selected' to the clicked one
+              destinyOptionDiv.classList.add('selected');
+              
+              console.log(`CharacterWizard.setupPageEvents (destiny): Destiny selected: ${selectedDestinyId}. Current destiny:`, this.state.destiny);
+              
+              this.renderDestinyDetails();
+              this.renderAbilitiesSection();
+              this.updateInformer(page);
+              this.updateNav();
+            }
           });
 
-          // Flaw selection listener for dynamically created divs
-          // This listener must be attached AFTER renderDestinyDetails has populated the #selectorPanel
+          // Existing flaw selection listener remains as is
           document.querySelector('#selectorPanel').addEventListener('click', (e) => {
             const flawOptionDiv = e.target.closest('.flaw-option');
             if (flawOptionDiv) {
               const selectedFlawId = flawOptionDiv.dataset.flawId;
 
-              // Handle single selection for destiny flaws
-              // First, remove any existing 'destiny' flaw from the state.
               this.state.flaws = this.state.flaws.filter(f => !f.destiny);
-
-              // Remove 'selected' class from all other flaw options
               document.querySelectorAll('.flaw-option').forEach(opt => {
                 opt.classList.remove('selected');
               });
-
-              // Add the newly selected flaw to the state with destiny: true
               this.state.flaws.push({ id: selectedFlawId, destiny: true });
-              
-              // Add 'selected' to the clicked one
               flawOptionDiv.classList.add('selected');
               
               console.log(`CharacterWizard.setupPageEvents (destiny): Flaw selected: ${selectedFlawId}. Current flaws:`, this.state.flaws);
