@@ -191,15 +191,31 @@ class CharacterWizard {
             this.state.destiny = e.target.value;
             this.state.abilities = []; // Reset on destiny change
             this.state.selectedFlaw = null; // Reset flaw on destiny change
-            this.renderDestinyDetails(); // Render new flaw selection (Sub-change 1.3)
+            this.renderDestinyDetails(); // Render new flaw selection
             this.renderAbilitiesSection(); // New method
-            this.updateInformer(page); // Update informer (Sub-change 1.4)
+            this.updateInformer(page); // Update informer
             this.updateNav();
           });
 
-          // Flaw selection listener for dynamically created select (Sub-change 1.3)
-          // This listener is now attached within renderDestinyDetails to ensure it's on the correct element
-          // after the element might have been re-rendered.
+          // Flaw selection listener for dynamically created divs
+          // This listener must be attached AFTER renderDestinyDetails has populated the #selectorPanel
+          document.querySelector('#selectorPanel').addEventListener('click', (e) => {
+            const flawOptionDiv = e.target.closest('.flaw-option');
+            if (flawOptionDiv) {
+              // Remove 'selected' from all other flaw options
+              document.querySelectorAll('.flaw-option').forEach(opt => {
+                opt.classList.remove('selected');
+              });
+
+              // Add 'selected' to the clicked one
+              flawOptionDiv.classList.add('selected');
+              this.state.selectedFlaw = flawOptionDiv.dataset.flawId;
+              console.log(`CharacterWizard.setupPageEvents (destiny): Flaw selected: ${this.state.selectedFlaw}`);
+              
+              this.updateInformer(page);
+              this.updateNav();
+            }
+          });
           break;
         
       case 'attributes':
@@ -483,19 +499,21 @@ class CharacterWizard {
       container.innerHTML = `
         <div class="flaw-selection">
           <h4>Choose your Flaw:</h4>
-          <select id="characterFlaw">
-            <option value="">Select a Flaw</option>
+          <div class="flaw-options-container">
             ${destiny.flaws.map(flawId => {
               const flaw = this.flawData[flawId]; // Access flaw data directly by ID (key)
               if (!flaw) {
                   console.warn(`Missing flaw data for ID: ${flawId}`);
                   return '';
               }
-              return `<option value="${flawId}" ${this.state.selectedFlaw === flawId ? 'selected' : ''}>
-                        ${flaw.name} - ${flaw.description}
-                      </option>`;
+              return `
+                <div class="flaw-option ${this.state.selectedFlaw === flawId ? 'selected' : ''}" 
+                     data-flaw-id="${flawId}">
+                  <span class="flaw-name">${flaw.name}</span>
+                  <span class="flaw-description">${flaw.description}</span>
+                </div>`;
             }).join('')}
-          </select>
+          </div>
         </div>
       `;
 
@@ -512,16 +530,7 @@ class CharacterWizard {
               document.querySelector('#selectorPanel').appendChild(container); // Fallback
           }
       }
-
-      // Re-attach event listener if the select element was re-rendered
-      const flawSelect = document.getElementById('characterFlaw');
-      if (flawSelect) {
-        flawSelect.addEventListener('change', (e) => {
-          this.state.selectedFlaw = e.target.value;
-          this.updateInformer('destiny'); // Update informer with selected flaw
-          this.updateNav();
-        });
-      }
+      // No specific event listener attachment here for flaws, as it's handled by delegated listener in setupPageEvents
   }
 
   renderTags(tags) {
@@ -1039,16 +1048,19 @@ class CharacterWizard {
                       roleSelect.value = this.state.destiny;
                       console.log(`CharacterWizard.restoreState (destiny): Destiny dropdown set to "${this.state.destiny}".`);
                   }
-                  this.renderDestinyDetails(); 
+                  this.renderDestinyDetails(); // Render the flaw options first
                   this.renderAbilitiesSection(); 
                   console.log(`CharacterWizard.restoreState (destiny): Re-rendered destiny details and abilities section to reflect stored abilities selections.`);
 
-                  const flawSelect = document.getElementById('characterFlaw');
-                  if (flawSelect && this.state.selectedFlaw) {
-                      flawSelect.value = this.state.selectedFlaw;
-                      console.log(`CharacterWizard.restoreState (destiny): Flaw dropdown set to "${this.state.selectedFlaw}".`);
+                  // NEW: Restore selected flaw div
+                  if (this.state.selectedFlaw) {
+                      const flawDiv = document.querySelector(`.flaw-option[data-flaw-id="${this.state.selectedFlaw}"]`);
+                      if (flawDiv) {
+                          flawDiv.classList.add('selected');
+                          console.log(`CharacterWizard.restoreState (destiny): Flaw option "${this.state.selectedFlaw}" re-selected.`);
+                      }
                   }
-                  this.refreshAbilityOptionStates(); // Ensure option states are correct after rendering and state restoration
+                  this.refreshAbilityOptionStates(); 
               } else {
                   if (roleSelect) {
                       roleSelect.value = ""; 
@@ -1059,7 +1071,7 @@ class CharacterWizard {
                   const abilitiesSectionContainer = document.querySelector('.abilities-section');
                   if (abilitiesSectionContainer) abilitiesSectionContainer.remove(); 
                   console.log(`CharacterWizard.restoreState (destiny): No destiny in state. Cleared destiny details and abilities section.`);
-                  this.refreshAbilityOptionStates(); // Also refresh to clear any lingering UI state if destiny was cleared
+                  this.refreshAbilityOptionStates(); 
               }
               break;
               
@@ -1140,7 +1152,7 @@ class CharacterWizard {
   }
 }
 
-document.addEventListener('DOMContentLoaded', async () => { // Made the callback async
+document.addEventListener('DOMContentLoaded', async () => {
   if (typeof db === 'undefined') {
       console.error("CharacterWizard: Database module 'db' not loaded! Ensure db.js is included before wizard.js.");
       return;
@@ -1153,7 +1165,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
   const destinyData = {};
   let flawData = null;
   let abilityData = null;
-  let moduleList = null; // New variable for the module list
+  let moduleList = null; 
 
   try {
       // 1. Load abilities.json
@@ -1172,7 +1184,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
       console.log('CharacterWizard: flaws.json loaded successfully.');
       console.debug('CharacterWizard: flaws.json data:', flawData);
 
-      // 3. Load module_list.json (NEW)
+      // 3. Load module_list.json
       console.log('CharacterWizard: Fetching data/module_list.json...');
       const moduleListResponse = await fetch('data/module_list.json');
       if (!moduleListResponse.ok) throw new Error(`HTTP error! status: ${moduleListResponse.status}`);

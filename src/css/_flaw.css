@@ -1,0 +1,82 @@
+/* New CSS for Flaw Selection (Replicating Module Selection Style) */
+
+.flaw-selection {
+    margin-top: 1rem; /* Add some space above the flaw selection */
+}
+
+.flaw-options-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px; /* Spacing between flaw options */
+    margin-top: 0.5rem;
+}
+
+.flaw-option {
+    flex: 1 1 calc(33.33% - 10px); /* Roughly 3 items per row with spacing */
+    box-sizing: border-box;
+    padding: 15px;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease-in-out;
+    background-color: #fff;
+    color: #333;
+    font-weight: bold;
+    font-size: 0.95rem;
+    position: relative; /* For the checkmark/indicator */
+}
+
+.flaw-option:hover {
+    border-color: #888;
+    background-color: #f9f9f9;
+}
+
+.flaw-option.selected {
+    border-color: #007bff; /* Primary color for selected state */
+    background-color: #e7f3ff; /* Lighter background for selected state */
+    color: #007bff;
+    box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
+}
+
+/* Optional: Add a checkmark or indicator for selected state */
+.flaw-option.selected::after {
+    content: '✔️'; /* Unicode checkmark */
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 1.2rem;
+    color: #007bff;
+}
+
+.flaw-option .flaw-name {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+}
+
+.flaw-option .flaw-description {
+    font-size: 0.85rem;
+    color: #555;
+    line-height: 1.4;
+}
+
+/* Ensure disabled options are visually distinct and not clickable */
+.flaw-option.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #f2f2f2;
+    border-color: #e0e0e0;
+    color: #888;
+    box-shadow: none;
+}
+
+.flaw-option.disabled:hover {
+    border-color: #e0e0e0; /* No change on hover for disabled */
+    background-color: #f2f2f2;
+}
+
+/* Hide checkmark for disabled selected items if any (shouldn't happen with single select but good for robustness) */
+.flaw-option.disabled::after {
+    display: none;
+}
