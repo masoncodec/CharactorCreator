@@ -11,34 +11,53 @@
     padding-bottom: 0.5rem;
 }
 
-/* Individual ability item */
-.ability {
+/* Individual ability container - provides spacing */
+.ability-container {
+    margin-bottom: 1.2rem; /* Keep this for spacing between ability cards */
+}
+
+/* IMPORTANT FIX: Remove margin-bottom from the last ability item to prevent blocking */
+.ability-container:last-child {
+    margin-bottom: 0;
+}
+
+/* The actual clickable ability card */
+.ability-card {
     background: #1A1A1A;
     padding: 1.2rem 1.5rem;
-    margin-bottom: 1.2rem; /* Keep this for spacing between abilities */
     border-radius: 8px;
     border: 1px solid #3A3A3A;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s ease, border-color 0.2s ease;
+    transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer; /* Indicate it's clickable */
+    position: relative; /* For absolute positioning of radio input */
 }
 
-.ability:hover {
+.ability-card:hover {
     transform: translateY(-3px);
     border-color: #B22222;
+    background-color: #252525; /* Slightly lighter dark on hover */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
 }
 
-.ability.selected {
-    border: 2px solid #B22222;
+.ability-card.selected {
+    border: 2px solid #B22222; /* Red border for selected */
     background-color: #252525;
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
 }
 
-/* IMPORTANT FIX: Remove margin-bottom from the last ability item to prevent blocking */
-.ability:last-child {
-    margin-bottom: 0;
+/* Hide the radio button itself, as the card is the click target */
+.ability-card input[type="radio"] {
+    position: absolute; /* Take out of flow */
+    opacity: 0; /* Make it invisible */
+    pointer-events: none; /* Make it not clickable directly */
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
 }
 
-/* Ability header (radio, name, type tag) */
+/* Ability header (name, type tag) */
 .ability-header {
     display: flex;
     align-items: center;
@@ -48,18 +67,14 @@
     border-bottom: 1px dashed #3A3A3A;
 }
 
+/* Label for the ability name, allowing text selection */
 .ability-header label {
     display: flex;
     align-items: center;
-    cursor: pointer;
-    flex-grow: 1;
+    flex-grow: 1; /* Allow label to take available space */
+    cursor: pointer; /* Maintain cursor for accessibility */
 }
 
-.ability-header input[type="radio"] {
-    margin-right: 0.8rem;
-    transform: scale(1.2);
-    accent-color: #B22222;
-}
 
 .ability-name {
     font-size: 1.2rem;
@@ -164,93 +179,27 @@
     cursor: not-allowed;
 }
 
-/* Specific active ability button style */
-.ability-button.toggled-red {
+/* Specific active ability button style (no longer needed for abilities, this was from previous attempts) */
+/* .ability-button.toggled-red {
     background-color: #B22222;
     border-color: #FFD700;
-}
+} */
 
-/* Styles for the default (non-active) ability button */
-.ability-button.ability-item { /* Target the button when it's not toggled-red */
-    background-color: #1A1A1A; /* Same as your body/general background */
-    color: #E0E0E0; /* Lighter grey for default text color */
-    border: 1px solid #3A3A3A; /* Subtle border to define the button shape */
-    border-radius: 8px; /* Consistent with other elements */
-    padding: 1.2rem 1.5rem; /* Consistent padding */
-    margin-bottom: 1.2rem; /* Spacing between ability buttons */
-    text-align: left; /* Align text to the left */
-    width: 100%; /* Ensure it takes full width within its container */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Subtle shadow */
+/* These are remnants from previous attempts to style buttons as abilities, remove if not used */
+/* .ability-button.ability-item, .ability-button.toggled-red, .ability-button.toggled-red:hover {
+    background-color: #1A1A1A;
+    color: #E0E0E0;
+    border: 1px solid #3A3A3A;
+    border-radius: 8px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.2rem;
+    text-align: left;
+    width: 100%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-    cursor: pointer; /* Indicate it's clickable */
-}
+    cursor: pointer;
+} */
 
-/* Ensure text inside default ability buttons remains readable */
-.ability-button.ability-item strong {
-    color: #FFFFFF; /* White for the ability name by default */
-}
-
-.ability-button.ability-item p {
-    color: #E0E0E0; /* Lighter grey for the description by default */
-}
-
-.ability-button.ability-item .ability-selections {
-    color: #FFD700; /* Gold for selections text by default */
-}
-
-
-/* Hover state for non-active ability buttons */
-.ability-button.ability-item:not(.toggled-red):hover {
-    transform: translateY(-3px);
-    border-color: #B22222; /* Red border on hover */
-    background-color: #252525; /* Slightly lighter dark on hover */
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-}
-
-
-/* Styles for the active ability button (toggled-red) */
-.ability-button.toggled-red {
-    background-color: #1A1A1A; /* Keep same as background */
-    border: 2px solid #FFD700; /* Gold border to indicate active state */
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); /* Subtle gold glow when active */
-    transform: translateY(-2px); /* Slight lift to indicate selection */
-    /* Ensure text colors are still good for active state */
-    color: #FFFFFF; /* Override default text color for active button */
-}
-
-/* Ensure text inside active ability buttons remains readable */
-.ability-button.toggled-red strong {
-    color: #FFFFFF; /* White color for the ability name when active */
-}
-
-.ability-button.toggled-red p {
-    color: #E0E0E0; /* Lighter grey for the description when active */
-}
-
-.ability-button.toggled-red .ability-selections {
-    color: #FFD700; /* Gold for selections text in active abilities */
-}
-
-/* Hover state for active (toggled-red) buttons */
-.ability-button.toggled-red:hover {
-    background-color: #252525; /* Slightly lighter on hover while active */
-    border-color: #FFD700; /* Keep gold border */
-    transform: translateY(-3px); /* Maintain a slight lift */
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); /* Enhanced glow on hover */
-}
-
-/* Base style for ability type tags */
-.ability-type-tag {
-    display: inline-block;
-    padding: 0.2em 0.6em;
-    border-radius: 4px;
-    font-size: 0.75em;
-    font-weight: bold;
-    text-transform: uppercase;
-    margin-left: 0.5rem;
-    vertical-align: middle;
-    border: 1px solid transparent; /* Default transparent border */
-}
 
 /* Specific styles for ACTIVE ability type tag */
 .ability-type-tag.active {

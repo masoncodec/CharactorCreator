@@ -242,6 +242,44 @@ class CharacterWizard {
               this.updateNav();
             }
           });
+
+          // NEW: Delegated event listener for ability card selection
+          const abilitiesSection = document.querySelector('#selectorPanel'); // Or a more specific container if you have one for abilities
+          if (abilitiesSection) {
+            abilitiesSection.addEventListener('click', (e) => {
+                const abilityCard = e.target.closest('.ability-card');
+                if (abilityCard) {
+                    const abilityId = abilityCard.dataset.abilityId;
+                    const radioInput = abilityCard.querySelector(`input[type="radio"][data-ability="${abilityId}"]`);
+                    
+                    if (radioInput && !radioInput.checked) { // Only process if not already checked
+                        radioInput.checked = true; // Programmatically check the radio
+                        this.handleTierSelection(radioInput.dataset.tier, abilityId);
+                        // Also update the UI for selected/unselected cards
+                        document.querySelectorAll('.ability-card').forEach(card => {
+                            const currentCardTier = card.querySelector('input[type="radio"]')?.dataset.tier;
+                            if (currentCardTier === radioInput.dataset.tier) {
+                                card.classList.remove('selected');
+                            }
+                        });
+                        abilityCard.classList.add('selected'); // Select the clicked card
+                    }
+                }
+            });
+          }
+
+          // Existing ability option (checkbox) listener
+          abilitiesSection.addEventListener('change', (e) => {
+            if (e.target.matches('.ability-option input[type="checkbox"]')) {
+              this.handleAbilityOptionSelection(
+                e.target.dataset.ability,
+                e.target.dataset.option,
+                e.target.checked,
+                e.target
+              );
+            }
+          });
+
           break;
         
       case 'attributes':
@@ -607,21 +645,23 @@ class CharacterWizard {
           const isSelected = !!abilityState; // Check if the ability itself is selected
 
           container.innerHTML += `
-            <div class="ability ${isSelected ? 'selected' : ''}" data-ability-id="${abilityId}">
-              <div class="ability-header">
-                <label>
-                  <input type="radio" name="tier-${tier}" 
-                         ${isSelected ? 'checked' : ''}
-                         data-tier="${tier}" 
-                         data-ability="${abilityId}">
-                  <span class="ability-name">${ability.name}</span>
-                </label>
-                <div class="ability-types">
-                  <span class="type-tag">${this.getTypeIcon(ability.type)} ${ability.type}</span>
+            <div class="ability-container">
+                <div class="ability-card ${isSelected ? 'selected' : ''}" data-ability-id="${abilityId}" data-tier="${tier}">
+                    <div class="ability-header">
+                        <label>
+                            <input type="radio" name="tier-${tier}" 
+                                ${isSelected ? 'checked' : ''}
+                                data-tier="${tier}" 
+                                data-ability="${abilityId}">
+                            <span class="ability-name">${ability.name}</span>
+                        </label>
+                        <div class="ability-types">
+                            <span class="type-tag">${this.getTypeIcon(ability.type)} ${ability.type}</span>
+                        </div>
+                    </div>
+                    <div class="ability-description">${this.renderAbilityDescription(ability)}</div>
+                    ${ability.options ? this.renderAbilityOptions(ability, abilityId) : ''}
                 </div>
-              </div>
-              <div class="ability-description">${this.renderAbilityDescription(ability)}</div>
-              ${ability.options ? this.renderAbilityOptions(ability, abilityId) : ''}
             </div>
           `;
         });
@@ -630,25 +670,10 @@ class CharacterWizard {
       const existing = document.querySelector('.abilities-section');
       existing ? existing.replaceWith(container) : document.querySelector('#selectorPanel').appendChild(container);
       
-      container.querySelectorAll('input[type="radio"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-          this.handleTierSelection(
-            e.target.dataset.tier, 
-            e.target.dataset.ability
-          );
-        });
-      });
-
-      container.querySelectorAll('.ability-option input').forEach(checkbox => {
-        checkbox.addEventListener('change', (e) => {
-          this.handleAbilityOptionSelection(
-            e.target.dataset.ability, // This will now be the correct abilityId
-            e.target.dataset.option,
-            e.target.checked,
-            e.target // Pass the checkbox element itself
-          );
-        });
-      });
+      // Removed direct radio button listeners here, as they are now handled by delegated event on '.ability-card'
+      // The delegated listener is in setupPageEvents('destiny')
+      
+      // Removed direct checkbox listeners here, as they are now handled by delegated event on '#selectorPanel'
 
       // Ensure all ability option states are refreshed after rendering
       this.refreshAbilityOptionStates(); 
@@ -713,27 +738,39 @@ class CharacterWizard {
       return desc;
   }
 
+  // MODIFIED: renderAbilityOptions to ensure checkboxes reflect current selections based on maxChoices
   renderAbilityOptions(ability, abilityId) {
       if (!ability.options) return '';
       
       const abilityState = this.state.abilities.find(a => a.id === abilityId);
       const currentSelections = abilityState ? abilityState.selections : [];
-      const isParentAbilityCurrentlySelected = !!abilityState; // Check if the parent ability is in the state
+      const isParentAbilityCurrentlySelected = !!abilityState;
+
+      // Determine initial disabled state based on whether the parent ability is selected
+      // We will refine this in refreshAbilityOptionStates
+      const initialDisabled = !isParentAbilityCurrentlySelected;
 
       return `
       <div class="ability-options">
           <p>Choose ${ability.maxChoices || 'any'}:</p>
-          ${ability.options.map(option => `
-          <label class="ability-option">
-              <input type="checkbox"
-                  ${currentSelections.some(s => s.id === option.id) ? 'checked' : ''}
-                  data-ability="${abilityId}"
-                  data-option="${option.id}"
-                  ${!isParentAbilityCurrentlySelected ? 'disabled' : ''} // Initially disable if parent is not selected
-              >
-              ${option.name}: ${this.renderAbilityDescription(option)}
-          </label>
-          `).join('')}
+          ${ability.options.map(option => {
+            const isOptionSelected = currentSelections.some(s => s.id === option.id);
+            // The actual disabled state will be set by refreshAbilityOptionStates,
+            // but we can initially set it here based on parent selection for better initial render
+            const disabledAttribute = initialDisabled ? 'disabled' : '';
+            const checkedAttribute = isOptionSelected ? 'checked' : '';
+
+            return `
+                <label class="ability-option">
+                    <input type="checkbox"
+                        ${checkedAttribute}
+                        data-ability="${abilityId}"
+                        data-option="${option.id}"
+                        ${disabledAttribute}
+                    >
+                    ${option.name}: ${this.renderAbilityDescription(option)}
+                </label>`;
+          }).join('')}
       </div>
       `;
   }
@@ -1094,6 +1131,19 @@ class CharacterWizard {
                           console.log(`CharacterWizard.restoreState (destiny): Flaw option "${selectedDestinyFlaw.id}" re-selected.`);
                       }
                   }
+                  
+                  // Restore selected ability cards and their radio buttons
+                  this.state.abilities.forEach(abilityState => {
+                    const abilityCard = document.querySelector(`.ability-card[data-ability-id="${abilityState.id}"][data-tier="${abilityState.tier}"]`);
+                    if (abilityCard) {
+                      abilityCard.classList.add('selected');
+                      const radioInput = abilityCard.querySelector('input[type="radio"]');
+                      if (radioInput) {
+                        radioInput.checked = true;
+                      }
+                      console.log(`CharacterWizard.restoreState (destiny): Ability card "${abilityState.id}" (Tier ${abilityState.tier}) re-selected.`);
+                    }
+                  });
                   this.refreshAbilityOptionStates(); 
               } else {
                   if (roleSelect) {
@@ -1131,17 +1181,27 @@ class CharacterWizard {
 
   refreshAbilityOptionStates() {
       console.log('CharacterWizard.refreshAbilityOptionStates: Updating all ability option disabled states. Current state.abilities:', this.state.abilities);
-      // CHANGE THIS LINE: Select .ability instead of .ability-container
-      document.querySelectorAll('.ability').forEach(abilityContainer => {
-          const abilityId = abilityContainer.dataset.abilityId;
+      // Select .ability-container now that we've renamed the class
+      document.querySelectorAll('.ability-container').forEach(abilityContainer => {
+          const abilityCard = abilityContainer.querySelector('.ability-card'); // Get the card element
+          if (!abilityCard) return; // Should not happen if rendering correctly
+
+          const abilityId = abilityCard.dataset.abilityId; // Get ID from the card
           const abilityData = this.abilityData[abilityId];
           
           // Find if this ability is selected in the wizard's state
           const abilityState = this.state.abilities.find(a => a.id === abilityId);
           const isParentAbilityCurrentlySelected = !!abilityState; // True if abilityId is in state.abilities
-          console.log(`  Ability Container: ${abilityId}, isParentAbilityCurrentlySelected: ${isParentAbilityCurrentlySelected}`);
+          console.log(`  Ability Card: ${abilityId}, isParentAbilityCurrentlySelected: ${isParentAbilityCurrentlySelected}`);
+
+          // Update card selection visual state
+          if (isParentAbilityCurrentlySelected) {
+              abilityCard.classList.add('selected');
+          } else {
+              abilityCard.classList.remove('selected');
+          }
   
-          const optionsContainer = abilityContainer.querySelector('.ability-options');
+          const optionsContainer = abilityCard.querySelector('.ability-options'); // Options are inside the card
           // Proceed only if options container exists and ability data defines options
           if (optionsContainer && abilityData && abilityData.options) {
               optionsContainer.querySelectorAll('input[type="checkbox"]').forEach(optionCheckbox => {
@@ -1179,6 +1239,8 @@ class CharacterWizard {
                       }
                   }
                   optionCheckbox.disabled = shouldBeDisabled; // Apply the final disabled state
+                  // Crucial: Ensure checkbox visually reflects its checked state from state
+                  optionCheckbox.checked = isOptionSelected;
               });
           }
       });
