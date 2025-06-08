@@ -6,15 +6,15 @@ class CharacterWizard {
       module: null,
       moduleChanged: false, // This flag is still used for resetting destiny/attributes when module *truly* changes
       destiny: null,
-      selectedFlaw: null, // New state for selected flaw
+      flaws: [], // Track {id, destiny: boolean}
       abilities: [], // Track {id, selections, tier}
       attributes: {},
       info: { name: '', bio: '' }
     };
     // Assign the loaded data to instance properties
-    this.moduleSystem = moduleSystem;
+    this.moduleSystem = moduleSystem; // This will now be an object where keys are module IDs
     this.flawData = flawData;
-    this.destinyData = destinyData;
+    this.destinyData = destinyData; // This will now be an object where keys are destiny IDs
     this.abilityData = abilityData;
 
     this.db = db;
@@ -86,8 +86,9 @@ class CharacterWizard {
   // Navigation control
   updateNav() {
     console.log('CharacterWizard.updateNav: Updating navigation state and buttons.');
-    this.navItems.forEach((item, index) => {
-      const page = this.pages[index];
+    this.navItems.forEach(item => {
+      const page = item.dataset.page;
+      const index = this.pages.indexOf(page);
       const canAccess = this.canAccessPage(index);
       const isCompleted = this.isPageCompleted(page);
 
@@ -149,8 +150,8 @@ class CharacterWizard {
             if (this.state.moduleChanged) {
                 console.log(`CharacterWizard.setupPageEvents (module): Module changed from ${oldModule} to ${this.state.module}. Resetting destiny, flaw, and attributes.`);
                 this.state.destiny = null; // Reset dependent choices
-                this.state.selectedFlaw = null; // Reset selected flaw
-                this.state.abilities = []; // Reset abilities as well
+                this.state.flaws = []; //Reset flaws
+                this.state.abilities = []; // Reset abilities
                 this.state.attributes = {};
             } else {
                 console.log(`CharacterWizard.setupPageEvents (module): Module re-selected: ${this.state.module}. No change.`);
@@ -162,41 +163,85 @@ class CharacterWizard {
         break;
         
         case 'destiny':
-          const roleSelect = document.getElementById('characterRole');
-          roleSelect.innerHTML = '<option value="">Select a Destiny</option>';
-        
+          const destinyOptionsContainer = document.getElementById('destiny-options-container');
+          destinyOptionsContainer.innerHTML = ''; // Clear previous options
+
           if (this.state.module) {
-            this.moduleSystem[this.state.module].destinies.forEach(destinyId => {
+            const destiniesForModule = this.moduleSystem[this.state.module].destinies || [];
+            destiniesForModule.forEach(destinyId => {
               const destiny = this.destinyData[destinyId];
               if (!destiny) {
                   console.error(`Missing destiny data for: ${destinyId}`);
                   return;
               }
-        
-              const option = document.createElement('option');
-              option.value = destinyId;
-              option.textContent = destiny.displayName;
-              roleSelect.appendChild(option);
+              const isSelected = this.state.destiny === destinyId;
+              const destinyOptionDiv = document.createElement('div');
+              destinyOptionDiv.classList.add('destiny-option');
+              if (isSelected) {
+                  destinyOptionDiv.classList.add('selected');
+              }
+              destinyOptionDiv.dataset.destinyId = destinyId;
+              destinyOptionDiv.innerHTML = `
+                <span class="destiny-name">${destiny.displayName}</span>
+              `;
+              destinyOptionsContainer.appendChild(destinyOptionDiv);
             });
-        
-            if (this.state.destiny) {
-              roleSelect.value = this.state.destiny;
-            }
           }
-        
-          roleSelect.addEventListener('change', (e) => {
-            this.state.destiny = e.target.value;
-            this.state.abilities = []; // Reset on destiny change
-            this.state.selectedFlaw = null; // Reset flaw on destiny change
-            this.renderDestinyDetails(); // Render new flaw selection (Sub-change 1.3)
-            this.renderAbilitiesSection(); // New method
-            this.updateInformer(page); // Update informer (Sub-change 1.4)
-            this.updateNav();
+
+          // Listener for dynamically created destiny option divs
+          destinyOptionsContainer.addEventListener('click', (e) => {
+            const destinyOptionDiv = e.target.closest('.destiny-option');
+            if (destinyOptionDiv) {
+              const selectedDestinyId = destinyOptionDiv.dataset.destinyId;
+              
+              // Only reset if the selected destiny is *different* from the current one
+              if (this.state.destiny !== selectedDestinyId) { // <<< ADD THIS CONDITION
+                // Remove 'selected' class from all other destiny options
+                document.querySelectorAll('.destiny-option').forEach(opt => {
+                  opt.classList.remove('selected');
+                });
+
+                // Add the newly selected destiny to the state
+                this.state.destiny = selectedDestinyId;
+                this.state.abilities = []; // Reset on destiny change
+                this.state.flaws = this.state.flaws.filter(f => !f.destiny); // Clear only 'destiny' flaws
+                
+                // Add 'selected' to the clicked one
+                destinyOptionDiv.classList.add('selected');
+                
+                console.log(`CharacterWizard.setupPageEvents (destiny): Destiny selected: ${selectedDestinyId}. Current destiny:`, this.state.destiny);
+                
+                this.renderDestinyDetails();
+                this.renderAbilitiesSection();
+                this.updateInformer(page);
+                this.updateNav();
+              } else {
+                  console.log(`CharacterWizard.setupPageEvents (destiny): Re-selected same destiny: ${selectedDestinyId}. No reset performed.`);
+              }
+            }
           });
 
-          // Flaw selection listener for dynamically created select (Sub-change 1.3)
-          // This listener is now attached within renderDestinyDetails to ensure it's on the correct element
-          // after the element might have been re-rendered.
+          // Existing flaw selection listener remains as is (no change needed here)
+          document.querySelector('#selectorPanel').addEventListener('click', (e) => {
+            const flawOptionDiv = e.target.closest('.flaw-option');
+            if (flawOptionDiv) {
+              const selectedFlawId = flawOptionDiv.dataset.flawId;
+
+              // This part should still allow re-selection of a flaw, just ensuring it's the *only* destiny flaw
+              // and updating the UI accordingly.
+              this.state.flaws = this.state.flaws.filter(f => !f.destiny);
+              document.querySelectorAll('.flaw-option').forEach(opt => {
+                opt.classList.remove('selected');
+              });
+              this.state.flaws.push({ id: selectedFlawId, destiny: true });
+              flawOptionDiv.classList.add('selected');
+              
+              console.log(`CharacterWizard.setupPageEvents (destiny): Flaw selected: ${selectedFlawId}. Current flaws:`, this.state.flaws);
+              
+              this.updateInformer(page);
+              this.updateNav();
+            }
+          });
           break;
         
       case 'attributes':
@@ -407,7 +452,7 @@ class CharacterWizard {
                <p>${this.moduleSystem[this.state.module].descriptions.module}</p>
                <h4>Available Destinies:</h4>
                <ul>
-                 ${this.moduleSystem[this.state.module].destinies.map(d => `<li>${this.destinyData[d]?.displayName || d}</li>`).join('')}
+                 ${(this.moduleSystem[this.state.module]?.destinies || []).map(d => `<li>${this.destinyData[d]?.displayName || d}</li>`).join('')}
                </ul>
              </div>`
           : '<div class="module-info"><p>Select a module to begin your journey</p></div>';
@@ -421,7 +466,9 @@ class CharacterWizard {
           }
           
           const destiny = this.destinyData[this.state.destiny];
-          const selectedFlaw = this.flawData[this.state.selectedFlaw]; // Retrieve selected flaw details
+          // Find the destiny-specific selected flaw from the flaws array
+          const selectedDestinyFlaw = this.state.flaws.find(f => f.destiny === true); 
+          const selectedFlawDetails = selectedDestinyFlaw ? this.flawData[selectedDestinyFlaw.id] : null;
 
           informer.innerHTML = `
             <div class="destiny-info">
@@ -431,11 +478,11 @@ class CharacterWizard {
                 <div><strong>Health:</strong> ${destiny.health.title} (${destiny.health.value})</div>
               </div>
               <div class="tags">${this.renderTags(destiny.tags)}</div>
-              ${selectedFlaw ? `
+              ${selectedFlawDetails ? `
                 <div class="flaw-info">
-                  <h4>Selected Flaw: ${selectedFlaw.name}</h4>
-                  <p>${selectedFlaw.description}</p>
-                  <p>Effect: ${selectedFlaw.effect}</p>
+                  <h4>Selected Flaw: ${selectedFlawDetails.name}</h4>
+                  <p>${selectedFlawDetails.description}</p>
+                  <p>Effect: ${selectedFlawDetails.effect}</p>
                 </div>
               ` : '<p>Select a flaw for your character from the options on the left.</p>'}
             </div>
@@ -477,22 +524,27 @@ class CharacterWizard {
       
       const container = document.createElement('div');
       container.className = 'destiny-details';
+      // Check if the current flaw in the loop is the 'destiny' selected one
+      const isFlawSelected = (flawId) => this.state.flaws.some(f => f.id === flawId && f.destiny === true);
+
       container.innerHTML = `
         <div class="flaw-selection">
           <h4>Choose your Flaw:</h4>
-          <select id="characterFlaw">
-            <option value="">Select a Flaw</option>
+          <div class="flaw-options-container">
             ${destiny.flaws.map(flawId => {
               const flaw = this.flawData[flawId]; // Access flaw data directly by ID (key)
               if (!flaw) {
                   console.warn(`Missing flaw data for ID: ${flawId}`);
                   return '';
               }
-              return `<option value="${flawId}" ${this.state.selectedFlaw === flawId ? 'selected' : ''}>
-                        ${flaw.name} - ${flaw.description}
-                      </option>`;
+              return `
+                <div class="flaw-option ${isFlawSelected(flawId) ? 'selected' : ''}" 
+                     data-flaw-id="${flawId}">
+                  <span class="flaw-name">${flaw.name}</span>
+                  <span class="flaw-description">${flaw.description}</span>
+                </div>`;
             }).join('')}
-          </select>
+          </div>
         </div>
       `;
 
@@ -509,16 +561,7 @@ class CharacterWizard {
               document.querySelector('#selectorPanel').appendChild(container); // Fallback
           }
       }
-
-      // Re-attach event listener if the select element was re-rendered
-      const flawSelect = document.getElementById('characterFlaw');
-      if (flawSelect) {
-        flawSelect.addEventListener('change', (e) => {
-          this.state.selectedFlaw = e.target.value;
-          this.updateInformer('destiny'); // Update informer with selected flaw
-          this.updateNav();
-        });
-      }
+      // No specific event listener attachment here for flaws, as it's handled by delegated listener in setupPageEvents
   }
 
   renderTags(tags) {
@@ -753,14 +796,15 @@ class CharacterWizard {
       this.updateInformer('destiny'); 
   }
 
-  // Sub-change 1.3: Update validateDestinyCompletion to check for selectedFlaw
+  // validateDestinyCompletion to check for one 'destiny' flaw
   validateDestinyCompletion() {
       if (!this.state.destiny) return false;
       const destiny = this.destinyData[this.state.destiny];
       
-      // Check if a flaw is selected
-      if (!this.state.selectedFlaw) {
-        console.log("Validation: No flaw selected.");
+      // Check if exactly one flaw with destiny: true is selected
+      const selectedDestinyFlaws = this.state.flaws.filter(f => f.destiny === true);
+      if (selectedDestinyFlaws.length !== 1) {
+        console.log("Validation: Exactly one destiny flaw must be selected. Current count:", selectedDestinyFlaws.length);
         return false;
       }
 
@@ -783,7 +827,7 @@ class CharacterWizard {
       });
       console.log("Validation: All ability options complete:", optionsComplete);
 
-      return tierComplete && optionsComplete && !!this.state.selectedFlaw;
+      return tierComplete && optionsComplete && selectedDestinyFlaws.length === 1;
   }
 
   // New method to check if a page is truly completed
@@ -857,10 +901,14 @@ class CharacterWizard {
   }
 
   validateData() {
+      // Loop through all module IDs defined in the moduleSystem (which now comes from module_list.json)
       Object.keys(this.moduleSystem).forEach(moduleId => {
-        this.moduleSystem[moduleId].destinies.forEach(destinyId => {
+        // Get the destinies associated with this module directly from its module.json
+        const destiniesForModule = this.moduleSystem[moduleId].destinies || [];
+        
+        destiniesForModule.forEach(destinyId => {
           if (!this.destinyData[destinyId]) {
-            console.error(`Missing destiny data for: ${destinyId}`);
+            console.error(`Missing destiny data for: ${destinyId} (from module ${moduleId})`);
           } else {
             // Validate flaws
             this.destinyData[destinyId].flaws.forEach(flawId => {
@@ -926,10 +974,11 @@ class CharacterWizard {
         errors.push("• Please select a Destiny");
         console.log('  - Validation error: Destiny not selected.');
       } else {
-          // Validate flaw selection
-          if (!this.state.selectedFlaw) {
-              errors.push("• Please select a Flaw for your character.");
-              console.log('  - Validation error: Flaw not selected.');
+          // Validate exactly one 'destiny' flaw
+          const selectedDestinyFlaws = this.state.flaws.filter(f => f.destiny === true);
+          if (selectedDestinyFlaws.length !== 1) {
+              errors.push("• Please select exactly one Flaw for your character from the Destiny page.");
+              console.log('  - Validation error: Destiny flaw not selected or multiple selected.');
           }
 
           // Validate ability selections and their options
@@ -988,7 +1037,7 @@ class CharacterWizard {
     const character = {
       module: this.state.module,
       destiny: this.state.destiny,
-      selectedFlaw: this.state.selectedFlaw, 
+      flaws: this.state.flaws, // Store the entire flaws array
       attributes: this.state.attributes,
       health: { current: this.destinyData[this.state.destiny].health.value,
           max: this.destinyData[this.state.destiny].health.value,
@@ -1032,16 +1081,20 @@ class CharacterWizard {
                       roleSelect.value = this.state.destiny;
                       console.log(`CharacterWizard.restoreState (destiny): Destiny dropdown set to "${this.state.destiny}".`);
                   }
-                  this.renderDestinyDetails(); 
+                  this.renderDestinyDetails(); // Render the flaw options first
                   this.renderAbilitiesSection(); 
                   console.log(`CharacterWizard.restoreState (destiny): Re-rendered destiny details and abilities section to reflect stored abilities selections.`);
 
-                  const flawSelect = document.getElementById('characterFlaw');
-                  if (flawSelect && this.state.selectedFlaw) {
-                      flawSelect.value = this.state.selectedFlaw;
-                      console.log(`CharacterWizard.restoreState (destiny): Flaw dropdown set to "${this.state.selectedFlaw}".`);
+                  // Restore selected flaw div based on the 'destiny' flag in the flaws array
+                  const selectedDestinyFlaw = this.state.flaws.find(f => f.destiny === true);
+                  if (selectedDestinyFlaw) {
+                      const flawDiv = document.querySelector(`.flaw-option[data-flaw-id="${selectedDestinyFlaw.id}"]`);
+                      if (flawDiv) {
+                          flawDiv.classList.add('selected');
+                          console.log(`CharacterWizard.restoreState (destiny): Flaw option "${selectedDestinyFlaw.id}" re-selected.`);
+                      }
                   }
-                  this.refreshAbilityOptionStates(); // Ensure option states are correct after rendering and state restoration
+                  this.refreshAbilityOptionStates(); 
               } else {
                   if (roleSelect) {
                       roleSelect.value = ""; 
@@ -1052,7 +1105,7 @@ class CharacterWizard {
                   const abilitiesSectionContainer = document.querySelector('.abilities-section');
                   if (abilitiesSectionContainer) abilitiesSectionContainer.remove(); 
                   console.log(`CharacterWizard.restoreState (destiny): No destiny in state. Cleared destiny details and abilities section.`);
-                  this.refreshAbilityOptionStates(); // Also refresh to clear any lingering UI state if destiny was cleared
+                  this.refreshAbilityOptionStates(); 
               }
               break;
               
@@ -1133,7 +1186,7 @@ class CharacterWizard {
   }
 }
 
-document.addEventListener('DOMContentLoaded', async () => { // Made the callback async
+document.addEventListener('DOMContentLoaded', async () => {
   if (typeof db === 'undefined') {
       console.error("CharacterWizard: Database module 'db' not loaded! Ensure db.js is included before wizard.js.");
       return;
@@ -1141,21 +1194,15 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
 
   console.log('CharacterWizard: DOMContentLoaded event fired. Loading data...');
 
-  let moduleSystemData = null;
+  // Global data stores
+  const moduleSystemData = {};
+  const destinyData = {};
   let flawData = null;
-  let destinyData = null;
   let abilityData = null;
+  let moduleList = null; 
 
   try {
-      // Load modules.json
-      console.log('CharacterWizard: Fetching modules.json...');
-      const moduleResponse = await fetch('data/modules.json');
-      if (!moduleResponse.ok) throw new Error(`HTTP error! status: ${moduleResponse.status}`);
-      moduleSystemData = await moduleResponse.json();
-      console.log('CharacterWizard: modules.json loaded successfully.');
-      console.debug('CharacterWizard: modules.json data:', moduleSystemData);
-
-      // Load abilities.json
+      // 1. Load abilities.json
       console.log('CharacterWizard: Fetching abilities.json...');
       const abilityResponse = await fetch('data/abilities.json');
       if (!abilityResponse.ok) throw new Error(`HTTP error! status: ${abilityResponse.status}`);
@@ -1163,7 +1210,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
       console.log('CharacterWizard: abilities.json loaded successfully.');
       console.debug('CharacterWizard: abilities.json data:', abilityData);
 
-      // Load flaws.json
+      // 2. Load flaws.json
       console.log('CharacterWizard: Fetching flaws.json...');
       const flawResponse = await fetch('data/flaws.json');
       if (!flawResponse.ok) throw new Error(`HTTP error! status: ${flawResponse.status}`);
@@ -1171,13 +1218,46 @@ document.addEventListener('DOMContentLoaded', async () => { // Made the callback
       console.log('CharacterWizard: flaws.json loaded successfully.');
       console.debug('CharacterWizard: flaws.json data:', flawData);
 
-      // Load destinies.json
-      console.log('CharacterWizard: Fetching destinies.json...');
-      const destinyResponse = await fetch('data/destinies.json');
-      if (!destinyResponse.ok) throw new Error(`HTTP error! status: ${destinyResponse.status}`);
-      destinyData = await destinyResponse.json();
-      console.log('CharacterWizard: destinies.json loaded successfully.');
-      console.debug('CharacterWizard: destinies.json data:', destinyData);
+      // 3. Load module_list.json
+      console.log('CharacterWizard: Fetching data/module_list.json...');
+      const moduleListResponse = await fetch('data/module_list.json');
+      if (!moduleListResponse.ok) throw new Error(`HTTP error! status: ${moduleListResponse.status}`);
+      moduleList = await moduleListResponse.json();
+      console.log('CharacterWizard: module_list.json loaded successfully.');
+      console.debug('CharacterWizard: moduleList:', moduleList);
+
+      // 4. Discover and Load all Module and Destiny data dynamically
+      
+      console.log('CharacterWizard: Fetching all module and destiny data...');
+      const allFetches = [];
+
+      for (const moduleId of moduleList) {
+          allFetches.push(
+              (async () => {
+                  // Fetch module.json
+                  const moduleResponse = await fetch(`data/modules/${moduleId}/module.json`);
+                  if (!moduleResponse.ok) throw new Error(`HTTP error! status: ${moduleResponse.status} for module ${moduleId}`);
+                  const moduleJson = await moduleResponse.json();
+                  moduleSystemData[moduleId] = moduleJson;
+                  console.log(`CharacterWizard: Loaded module: ${moduleId}`);
+
+                  // Fetch associated destinies based on the 'destinies' array in module.json
+                  const destiniesInModule = moduleJson.destinies || [];
+                  const destinyFetches = destiniesInModule.map(async destinyId => {
+                      const destinyResponse = await fetch(`data/modules/${moduleId}/destinies/${destinyId}.json`);
+                      if (!destinyResponse.ok) throw new Error(`HTTP error! status: ${destinyResponse.status} for destiny ${destinyId} in module ${moduleId}`);
+                      const destinyJson = await destinyResponse.json();
+                      destinyData[destinyId] = destinyJson;
+                      console.log(`CharacterWizard: Loaded destiny: ${destinyId} for module ${moduleId}`);
+                  });
+                  await Promise.all(destinyFetches);
+              })()
+          );
+      }
+      await Promise.all(allFetches);
+      console.log('CharacterWizard: All module and destiny data loaded successfully.');
+      console.debug('CharacterWizard: moduleSystemData:', moduleSystemData);
+      console.debug('CharacterWizard: destinyData:', destinyData);
 
       // Initialize CharacterWizard with all loaded data
       console.log('CharacterWizard: All data loaded. Initializing CharacterWizard.');

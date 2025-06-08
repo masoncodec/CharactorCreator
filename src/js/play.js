@@ -1,5 +1,321 @@
 // play.js
 
+// In a new file, e.g., effectHandler.js (or within play.js for now, but separation is better long-term)
+
+const EffectHandler = {
+    // Stores currently active effects that influence character stats or state
+    activeEffects: [], // This will be a list of processed effects, not just raw ability effects
+
+    // This function will be called whenever character state might change (e.g., ability toggle, character load)
+    // It processes all active abilities and compiles their effects
+    processActiveAbilities: function(character, abilityData, flawData, activeAbilityStates) {
+        this.activeEffects = []; // Clear previous active effects
+
+        if (!character) return;
+
+        // Process Abilities
+        if (character.abilities) {
+            character.abilities.forEach(abilityState => {
+                const abilityDef = abilityData[abilityState.id];
+                if (abilityDef && abilityDef.effect) {
+                    const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id));
+
+                    if (isActive) {
+                        abilityDef.effect.forEach(effect => {
+                            // Store the raw effect data along with the ability name for context
+                            this.activeEffects.push({
+                                ...effect,
+                                abilityName: abilityDef.name,
+                                abilityId: abilityState.id, // Include ability ID for cost deduction
+                                abilityType: abilityDef.type,
+                                sourceType: "ability" // New: Indicate source is an ability
+                            });
+                        });
+                    }
+                }
+            });
+        }
+
+
+        // Process Flaws (converted to virtual passive abilities for effect handling)
+        if (character.flaws && flawData) { // Ensure flawData is available
+            character.flaws.forEach(flawState => { // flawState might just be { id: "flaw-id" }
+                const flawDef = flawData[flawState.id];
+                if (flawDef && flawDef.effect) {
+                    flawDef.effect.forEach(effect => {
+                        this.activeEffects.push({
+                            ...effect,
+                            abilityName: flawDef.name, // Use flaw name for context
+                            abilityId: flawState.id,
+                            abilityType: "passive", // Treat functionally as passive
+                            sourceType: "flaw" // New: Indicate source is a flaw
+                        });
+                    });
+                }
+            });
+        }
+        console.log("EffectHandler: Active Effects Processed", this.activeEffects);
+    },
+
+    // Filters active effects for a specific attribute (e.g., for attribute rolls)
+    getEffectsForAttribute: function(attributeName, effectType = null) {
+        return this.activeEffects.filter(effect => {
+            const targetsAttribute = effect.attribute && effect.attribute.toLowerCase() === attributeName;
+            const matchesType = effectType ? effect.type === effectType : true;
+            return targetsAttribute && matchesType;
+        });
+    },
+
+    // Applies effects to the character data. This will be called before rendering.
+    applyEffectsToCharacter: function(character) {
+        let modifiedCharacter = JSON.parse(JSON.stringify(character)); // Deep clone to avoid direct mutation
+
+        // Reset dynamic values that will be recalculated by effects
+        if (modifiedCharacter.calculatedHealth) {
+            modifiedCharacter.health.max = modifiedCharacter.calculatedHealth.baseMax; // Assuming a baseMax is stored
+        }
+        modifiedCharacter.tempResources = {}; // Clear temporary resources if any
+
+        this.activeEffects.forEach(effect => {
+            switch (effect.type) {
+                case "modifier":
+                    // Handled by getEffectsForAttribute for attribute rolls
+                    break;
+                case "language":
+                    if (!modifiedCharacter.languages) {
+                        modifiedCharacter.languages = [];
+                    }
+                    if (!modifiedCharacter.languages.includes(effect.name)) {
+                        modifiedCharacter.languages.push(effect.name);
+                    }
+                    break;
+                case "die_num":
+                    // Logic to adjust character's rolling capabilities (e.g., add advantage)
+                    // For now, just mark it as applied
+                    if (!modifiedCharacter.activeRollEffects) {
+                        modifiedCharacter.activeRollEffects = {};
+                    }
+                    if (!modifiedCharacter.activeRollEffects[effect.attribute]) {
+                        modifiedCharacter.activeRollEffects[effect.attribute] = [];
+                    }
+                    modifiedCharacter.activeRollEffects[effect.attribute].push(effect);
+                    break;
+                case "max_health_mod": // New effect type for modifying max health
+                    if (!modifiedCharacter.calculatedHealth) {
+                        modifiedCharacter.calculatedHealth = {
+                            baseMax: modifiedCharacter.health.max, // Store base max health
+                            currentMax: modifiedCharacter.health.max
+                        };
+                    }
+                    modifiedCharacter.calculatedHealth.currentMax += effect.value;
+                    break;
+                case "temporary_buff": // New effect type for temporary buffs
+                    // Logic to store and manage temporary buffs (e.g., specific attribute bonuses for a duration)
+                    // This will require a more complex time-based system for durations.
+                    // For now, let's just add it to a list if we want to display it.
+                    if (!modifiedCharacter.temporaryBuffs) {
+                        modifiedCharacter.temporaryBuffs = [];
+                    }
+                    modifiedCharacter.temporaryBuffs.push(effect);
+                    break;
+                case "inventory_item": // New effect type for adding inventory
+                    if (!modifiedCharacter.inventory) {
+                        modifiedCharacter.inventory = [];
+                    }
+                    const existingItem = modifiedCharacter.inventory.find(item => item.name === effect.name);
+                    if (existingItem) {
+                        existingItem.quantity = (existingItem.quantity || 1) + (effect.quantity || 1);
+                    } else {
+                        modifiedCharacter.inventory.push({ name: effect.name, quantity: effect.quantity || 1 });
+                    }
+                    break;
+                case "trigger_event": // New effect type for triggering events
+                    // This is more complex and would likely involve dispatching custom events
+                    // or calling specific game logic functions based on the event name.
+                    console.log(`EffectHandler: Triggering event: ${effect.eventName}`);
+                    break;
+                case "summon_creature": // New effect type
+                    // Logic to add a summoned creature to the character's active summons
+                    if (!modifiedCharacter.summonedCreatures) {
+                        modifiedCharacter.summonedCreatures = [];
+                    }
+                    modifiedCharacter.summonedCreatures.push({ name: effect.creatureName, stats: effect.stats });
+                    break;
+                case "deal_damage": // New effect type
+                    // This would typically apply to a target, not the character gaining the ability.
+                    // Needs context of a target. For self-damage, `character.health.current -= effect.value;`
+                    break;
+                case "healing": // New effect type
+                    modifiedCharacter.health.current += effect.value;
+                    if (modifiedCharacter.health.current > modifiedCharacter.health.max) {
+                        modifiedCharacter.health.current = modifiedCharacter.health.max;
+                    }
+                    break;
+                case "status": // New effect type
+                    if (!modifiedCharacter.statuses) {
+                        modifiedCharacter.statuses = [];
+                    }
+                    // Prevent duplicate statuses if not stackable
+                    if (!modifiedCharacter.statuses.some(s => s.name === effect.name)) {
+                        modifiedCharacter.statuses.push({ name: effect.name, duration: effect.duration, appliedAt: Date.now() });
+                    }
+                    break;
+                case "resource_mod": // New effect type for modifying resource pools
+                    if (!modifiedCharacter.resources) {
+                        modifiedCharacter.resources = [];
+                    }
+                    let resource = modifiedCharacter.resources.find(r => r.type === effect.resource);
+                    if (resource) {
+                        resource.value += effect.value;
+                        if (resource.max !== undefined && resource.value > resource.max) {
+                            resource.value = resource.max;
+                        }
+                        if (resource.value < 0) resource.value = 0; // Prevent negative resources
+                    } else {
+                        // Add new resource if it doesn't exist
+                        modifiedCharacter.resources.push({ type: effect.resource, value: effect.value, max: effect.max });
+                    }
+                    break;
+                case "resistance_mod": // New effect type
+                    if (!modifiedCharacter.resistances) {
+                        modifiedCharacter.resistances = {};
+                    }
+                    if (!modifiedCharacter.resistances[effect.damageType]) {
+                        modifiedCharacter.resistances[effect.damageType] = 0;
+                    }
+                    modifiedCharacter.resistances[effect.damageType] += effect.value; // Additive resistances
+                    break;
+                case "movement_mod": // New effect type
+                    if (!modifiedCharacter.movement) {
+                        modifiedCharacter.movement = { base: 0, current: 0 }; // Assuming base movement exists
+                    }
+                    modifiedCharacter.movement.current += effect.value;
+                    break;
+                default:
+                    console.warn(`EffectHandler: Unknown effect type: ${effect.type}`, effect);
+            }
+        });
+        return modifiedCharacter; // Return the character with applied effects
+    }
+};
+
+// This function will be called to fully update the character display
+function processAndRenderCharacter(character) {
+    if (!character) {
+        document.getElementById('characterDetails').innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
+        return;
+    }
+
+    // Step 1: Process all active abilities and flaws to populate EffectHandler.activeEffects
+    // Pass flawData to EffectHandler
+    EffectHandler.processActiveAbilities(character, abilityData, flawData, activeAbilityStates);
+
+    // Step 2: Apply all active effects to a cloned version of the character data
+    // This creates a 'derived' character state with all passive and active effects applied
+    const effectedCharacter = EffectHandler.applyEffectsToCharacter(character);
+
+    // Step 3: Render UI based on the effectedCharacter data
+    const characterDetails = document.getElementById('characterDetails'); // Get this element early
+    const characterNameHeader = document.getElementById('characterNameHeader');
+
+    if (characterNameHeader) {
+        characterNameHeader.innerHTML = `
+            ${effectedCharacter.info.name}
+            <span class="character-subheader">Destiny: ${effectedCharacter.destiny} | Class: ${effectedCharacter.module || 'Crescendo'}</span>
+        `;
+    }
+
+    let attributesHtml = '';
+    if (effectedCharacter.attributes) {
+        attributesHtml = Object.entries(effectedCharacter.attributes).map(([attr, die]) => {
+            const initialModifiers = EffectHandler.getEffectsForAttribute(attr, "modifier"); // Use EffectHandler
+
+            console.debug(`Processing attribute: ${attr}, Initial Modifiers:`, initialModifiers);
+
+            let modifierSpans = '';
+            for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                const mod = initialModifiers[i];
+                if (mod) {
+                    modifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
+                } else {
+                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+                }
+            }
+            // For initial render, unmodified result is empty as no roll has occurred
+            const unmodifiedResultHtml = initialModifiers.length > 0
+                ? `<div class="unmodified-roll-result"></div>` // Placeholder for initial render
+                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+            return `
+                <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
+                    <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
+                    <span class="die-type">${die.toUpperCase()}</span>
+                    <button class="btn-roll attribute-roll">Roll</button>
+                    <div class="roll-result"></div>
+                    ${modifierSpans}
+                    ${unmodifiedResultHtml}
+                </div>
+            `;
+        }).join('');
+
+        const initialLuckModifiers = EffectHandler.getEffectsForAttribute('luck', "modifier"); // Use EffectHandler
+        let luckModifierSpans = '';
+        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+            const mod = initialLuckModifiers[i];
+            if (mod) {
+                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
+            } else {
+                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+            }
+        }
+        const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
+            ? `<div class="unmodified-roll-result"></div>`
+            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+        attributesHtml += `
+            <div class="attribute-row" data-attribute="luck" data-dice="d100">
+                <label>Luck</label>
+                <span class="die-type">D100</span>
+                <button class="btn-roll attribute-roll">Roll</button>
+                <div class="roll-result"></div>
+                ${luckModifierSpans}
+                ${unmodifiedLuckResultHtml}
+            </div>
+        `;
+    }
+
+    characterDetails.innerHTML = `
+        <div class="character-stats">
+            <h4>Attributes</h4>
+            <div class="attributes-grid-container"> ${attributesHtml}</div>
+        </div>
+
+        <div class="character-health health-display"></div>
+        ${renderResources(effectedCharacter)}
+        ${renderLanguages(effectedCharacter)}
+        ${renderStatuses(effectedCharacter)}
+        ${renderFlaws(effectedCharacter)}
+
+        ${effectedCharacter.inventory && effectedCharacter.inventory.length > 0 ? `
+        <div class="character-inventory">
+            <h4>Inventory</h4>
+            <ul>
+                ${effectedCharacter.inventory.map(item => `<li>${item.name}${item.quantity > 1 ? ` x${item.quantity}` : ''}</li>`).join('')}
+            </ul>
+        </div>
+        ` : ''}
+
+        ${renderAbilities(effectedCharacter)}
+        <div class="character-info">
+            <h4>Info</h4>
+            <p><strong>Name:</strong> ${effectedCharacter.info.name}</p>
+            <p><strong>Bio:</strong> ${effectedCharacter.info.bio || 'N/A'}</p>
+        </div>
+    `;
+
+    // Always use the effectedCharacter for health display
+    renderHealthDisplay(effectedCharacter);
+    attachAttributeRollListeners(); // Re-attach listeners for all buttons
+}
+
 // === Configuration for Attribute Display ===
 // IMPORTANT: This constant defines the maximum number of modifier columns.
 // If an attribute has more modifiers than this, they will not be displayed.
@@ -41,32 +357,25 @@ function highlightActiveNav(pageName) {
 
 // Global variable to hold ability data
 let abilityData = {}; // Initialize as empty object
+// Global variable to hold flaw data
+let flawData = {}; // New: Initialize as empty object for flaws
 
 // Global variable to hold the state of active toggleable abilities
 // Resets on page refresh as requested.
 let activeAbilityStates = new Set(); // It is a Set.
 
 // Helper function to calculate and get active modifiers for a given attribute
+// This function was originally intended to be used, but direct access to 'modifier'
+// in raw effects proved more straightforward for current display logic.
+// Keeping it for potential future uses where a 'value' property might be universally desired.
 function getActiveModifiersForAttribute(attributeName) {
-    const activeModifiers = [];
-    if (activeCharacter && activeCharacter.abilities) {
-        activeCharacter.abilities.forEach(abilityState => {
-            const abilityDef = abilityData[abilityState.id];
-            if (abilityDef && abilityDef.effect && abilityDef.effect.type === "modifier" && abilityDef.effect.attribute) {
-                const effectAttribute = abilityDef.effect.attribute.toLowerCase();
-
-                const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id));
-
-                if (isActive && effectAttribute === attributeName) {
-                    activeModifiers.push({
-                        value: abilityDef.effect.modifier,
-                        abilityName: abilityDef.name
-                    });
-                }
-            }
-        });
-    }
-    return activeModifiers;
+    // Delegate to EffectHandler to get relevant modifier effects
+    return EffectHandler.getEffectsForAttribute(attributeName, "modifier")
+        .map(effect => ({
+            value: effect.modifier, // Correctly maps 'modifier' to 'value'
+            abilityName: effect.abilityName,
+            sourceType: effect.sourceType // Include sourceType
+        }));
 }
 
 // Helper function to render modifier display elements and the unmodified result
@@ -114,9 +423,11 @@ function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResul
     modifiersToDisplay.forEach(mod => {
         const modSpan = document.createElement('span');
         modSpan.classList.add('modifier-display');
-        modSpan.textContent = (mod.value > 0 ? '+' : '') + mod.value;
-        modSpan.style.color = mod.value > 0 ? '#03AC13' : '#FF0000';
+        // CORRECTED: Access mod.modifier directly
+        modSpan.textContent = (mod.modifier > 0 ? '+' : '') + mod.modifier;
+        modSpan.style.color = mod.modifier > 0 ? '#03AC13' : '#FF0000';
         modSpan.dataset.abilityName = mod.abilityName;
+        modSpan.dataset.sourceType = mod.sourceType; // Add sourceType to data-attribute
 
         // Insert modifiers after the last inserted element
         lastInsertedElement.insertAdjacentElement('afterend', modSpan);
@@ -153,10 +464,67 @@ function attachAttributeRollListeners() {
             const assignment = this.closest('.attribute-row');
             const attributeName = assignment.getAttribute('data-attribute');
             const dieType = assignment.getAttribute('data-dice');
-            const baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
+            let baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
 
-            const activeModifiers = getActiveModifiersForAttribute(attributeName);
-            let totalModifier = activeModifiers.reduce((sum, mod) => sum + mod.value, 0);
+            // --- Cost Deduction Logic ---
+            // Only abilities can have costs, not flaws, so filter by sourceType
+            const relevantActiveEffects = EffectHandler.activeEffects.filter(effect =>
+                effect.attribute && effect.attribute.toLowerCase() === attributeName && effect.cost && effect.sourceType === "ability"
+            );
+
+            let canAffordAll = true;
+            const costsToDeduct = {};
+
+            relevantActiveEffects.forEach(effect => {
+                const costResource = effect.cost.resource;
+                const costValue = parseInt(effect.cost.value, 10);
+
+                if (!costsToDeduct[costResource]) {
+                    costsToDeduct[costResource] = 0;
+                }
+                costsToDeduct[costResource] += costValue;
+            });
+
+            for (const resourceType in costsToDeduct) {
+                const totalCost = costsToDeduct[resourceType];
+                const charResource = activeCharacter.resources.find(r => r.type === resourceType);
+
+                if (!charResource || charResource.value < totalCost) {
+                    canAffordAll = false;
+                    alerter.show(`Not enough ${resourceType} to use all active abilities affecting ${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)}.`, 'error');
+                    break;
+                }
+            }
+
+            if (!canAffordAll) {
+                return; // Stop the roll if costs can't be met
+            }
+
+            // If costs can be met, deduct them and update character
+            if (Object.keys(costsToDeduct).length > 0) {
+                const newResources = activeCharacter.resources.map(res => {
+                    if (costsToDeduct[res.type]) {
+                        return { ...res, value: res.value - costsToDeduct[res.type] };
+                    }
+                    return res;
+                });
+                // Update activeCharacter and persist to DB
+                db.updateCharacterResources(activeCharacter.id, newResources).then(updatedChar => {
+                    activeCharacter = updatedChar; // Update global activeCharacter
+                    processAndRenderCharacter(activeCharacter); // Re-render the character sheet with updated resources
+                    alerter.show(`Costs deducted for active abilities affecting ${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)}.`, 'info');
+                }).catch(err => {
+                    alerter.show('Error deducting costs. See console.', 'error');
+                    console.error('Error deducting character resources:', err);
+                    return; // Prevent roll if resource update fails
+                });
+            }
+
+
+            // Apply modifiers (uses the already updated EffectHandler.activeEffects from processAndRenderCharacter)
+            const activeModifiers = EffectHandler.getEffectsForAttribute(attributeName, "modifier");
+            // CORRECTED: Access mod.modifier directly
+            let totalModifier = activeModifiers.reduce((sum, mod) => sum + mod.modifier, 0);
 
             const modifiedResult = baseResult + totalModifier; // Apply modifier to the result
 
@@ -267,7 +635,7 @@ function renderAbilities(character) {
 let activeCharacter = null; // Variable to store the active character
 
 // Function to render health display
-function renderHealthDisplay(character) {
+function renderHealthDisplay(character) { // Now accepts the effectedCharacter
     if (!character || !character.health) {
         console.warn("Character or health data not available for rendering health display.");
         return;
@@ -279,8 +647,11 @@ function renderHealthDisplay(character) {
         return;
     }
 
+    // Use character.calculatedHealth if it exists, otherwise fall back to base health
+    const currentMaxHealth = character.calculatedHealth ? character.calculatedHealth.currentMax : character.health.max;
+
     // Calculate health percentage and determine health class
-    const healthPercentage = (character.health.current / character.health.max) * 100;
+    const healthPercentage = (character.health.current / currentMaxHealth) * 100;
     let healthClass = '';
     if (healthPercentage > 60) {
         healthClass = 'health-full';
@@ -300,12 +671,11 @@ function renderHealthDisplay(character) {
             <div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div>
         </div>
         <div class="health-numbers">
-            ${character.health.current} / ${character.health.max}
+            ${character.health.current} / ${currentMaxHealth}
             ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}
         </div>
     `;
 
-    // Attach event listener for health adjustment after rendering
     const applyButton = document.getElementById('applyHealthAdjustment');
     const inputField = document.getElementById('healthAdjustmentInput');
 
@@ -320,14 +690,19 @@ function renderHealthDisplay(character) {
         }
 
         let newCurrentHealth = character.health.current + adjustment;
+        const finalMaxHealth = character.calculatedHealth ? character.calculatedHealth.currentMax : character.health.max;
 
-        // Note for future: Temporary health logic can be implemented here.
-        // For now, adjustments only affect current health, and no min/max cap.
+        // Cap current health at calculated max health
+        if (newCurrentHealth > finalMaxHealth) {
+            newCurrentHealth = finalMaxHealth;
+        }
+        if (newCurrentHealth < 0) { // Prevent health from going below zero (unless temporary health allows)
+            newCurrentHealth = 0;
+        }
 
-        db.updateCharacterHealth(character.id, { current: newCurrentHealth }).then(updatedCharacter => {
+        db.updateCharacterHealth(activeCharacter.id, { current: newCurrentHealth }).then(updatedCharacter => {
             activeCharacter = updatedCharacter; // Update the global activeCharacter
-            renderHealthDisplay(activeCharacter); // Re-render with updated health
-            // alerter.show(`Health adjusted by ${adjustment}. New health: ${activeCharacter.health.current}`, 'success'); // Removed success message
+            processAndRenderCharacter(activeCharacter); // Re-render with updated character state
             console.log(`Health adjusted for ${activeCharacter.info.name}: ${adjustment}. New health: ${activeCharacter.health.current}`);
             inputField.value = ''; // Clear input field
         }).catch(err => {
@@ -336,13 +711,91 @@ function renderHealthDisplay(character) {
         });
     });
 
-    // Add event listener for 'Enter' key press on the input field
     inputField.addEventListener('keypress', function(event) {
         if (event.key === 'Enter') {
-            event.preventDefault(); // Prevent default form submission if any
-            applyButton.click(); // Trigger the click event on the Apply button
+            event.preventDefault();
+            applyButton.click();
         }
     });
+}
+
+
+// Function to render resources
+function renderResources(character) {
+    if (!character.resources || character.resources.length === 0) {
+        return '';
+    }
+    return `
+        <div class="character-resources">
+            <h4>Resources</h4>
+            <ul class="resource-list">
+                ${character.resources.map(resource => `
+                    <li>
+                        <strong>${resource.type.charAt(0).toUpperCase() + resource.type.slice(1)}:</strong>
+                        ${resource.value} ${resource.max !== undefined ? `/ ${resource.max}` : ''}
+                    </li>
+                `).join('')}
+            </ul>
+        </div>
+    `;
+}
+
+// Function to render languages
+function renderLanguages(character) {
+    if (!character.languages || character.languages.length === 0) {
+        return '';
+    }
+    return `
+        <div class="character-languages">
+            <h4>Languages</h4>
+            <ul>
+                ${character.languages.map(lang => `<li>${lang}</li>`).join('')}
+            </ul>
+        </div>
+    `;
+}
+
+// Function to render statuses
+function renderStatuses(character) {
+    if (!character.statuses || character.statuses.length === 0) {
+        return '';
+    }
+    // You might want to add duration display and expiration logic here
+    return `
+        <div class="character-statuses">
+            <h4>Active Statuses</h4>
+            <ul>
+                ${character.statuses.map(status => `<li>${status.name}</li>`).join('')}
+            </ul>
+        </div>
+    `;
+}
+
+// New: Function to render flaws
+function renderFlaws(character) {
+    if (!character.flaws || character.flaws.length === 0) {
+        return '';
+    }
+    return `
+        <div class="character-flaws">
+            <h4>Flaws</h4>
+            <ul>
+                ${character.flaws.map(flawState => {
+                    const flawDef = flawData[flawState.id];
+                    if (!flawDef) {
+                        console.warn(`Flaw definition not found for ID: ${flawState.id}`);
+                        return `<li>Unknown Flaw (ID: ${flawState.id})</li>`;
+                    }
+                    return `
+                        <li class="flaw-item">
+                            <strong>${flawDef.name}</strong>
+                            <p>${flawDef.description}</p>
+                        </li>
+                    `;
+                }).join('')}
+            </ul>
+        </div>
+    `;
 }
 
 
@@ -368,7 +821,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const tooltip = document.createElement('div');
                 tooltip.classList.add('modifier-tooltip');
-                tooltip.textContent = targetModSpan.dataset.abilityName;
+                // Display both ability name and source type in tooltip
+                const abilityName = targetModSpan.dataset.abilityName;
+                const sourceType = targetModSpan.dataset.sourceType;
+                tooltip.textContent = `${abilityName} (Source: ${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)})`;
+
 
                 // Append the tooltip directly to the clicked modifier span
                 targetModSpan.appendChild(tooltip);
@@ -386,212 +843,60 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- END OF DELEGATED EVENT LISTENER ---
 
 
-    // Load abilities.json first
-    fetch('data/abilities.json')
-        .then(response => {
+    // Load abilities.json and flaws.json
+    Promise.all([
+        fetch('data/abilities.json').then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        }),
+        fetch('data/flaws.json').then(response => { // New: Fetch flaws.json
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
-        .then(data => {
-            abilityData = data; // Store the loaded data
-            console.log('play.js: abilities.json loaded successfully.');
+    ])
+    .then(([abilitiesDataLoaded, flawsDataLoaded]) => {
+        abilityData = abilitiesDataLoaded;
+        flawData = flawsDataLoaded; // Assign loaded flaw data
+        console.log('play.js: abilities.json and flaws.json loaded successfully.');
 
-            // Now load active character, as abilityData is available
-            db.getActiveCharacter().then(function(character) {
-                activeCharacter = character; // Store the active character
+        db.getActiveCharacter().then(function(character) {
+            activeCharacter = character;
+            processAndRenderCharacter(activeCharacter); // Initial render
 
-                if (character) {
-                    const characterNameHeader = document.getElementById('characterNameHeader');
-                    if (characterNameHeader) {
-                        characterNameHeader.innerHTML = `
-                            ${character.info.name}
-                            <span class="character-subheader">Destiny: ${character.destiny} | Class: ${character.module || 'Crescendo'}</span>
-                        `;
-                    }
-                    // This entire characterDetails.innerHTML section should ideally be in its own function
-                    // like `renderCharacterDetails(character)` to avoid duplication.
-                    let attributesHtml = '';
-                    if (character.attributes) {
-                        attributesHtml = Object.entries(character.attributes).map(([attr, die]) => {
-                            const initialModifiers = getActiveModifiersForAttribute(attr);
-                            let modifierSpans = '';
-                            for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-                                const mod = initialModifiers[i];
-                                if (mod) {
-                                    modifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
-                                } else {
-                                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
-                                }
-                            }
-                            const unmodifiedResultHtml = initialModifiers.length > 0
-                                ? `<div class="unmodified-roll-result">${attr.unmodifiedResult !== undefined ? attr.unmodifiedResult : ''}</div>`
-                                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-                            return `
-                                <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
-                                    <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
-                                    <span class="die-type">${die.toUpperCase()}</span>
-                                    <button class="btn-roll attribute-roll">Roll</button>
-                                    <div class="roll-result"></div>
-                                    ${modifierSpans}
-                                    ${unmodifiedResultHtml}
-                                </div>
-                            `;
-                        }).join('');
-
-                        const initialLuckModifiers = getActiveModifiersForAttribute('luck');
-                        let luckModifierSpans = '';
-                        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-                            const mod = initialLuckModifiers[i];
-                            if (mod) {
-                                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
-                            } else {
-                                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
-                            }
-                        }
-                        const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
-                            ? `<div class="unmodified-roll-result"></div>`
-                            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-                        attributesHtml += `
-                            <div class="attribute-row" data-attribute="luck" data-dice="d100">
-                                <label>Luck</label>
-                                <span class="die-type">D100</span>
-                                <button class="btn-roll attribute-roll">Roll</button>
-                                <div class="roll-result"></div>
-                                ${luckModifierSpans}
-                                ${unmodifiedLuckResultHtml}
-                            </div>
-                        `;
-                    }
-
-                    characterDetails.innerHTML = `
-                        <div class="character-stats">
-                            <h4>Attributes</h4>
-                            <div class="attributes-grid-container"> ${attributesHtml}</div>
-                        </div>
-
-                        <div class="character-health health-display"></div>
-
-                        ${character.selectedFlaw ? `
-                        <div class="character-flaw">
-                            <h4>Selected Flaw</h4>
-                            <p>${character.selectedFlaw.charAt(0).toUpperCase() + character.selectedFlaw.slice(1)}</p>
-                        </div>
-                        ` : ''}
-
-                        ${character.inventory && character.inventory.length > 0 ? `
-                        <div class="character-inventory">
-                            <h4>Inventory</h4>
-                            <ul>
-                                ${character.inventory.map(item => `<li>${item.name}</li>`).join('')}
-                            </ul>
-                        </div>
-                        ` : ''}
-
-                        ${renderAbilities(character)}
-                        <div class="character-info">
-                            <h4>Info</h4>
-                            <p><strong>Name:</strong> ${character.info.name}</p>
-                            <p><strong>Bio:</strong> ${character.info.bio || 'N/A'}</p>
-                        </div>
-                    `;
-
-                    renderHealthDisplay(activeCharacter);
-                    attachAttributeRollListeners();
-
-                    document.getElementById('activeAbilitiesList').addEventListener('click', function(event) {
-                        const button = event.target.closest('.ability-button');
-                        if (button) {
-                            const abilityId = button.dataset.abilityId;
-
-                            if (activeAbilityStates.has(abilityId)) {
-                                activeAbilityStates.delete(abilityId);
-                                button.classList.remove('toggled-red');
-                                console.log(`Ability ${abilityId} turned OFF.`);
-                            } else {
-                                activeAbilityStates.add(abilityId);
-                                button.classList.add('toggled-red');
-                                console.log(`Ability ${abilityId} turned ON.`);
-                            }
-
-                            const attributesSection = document.querySelector('.character-stats');
-                            if (attributesSection) {
-                                let newAttributesHtml = '';
-                                if (activeCharacter.attributes) { // Use activeCharacter for the latest state
-                                    newAttributesHtml = Object.entries(activeCharacter.attributes).map(([attr, die]) => {
-                                        const initialModifiers = getActiveModifiersForAttribute(attr);
-                                        let modifierSpans = '';
-                                        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-                                            const mod = initialModifiers[i];
-                                            if (mod) {
-                                                modifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
-                                            } else {
-                                                modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
-                                            }
-                                        }
-                                        const unmodifiedResultHtml = initialModifiers.length > 0
-                                            ? `<div class="unmodified-roll-result">${attr.unmodifiedResult !== undefined ? attr.unmodifiedResult : ''}</div>`
-                                            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-                                        return `
-                                            <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
-                                                <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
-                                                <span class="die-type">${die.toUpperCase()}</span>
-                                                <button class="btn-roll attribute-roll">Roll</button>
-                                                <div class="roll-result"></div>
-                                                ${modifierSpans}
-                                                ${unmodifiedResultHtml}
-                                            </div>
-                                        `;
-                                    }).join('');
-
-                                    const initialLuckModifiers = getActiveModifiersForAttribute('luck');
-                                    let luckModifierSpans = '';
-                                    for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-                                        const mod = initialLuckModifiers[i];
-                                        if (mod) {
-                                            luckModifierSpans += `<span class="modifier-display" style="color: ${mod.value > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}">${(mod.value > 0 ? '+' : '') + mod.value}</span>`;
-                                        } else {
-                                            luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
-                                        }
-                                    }
-                                    const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
-                                        ? `<div class="unmodified-roll-result"></div>`
-                                        : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-                                    newAttributesHtml += `
-                                        <div class="attribute-row" data-attribute="luck" data-dice="d100">
-                                            <label>Luck</label>
-                                            <span class="die-type">D100</span>
-                                            <button class="btn-roll attribute-roll">Roll</button>
-                                            <div class="roll-result"></div>
-                                            ${luckModifierSpans}
-                                            ${unmodifiedLuckResultHtml}
-                                        </div>
-                                    `;
-                                }
-
-                                attributesSection.innerHTML = `
-                                    <h4>Attributes</h4>
-                                    <div class="attributes-grid-container">
-                                        ${newAttributesHtml}
-                                    </div>
-                                `;
-                                attachAttributeRollListeners(); // Re-attach listeners for new buttons
-                            }
-                        }
-                    });
-
-                } else {
-                    characterDetails.innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
-                }
-            }).catch(function(err) {
-                console.error('Error loading character:', err);
-            });
-        })
-        .catch(error => {
-            console.error('play.js: Error loading abilities.json:', error);
-            alert('Failed to load ability data. Please check the console for details.');
+        }).catch(function(err) {
+            console.error('Error loading character:', err);
+            alerter.show('Failed to load active character.', 'error');
         });
+    })
+    .catch(error => {
+        console.error('play.js: Error loading data files:', error);
+        alert('Failed to load game data (abilities.json or flaws.json). Please check the console for details.');
+    });
+
+    // Event listener for toggling active abilities
+    // Moved outside the initial characterDetails.innerHTML rendering to be persistent
+    document.getElementById('characterDetails').addEventListener('click', function(event) {
+        const button = event.target.closest('.ability-button');
+        if (button) {
+            const abilityId = button.dataset.abilityId;
+
+            if (activeAbilityStates.has(abilityId)) {
+                activeAbilityStates.delete(abilityId);
+                button.classList.remove('toggled-red');
+                console.log(`Ability ${abilityId} turned OFF.`);
+            } else {
+                activeAbilityStates.add(abilityId);
+                button.classList.add('toggled-red');
+                console.log(`Ability ${abilityId} turned ON.`);
+            }
+            // After toggling, re-process and re-render the character sheet
+            processAndRenderCharacter(activeCharacter);
+        }
+    });
 
     // Dice roller functionality for D20
     document.getElementById('rollD20').addEventListener('click', function() {

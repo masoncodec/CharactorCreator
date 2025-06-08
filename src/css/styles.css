@@ -18,6 +18,8 @@
  @import './_utilities.css';
  @import './_roll.css';
  @import './_hero.css';
+ @import './_flaw.css';
+ @import './_destiny.css';
  
  /* Any global overrides or very specific styles that don't fit elsewhere could go here */
  /* General typography enhancements for readability */

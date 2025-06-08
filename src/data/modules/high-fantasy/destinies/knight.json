@@ -1,0 +1,18 @@
+{
+    "displayName": "Chivalric Knight",
+    "description": "Noble warrior sworn to protect the realm.",
+    "health": {
+        "title": "Sturdy",
+        "value": 10
+    },
+    "flaws": ["code-of-honor", "naive-idealism"],
+    "tags": [
+        { "id": "melee", "display": "Melee", "color": "#b22222", "icon": "⚔️" },
+        { "id": "defense", "display": "Defense", "color": "#1e90ff", "icon": "🛡️" }
+    ],
+    "levelUnlocks": [
+        { "level": 1, "ability": "armored-warrior" },
+        { "level": 3, "ability": "fealty" },
+        { "level": 5, "ability": "shield-bash" }
+    ]
+}

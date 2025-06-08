@@ -1,0 +1,18 @@
+{
+    "displayName": "Arcane Wizard",
+    "description": "Master of magical energies through rigorous study.",
+    "health": {
+        "title": "Frail",
+        "value": 6
+    },
+    "flaws": ["overconfidence", "arrogance"],
+    "tags": [
+        { "id": "magic", "display": "Magic", "color": "#8a2be2", "icon": "🔮" },
+        { "id": "support", "display": "Support", "color": "#20b2aa", "icon": "🌟" }
+    ],
+    "levelUnlocks": [
+        { "level": 1, "ability": "spellcaster" },
+        { "level": 1, "ability": "arcane-intellect" },
+        { "level": 5, "ability": "spell-mastery" }
+    ]
+}

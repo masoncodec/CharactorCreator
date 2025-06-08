@@ -1,0 +1,79 @@
+/* New CSS for Flaw Selection (Replicating Module Selection Style) */
+
+.flaw-selection {
+    margin-top: 1rem; /* Add some space above the flaw selection */
+}
+
+.flaw-options-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px; /* Spacing between flaw options */
+    margin-top: 0.5rem;
+}
+
+.flaw-option {
+    flex: 1 1 calc(33.33% - 10px); /* Roughly 3 items per row with spacing */
+    box-sizing: border-box;
+    padding: 15px;
+    background-color: #252525;
+    color: #E0E0E0;
+    border: 1px solid #444;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease-in-out;
+    font-weight: bold;
+    font-size: 0.95rem;
+    position: relative; /* For the checkmark/indicator */
+}
+
+.flaw-option:hover {
+    background-color: #3A3A3A;
+    border-color: #FFD700;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.flaw-option.selected {
+    background-color: #B22222;
+    border-color: #FFD700;
+    color: #E0E0E0;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.flaw-option.selected:hover {
+    background-color: #C23232;
+    border-color: #FFD700;
+}
+
+.flaw-option .flaw-name {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+}
+
+.flaw-option .flaw-description {
+    font-size: 0.85rem;
+    color: #E0E0E0;
+    line-height: 1.4;
+}
+
+/* Ensure disabled options are visually distinct and not clickable */
+.flaw-option.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #f2f2f2;
+    border-color: #e0e0e0;
+    color: #888;
+    box-shadow: none;
+}
+
+.flaw-option.disabled:hover {
+    border-color: #e0e0e0; /* No change on hover for disabled */
+    background-color: #f2f2f2;
+}
+
+/* Hide checkmark for disabled selected items if any (shouldn't happen with single select but good for robustness) */
+.flaw-option.disabled::after {
+    display: none;
+}

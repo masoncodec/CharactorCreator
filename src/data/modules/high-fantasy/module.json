@@ -1,0 +1,8 @@
+{
+    "name": "High Fantasy",
+    "attributes": ["Strength", "Dexterity", "Constitution", "Wisdom", "Intelligence", "Charisma"],
+    "descriptions": {
+        "module": "Classic medieval fantasy adventuring with swords, sorcery, and epic quests."
+    },
+    "destinies": ["wizard", "knight", "rogue", "cleric"]
+}

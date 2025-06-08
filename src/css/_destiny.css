@@ -1,0 +1,83 @@
+/* New CSS for Destiny Selection (Replicating Flaw Selection Style) */
+
+.page-destiny {
+    /* Adjust as needed for spacing around the destiny selection */
+    margin-bottom: 1rem; 
+}
+
+/* Ensure the container is a flex container and allows wrapping */
+#destiny-options-container { /* Use the ID selector for highest specificity */
+    display: flex;      /* THIS IS CRUCIAL: Makes it a flex container */
+    flex-wrap: wrap;    /* THIS IS CRUCIAL: Allows items to wrap to next line */
+    gap: 10px;          /* Adds spacing between items */
+    margin-top: 0.5rem; /* Re-add any necessary margin/padding */
+    /* Add any other container styles you want, e.g., background, padding */
+}
+
+/* Your destiny-option styles will now work as intended because the parent is a flex container */
+.destiny-option {
+    flex: 1 1 calc(.20% - 10px); /* For 2 items per row, or adjust as needed */
+    box-sizing: border-box;
+    padding: 15px;
+    background-color: #252525;
+    color: #E0E0E0;
+    border: 1px solid #444;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease-in-out;
+    font-weight: bold;
+    font-size: 0.95rem;
+    position: relative;
+}
+
+.destiny-option:hover {
+    background-color: #3A3A3A; /* Slightly lighter on hover */
+    border-color: #FFD700; /* Gold highlight on hover */
+    transform: translateY(-3px); /* Slight lift effect */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); /* Subtle shadow */
+}
+
+.destiny-option.selected {
+    background-color: #B22222; /* Red background for selected (adjust as desired) */
+    border-color: #FFD700; /* Gold border for selected */
+    color: #E0E0E0;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.destiny-option.selected:hover {
+    background-color: #C23232; /* Slightly lighter red on hover for selected */
+    border-color: #FFD700;
+}
+
+.destiny-option .destiny-name {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+}
+
+.destiny-option .destiny-description {
+    font-size: 0.85rem;
+    color: #E0E0E0;
+    line-height: 1.4;
+}
+
+/* Ensure disabled options are visually distinct and not clickable */
+.destiny-option.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #f2f2f2; /* Light background for disabled */
+    border-color: #e0e0e0;
+    color: #888;
+    box-shadow: none;
+}
+
+.destiny-option.disabled:hover {
+    border-color: #e0e0e0; /* No change on hover for disabled */
+    background-color: #f2f2f2;
+}
+
+/* Hide checkmark for disabled selected items if any (shouldn't happen with single select but good for robustness) */
+.destiny-option.disabled::after {
+    display: none;
+}

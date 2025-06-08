@@ -1,0 +1,18 @@
+{
+    "displayName": "Rhythmic Drummer",
+    "description": "The band's heartbeat and tempo-keeper.",
+    "health": {
+        "title": "Enduring",
+        "value": 9
+    },
+    "flaws": ["impulsive", "distraction"],
+    "tags": [
+        { "id": "percussion", "display": "Percussion", "color": "#8b4513", "icon": "🥁" },
+        { "id": "tempo", "display": "Tempo", "color": "#0000ff", "icon": "⏱️" }
+    ],
+    "levelUnlocks": [
+        { "level": 1, "ability": "double-kick" },
+        { "level": 3, "ability": "fill-master" },
+        { "level": 5, "ability": "metronome-sense" }
+    ]
+}
