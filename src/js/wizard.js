@@ -651,20 +651,23 @@ class CharacterWizard {
           const abilityState = this.state.abilities.find(a => a.id === abilityId);
           const isSelected = !!abilityState; // Check if the ability itself is selected
 
+          // TODO: once I have expanded the tag's for abilities I will need to transform this into a function to use throughout code
+          const abilityTypeClass = ability.type === 'active' ? 'active' : (ability.type === 'passive' ? 'passive' : '');
+
           // Append ability-container to the NEW tierGridContainer
           tierGridContainer.innerHTML += `
             <div class="ability-container">
                 <div class="ability-card ${isSelected ? 'selected' : ''}" data-ability-id="${abilityId}" data-tier="${tier}">
                     <div class="ability-header">
                         <label>
-                            <input type="radio" name="tier-${tier}" 
+                            <input type="radio" name="tier-${tier}"
                                 ${isSelected ? 'checked' : ''}
-                                data-tier="${tier}" 
+                                data-tier="${tier}"
                                 data-ability="${abilityId}">
                             <span class="ability-name">${ability.name}</span>
                         </label>
                         <div class="ability-types">
-                            <span class="type-tag">${this.getTypeIcon(ability.type)} ${ability.type}</span>
+                            <span class="type-tag ${abilityTypeClass}">${this.getTypeIcon(ability.type)} ${ability.type}</span>
                         </div>
                     </div>
                     <div class="ability-description">${this.renderAbilityDescription(ability)}</div>

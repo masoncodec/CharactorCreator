@@ -228,14 +228,14 @@
 }
 
 /* Specific styles for ACTIVE ability type tag */
-.ability-type-tag.active {
+.type-tag.active {
     background-color: #B22222; /* Red background, matching primary accent */
     color: white;
     border-color: #FFD700; /* Gold border */
 }
 
 /* Specific styles for PASSIVE ability type tag */
-.ability-type-tag.passive {
+.type-tag.passive {
     background-color: #4CAF50; /* Keeping green background as no specific passive color was given */
     color: white;
     border-color: #FFD700; /* Gold border */
