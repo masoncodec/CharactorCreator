@@ -28,7 +28,9 @@
 /* NEW: Grid container for multiple ability cards per row */
 .abilities-grid-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    /* Updated: Use minmax(min-content, 1fr) to allow single column to fill width,
+       or auto-fit instead of auto-fill for better single-column stretching when content is small. */
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1.5rem;
     padding: 0.5rem 0;
 }
@@ -241,6 +243,6 @@
 
 @media (max-width: 768px) {
     .abilities-grid-container {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr; /* Ensures a single column fills the width on small screens */
     }
 }
