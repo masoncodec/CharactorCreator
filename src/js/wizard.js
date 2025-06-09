@@ -243,8 +243,8 @@ class CharacterWizard {
             }
           });
 
-          // NEW: Delegated event listener for ability card selection
-          const abilitiesSection = document.querySelector('#selectorPanel'); // Or a more specific container if you have one for abilities
+          // NEW: Delegated event listener for ability card selection (radio buttons)
+          const abilitiesSection = document.querySelector('#selectorPanel'); 
           if (abilitiesSection) {
             abilitiesSection.addEventListener('click', (e) => {
                 const abilityCard = e.target.closest('.ability-card');
@@ -252,25 +252,25 @@ class CharacterWizard {
                     const abilityId = abilityCard.dataset.abilityId;
                     const radioInput = abilityCard.querySelector(`input[type="radio"][data-ability="${abilityId}"]`);
                     
-                    if (radioInput && !radioInput.checked) { // Only process if not already checked
-                        radioInput.checked = true; // Programmatically check the radio
+                    if (radioInput && !radioInput.checked) { 
+                        radioInput.checked = true; 
                         this.handleTierSelection(radioInput.dataset.tier, abilityId);
-                        // Also update the UI for selected/unselected cards
+                        
                         document.querySelectorAll('.ability-card').forEach(card => {
                             const currentCardTier = card.querySelector('input[type="radio"]')?.dataset.tier;
                             if (currentCardTier === radioInput.dataset.tier) {
                                 card.classList.remove('selected');
                             }
                         });
-                        abilityCard.classList.add('selected'); // Select the clicked card
+                        abilityCard.classList.add('selected'); 
                     }
                 }
             });
           }
 
-          // Existing ability option (checkbox) listener
+          // Existing ability option (checkbox/radio) listener for the options *within* an ability
           abilitiesSection.addEventListener('change', (e) => {
-            if (e.target.matches('.ability-option input[type="checkbox"]')) {
+            if (e.target.matches('.ability-option input[type="checkbox"]') || e.target.matches('.ability-option input[type="radio"]')) {
               this.handleAbilityOptionSelection(
                 e.target.dataset.ability,
                 e.target.dataset.option,
@@ -758,9 +758,15 @@ class CharacterWizard {
       // We will refine this in refreshAbilityOptionStates
       const initialDisabled = !isParentAbilityCurrentlySelected;
 
+      // Determine input type based on maxChoices
+      const inputType = (ability.maxChoices === 1) ? 'radio' : 'checkbox';
+      const inputName = (inputType === 'radio') ? `name="${abilityId}"` : ''; // Radio buttons need a name for mutual exclusivity
+      const chooseText = (ability.maxChoices === 1) ? 'Choose one' : `Choose ${ability.maxChoices || 'any'}`;
+
+
       return `
       <div class="ability-options">
-          <p>Choose ${ability.maxChoices || 'any'}:</p>
+          <p>${chooseText}:</p>
           ${ability.options.map(option => {
             const isOptionSelected = currentSelections.some(s => s.id === option.id);
             // The actual disabled state will be set by refreshAbilityOptionStates,
@@ -770,7 +776,8 @@ class CharacterWizard {
 
             return `
                 <label class="ability-option">
-                    <input type="checkbox"
+                    <input type="${inputType}"
+                        ${inputName}
                         ${checkedAttribute}
                         data-ability="${abilityId}"
                         data-option="${option.id}"
@@ -806,37 +813,47 @@ class CharacterWizard {
   }
   
   // Modified handleAbilityOptionSelection function
-  handleAbilityOptionSelection(abilityId, optionId, isSelected, checkboxElement) {
+  handleAbilityOptionSelection(abilityId, optionId, isSelected, inputElement) {
       const abilityState = this.state.abilities.find(a => a.id === abilityId);
       if (!abilityState) {
           console.warn(`CharacterWizard.handleAbilityOptionSelection: Parent ability '${abilityId}' not found in state.`);
           // If parent ability is not selected, this option should ideally be disabled anyway.
           // As a fallback for direct interaction, ensure it's unchecked if clicked
-          checkboxElement.checked = false;
+          inputElement.checked = false;
           this.refreshAbilityOptionStates(); // Re-sync UI
           return;
       }
   
       const abilityDef = this.abilityData[abilityId];
       
-      if (isSelected) {
-          // Check maxChoices before adding
-          if (abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null && abilityState.selections.length > abilityDef.maxChoices) {
-              checkboxElement.checked = false; // Revert checkbox state
-              alert(`You can only select up to ${abilityDef.maxChoices} option(s) for ${abilityDef.name}.`);
-              this.refreshAbilityOptionStates(); // Ensure UI is consistent after alert
-              return; 
+      if (inputElement.type === 'radio') {
+          // For radio buttons, only one selection is allowed.
+          if (isSelected) {
+              abilityState.selections = [{ id: optionId }];
+          } else {
+              // This case shouldn't typically happen with radio buttons, but for robustness
+              abilityState.selections = abilityState.selections.filter(s => s.id !== optionId);
           }
-          // Add option if not already present
-          if (!abilityState.selections.some(s => s.id === optionId)) {
-              abilityState.selections.push({ id: optionId });
+      } else { // Checkbox logic
+          if (isSelected) {
+              // Check maxChoices before adding
+              if (abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null && abilityState.selections.length > abilityDef.maxChoices) {
+                  inputElement.checked = false; // Revert checkbox state
+                  alert(`You can only select up to ${abilityDef.maxChoices} option(s) for ${abilityDef.name}.`);
+                  this.refreshAbilityOptionStates(); // Ensure UI is consistent after alert
+                  return; 
+              }
+              // Add option if not already present
+              if (!abilityState.selections.some(s => s.id === optionId)) {
+                  abilityState.selections.push({ id: optionId });
+              }
+          } else {
+              // Remove option
+              abilityState.selections = abilityState.selections.filter(s => s.id !== optionId);
           }
-      } else {
-          // Remove option
-          abilityState.selections = abilityState.selections.filter(s => s.id !== optionId);
       }
   
-      // After state update, refresh the disabled status of ALL checkboxes globally
+      // After state update, refresh the disabled status of ALL checkboxes/radios globally
       this.refreshAbilityOptionStates(); 
       this.updateInformer('destiny'); 
   }
@@ -1212,8 +1229,8 @@ class CharacterWizard {
           const optionsContainer = abilityCard.querySelector('.ability-options'); // Options are inside the card
           // Proceed only if options container exists and ability data defines options
           if (optionsContainer && abilityData && abilityData.options) {
-              optionsContainer.querySelectorAll('input[type="checkbox"]').forEach(optionCheckbox => {
-                  const optionId = optionCheckbox.dataset.option;
+              optionsContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(optionInput => {
+                  const optionId = optionInput.dataset.option;
                   // Check if this specific option is selected in the state
                   const isOptionSelected = abilityState ? abilityState.selections.some(s => s.id === optionId) : false;
   
@@ -1222,8 +1239,8 @@ class CharacterWizard {
                   if (!isParentAbilityCurrentlySelected) {
                       shouldBeDisabled = true;
                       // If the parent ability is NOT selected, ensure the option is unchecked and disabled
-                      if (optionCheckbox.checked) {
-                          optionCheckbox.checked = false;
+                      if (optionInput.checked) {
+                          optionInput.checked = false;
                           // Also clean up the state if for some reason this option was still selected
                           if (abilityState) {
                               abilityState.selections = abilityState.selections.filter(s => s.id !== optionId);
@@ -1237,18 +1254,24 @@ class CharacterWizard {
                       const currentSelectionsCount = abilityState.selections.length;
                       const maxChoices = abilityData.maxChoices;
   
-                      // If maxChoices is defined and reached, disable options that are NOT currently selected
-                      if (maxChoices !== undefined && maxChoices !== null && currentSelectionsCount >= maxChoices && !isOptionSelected) {
-                          shouldBeDisabled = true;
-                          console.log(`    Option '${optionId}': Disabling because max choices (${maxChoices}) reached and not selected.`);
-                      } else {
-                          // This is the case where the option should be enabled
-                          console.log(`    Option '${optionId}': Enabling (parent selected, max choices not reached or is selected).`);
+                      if (optionInput.type === 'radio') {
+                          // Radio buttons are only disabled if the parent ability is not selected.
+                          // Otherwise, they are always enabled to allow swapping selections.
+                          shouldBeDisabled = false;
+                      } else { // Checkbox logic
+                          // If maxChoices is defined and reached, disable options that are NOT currently selected
+                          if (maxChoices !== undefined && maxChoices !== null && currentSelectionsCount >= maxChoices && !isOptionSelected) {
+                              shouldBeDisabled = true;
+                              console.log(`    Option '${optionId}': Disabling because max choices (${maxChoices}) reached and not selected.`);
+                          } else {
+                              // This is the case where the option should be enabled
+                              console.log(`    Option '${optionId}': Enabling (parent selected, max choices not reached or is selected).`);
+                          }
                       }
                   }
-                  optionCheckbox.disabled = shouldBeDisabled; // Apply the final disabled state
-                  // Crucial: Ensure checkbox visually reflects its checked state from state
-                  optionCheckbox.checked = isOptionSelected;
+                  optionInput.disabled = shouldBeDisabled; // Apply the final disabled state
+                  // Crucial: Ensure input visually reflects its checked state from state
+                  optionInput.checked = isOptionSelected;
               });
           }
       });
