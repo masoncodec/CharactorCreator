@@ -632,8 +632,13 @@ class CharacterWizard {
       });
 
       Object.entries(abilitiesByTier).forEach(([tier, abilityIds]) => {
+        // Append tier header directly to the main container
         container.innerHTML += `<h5 class="tier-header">Tier ${tier} (Choose 1)</h5>`;
         
+        // NEW: Create a grid container for *this specific tier's* abilities
+        const tierGridContainer = document.createElement('div');
+        tierGridContainer.className = 'abilities-grid-container';
+
         abilityIds.forEach(abilityId => { // abilityId is the correct string ID, e.g., 'spellcaster'
           const ability = this.abilityData[abilityId]; // This is the definition object
           if (!ability) {
@@ -644,7 +649,8 @@ class CharacterWizard {
           const abilityState = this.state.abilities.find(a => a.id === abilityId);
           const isSelected = !!abilityState; // Check if the ability itself is selected
 
-          container.innerHTML += `
+          // Append ability-container to the NEW tierGridContainer
+          tierGridContainer.innerHTML += `
             <div class="ability-container">
                 <div class="ability-card ${isSelected ? 'selected' : ''}" data-ability-id="${abilityId}" data-tier="${tier}">
                     <div class="ability-header">
@@ -665,6 +671,8 @@ class CharacterWizard {
             </div>
           `;
         });
+        // NEW: Append the tier-specific grid container to the main abilities-section container
+        container.appendChild(tierGridContainer);
       });
 
       const existing = document.querySelector('.abilities-section');
