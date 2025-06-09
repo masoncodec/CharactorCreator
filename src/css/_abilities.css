@@ -96,8 +96,16 @@
 
 .ability-options {
     margin-top: 1rem;
-    padding-top: 1rem;
+    padding: 1.2rem 1.5rem; /* Adjusted for more space */
     border-top: 1px solid rgb(56, 56, 56); /* Updated to new default border */
+}
+
+.ability-card.selected .ability-options {
+    background-color: #252525; /* Darker red for cohesion */
+    border-top: 1px solid #FFD700; /* Darker red border */
+    border-right: 1px solid #FFD700; /* Darker red border */
+    border-bottom: 1px solid #FFD700; /* Darker red border */
+    border-left: 1px solid #FFD700; /* Darker red border */
 }
 
 .ability-options p {
@@ -135,7 +143,7 @@
     margin-top: 0.2rem;   
     flex-shrink: 0;
     
-    border: 2px solid rgb(56, 56, 56);
+    border: 2px solid rgb(56, 56, 56); /* Updated to new default border */
     background-color: #252525; /* Updated to new background color */
     cursor: pointer;
     position: relative;
@@ -152,16 +160,6 @@
     border-radius: 50%;
 }
 
-.ability-card.selected .ability-options {
-    background-color: #991E1E; /* A slightly darker, less saturated red */
-    border-top: 1px solid #CC1A1A; /* A darker red border, or #B22222 */
-    border-right: 1px solid #CC1A1A;
-    border-left: 1px solid #CC1A1A;
-    border-bottom: 1px solid #CC1A1A;
-    /* Alternatively, if you want the gold border to persist for a strong visual break: */
-    /* border-top: 1px solid #FFD700; */
-}
-
 /* Custom indicator when checked - for checkboxes (the checkmark) */
 .ability-option input[type="checkbox"]:checked::before {
     content: '\2713';
@@ -172,7 +170,7 @@
     transform: translate(-50%, -50%);
     font-size: 1em;
     line-height: 1;
-    color: #B22222; /* Updated to primary accent color */
+    color: #FFD700; /* Changed to gold */
 }
 
 /* Custom indicator when checked - for radio buttons (the inner dot) */
@@ -182,7 +180,7 @@
     width: 0.5em;
     height: 0.5em;
     border-radius: 50%;
-    background-color: #B22222; /* Updated to primary accent color */
+    background-color: #FFD700; /* Changed to gold */
     position: absolute;
     top: 50%;
     left: 50%;
@@ -194,8 +192,8 @@
 .ability-option input[type="radio"]:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    border-color: #777; /* Keeping existing disabled border color */
-    background-color: #222; /* Keeping existing disabled background color */
+    border-color: #FFD700; /* Keeping existing disabled border color */
+    background-color: #B22222; /* Keeping existing disabled background color */
 }
 
 /* Disabled text for the label's content (span) */
