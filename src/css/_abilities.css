@@ -1,5 +1,19 @@
 /* _abilities.css */
 /* Abilities Section */
+
+/* Tier Headers */
+.tier-header {
+    font-size: 1.3rem;
+    color: #FFF;
+    margin-top: 2rem;
+    margin-bottom: 1.5rem;
+    padding-left: 0.5rem;
+    border-left: 4px solid #FFD700;
+    background-color: #2A2A2A;
+    padding: 0.7rem 1rem;
+    border-radius: 4px;
+}
+
 .abilities-section {
     margin-top: 1.5rem;
 }
