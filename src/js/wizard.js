@@ -12,9 +12,10 @@ class CharacterWizard {
       info: { name: '', bio: '' }
     };
     // Assign the loaded data to instance properties
-    this.moduleSystem = moduleSystem; // This will now be an object where keys are module IDs
+    // These are objects where the keys are the relevant IDs
+    this.moduleSystem = moduleSystem;
     this.flawData = flawData;
-    this.destinyData = destinyData; // This will now be an object where keys are destiny IDs
+    this.destinyData = destinyData;
     this.abilityData = abilityData;
 
     this.db = db;
@@ -195,7 +196,7 @@ class CharacterWizard {
               const selectedDestinyId = destinyOptionDiv.dataset.destinyId;
               
               // Only reset if the selected destiny is *different* from the current one
-              if (this.state.destiny !== selectedDestinyId) { // <<< ADD THIS CONDITION
+              if (this.state.destiny !== selectedDestinyId) {
                 // Remove 'selected' class from all other destiny options
                 document.querySelectorAll('.destiny-option').forEach(opt => {
                   opt.classList.remove('selected');
@@ -213,6 +214,7 @@ class CharacterWizard {
                 
                 this.renderDestinyDetails();
                 this.renderAbilitiesSection();
+                this.autoSelectSingleAbilityTier(); // Auto-select abilities after rendering
                 this.updateInformer(page);
                 this.updateNav();
               } else {
@@ -812,6 +814,44 @@ class CharacterWizard {
       this.updateNav();
   }
   
+  // New method to auto-select abilities if a tier has only one option
+  autoSelectSingleAbilityTier() {
+      if (!this.state.destiny) {
+          console.log('CharacterWizard.autoSelectSingleAbilityTier: No destiny selected, skipping auto-selection.');
+          return;
+      }
+
+      const destiny = this.destinyData[this.state.destiny];
+      const abilitiesByTier = {};
+      destiny.levelUnlocks.forEach(unlock => {
+          if (!abilitiesByTier[unlock.level]) {
+              abilitiesByTier[unlock.level] = [];
+          }
+          abilitiesByTier[unlock.level].push(unlock.ability);
+      });
+
+      Object.entries(abilitiesByTier).forEach(([tier, abilityIds]) => {
+          // If a tier has only one ability and it's not already selected
+          if (abilityIds.length === 1) {
+              const singleAbilityId = abilityIds[0];
+              const isAlreadySelected = this.state.abilities.some(a => a.id === singleAbilityId && a.tier === parseInt(tier));
+
+              if (!isAlreadySelected) {
+                  console.log(`CharacterWizard.autoSelectSingleAbilityTier: Auto-selecting ability "${singleAbilityId}" for Tier ${tier}.`);
+                  // Simulate a click on the radio button to trigger handleTierSelection
+                  // This ensures all the UI updates and state management happen correctly
+                  const radioInput = document.querySelector(`.ability-card[data-ability-id="${singleAbilityId}"][data-tier="${tier}"] input[type="radio"]`);
+                  if (radioInput) {
+                      radioInput.checked = true;
+                      this.handleTierSelection(tier, singleAbilityId);
+                  }
+              } else {
+                  console.log(`CharacterWizard.autoSelectSingleAbilityTier: Ability "${singleAbilityId}" in Tier ${tier} already selected.`);
+              }
+          }
+      });
+  }
+
   // Modified handleAbilityOptionSelection function
   handleAbilityOptionSelection(abilityId, optionId, isSelected, inputElement) {
       const abilityState = this.state.abilities.find(a => a.id === abilityId);
