@@ -44,16 +44,22 @@
 }
 
 .ability-card:hover {
+    background-color: #3A3A3A;
+    border-color: #FFD700;
     transform: translateY(-3px);
-    border-color: #B22222;
-    background-color: #252525; /* Slightly lighter dark on hover */
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 .ability-card.selected {
-    border: 2px solid #B22222; /* Red border for selected */
-    background-color: #252525;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+    background-color: #B22222;
+    border-color: #FFD700;
+    color: #E0E0E0;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.ability-card.selected:hover {
+    background-color: #C23232;
+    border-color: #FFD700;
 }
 
 /* Hide the radio button itself, as the card is the click target */
