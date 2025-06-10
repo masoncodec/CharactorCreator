@@ -888,7 +888,7 @@ class CharacterWizard {
       } else { // Checkbox logic
           if (isSelected) {
               // Check maxChoices before adding
-              if (abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null && abilityState.selections.length >= abilityDef.maxChoices) {
+              if (abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null && abilityState.selections.length > abilityDef.maxChoices) {
                   inputElement.checked = false; // Revert checkbox state
                   alerter.show(`You can only select up to ${abilityDef.maxChoices} option(s) for ${abilityDef.name}.`);
                   this.refreshAbilityOptionStates(); // Ensure UI is consistent after alert
