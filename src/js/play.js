@@ -34,11 +34,12 @@ function processAndRenderCharacter(character) {
     }
 
     // Step 1: Process all active abilities and flaws to populate EffectHandler.activeEffects
-    EffectHandler.processActiveAbilities(character, abilityData, flawData, activeAbilityStates);
+    // Pass 'play' context here
+    EffectHandler.processActiveAbilities(character, abilityData, flawData, activeAbilityStates, 'play');
 
     // Step 2: Apply all active effects to a cloned version of the character data
-    // This creates a 'derived' character state with all passive and active effects applied
-    const effectedCharacter = EffectHandler.applyEffectsToCharacter(character);
+    // Pass 'play' context here
+    const effectedCharacter = EffectHandler.applyEffectsToCharacter(character, 'play');
 
     // Step 3: Render UI based on the effectedCharacter data
     const characterDetails = document.getElementById('characterDetails'); // Get this element early

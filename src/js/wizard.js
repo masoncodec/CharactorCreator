@@ -2,8 +2,8 @@
 // This file manages the character creation wizard flow.
 
 // Import shared modules
-import { loadGameData, } from './dataLoader.js';
-import { alerter, } from './alerter.js';
+import { loadGameData } from './dataLoader.js';
+import { alerter } from './alerter.js';
 import { EffectHandler } from './effectHandler.js';
 
 class CharacterWizard {
@@ -1152,15 +1152,18 @@ class CharacterWizard {
     };
 
     // Process effects based on the wizard's selections
+    // Pass 'wizard' context here
     EffectHandler.processActiveAbilities(
         currentCharacterState,
         this.abilityData,
         this.flawData,
-        tempActiveAbilityStates
+        tempActiveAbilityStates,
+        'wizard' // <-- Pass 'wizard' context
     );
 
     // Apply effects to a dummy character object to get the calculated health
-    const effectedCharacter = EffectHandler.applyEffectsToCharacter(currentCharacterState);
+    // Pass 'wizard' context here
+    const effectedCharacter = EffectHandler.applyEffectsToCharacter(currentCharacterState, 'wizard'); // <-- Pass 'wizard' context
     
     return effectedCharacter.calculatedHealth ? effectedCharacter.calculatedHealth.currentMax : effectedCharacter.health.max;
   }

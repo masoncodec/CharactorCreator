@@ -13,8 +13,9 @@ export const EffectHandler = {
      * @param {object} abilityData - A map of all ability definitions by ID.
      * @param {object} flawData - A map of all flaw definitions by ID.
      * @param {Set<string>} activeAbilityStates - A Set of IDs of currently toggled active abilities.
+     * @param {string} context - The context in which effects are being processed ('wizard' or 'play').
      */
-    processActiveAbilities: function(character, abilityData, flawData, activeAbilityStates) {
+    processActiveAbilities: function(character, abilityData, flawData, activeAbilityStates, context) {
         this.activeEffects = []; // Clear previous active effects
 
         if (!character) return;
@@ -60,7 +61,7 @@ export const EffectHandler = {
                 }
             });
         }
-        console.log("EffectHandler: Active Effects Processed", this.activeEffects);
+        console.log("EffectHandler: Active Effects Processed for context:", context, this.activeEffects);
     },
 
     /**
@@ -82,9 +83,10 @@ export const EffectHandler = {
      * This function creates a new character object with effects applied,
      * it does NOT modify the original character object.
      * @param {object} character - The base character object.
+     * @param {string} context - The context for applying effects ('wizard' or 'play').
      * @returns {object} A new character object with effects applied.
      */
-    applyEffectsToCharacter: function(character) {
+    applyEffectsToCharacter: function(character, context) {
         let modifiedCharacter = JSON.parse(JSON.stringify(character)); // Deep clone to avoid direct mutation
 
         // Initialize or reset dynamic values that will be recalculated by effects
@@ -134,10 +136,15 @@ export const EffectHandler = {
                     modifiedCharacter.activeRollEffects[effect.attribute].push(effect);
                     break;
                 case "max_health_mod":
-                    // This effect modifies the character's *maximum* health
-                    // It should apply regardless of ability type (passive/active) as it's an inherent effect
-                    if (modifiedCharacter.calculatedHealth) { // Ensure calculatedHealth is initialized
-                        modifiedCharacter.calculatedHealth.currentMax += effect.value;
+                    // Apply max_health_mod selectively based on context and ability type
+                    if (context === 'wizard' && effect.abilityType === 'passive') {
+                        if (modifiedCharacter.calculatedHealth) {
+                            modifiedCharacter.calculatedHealth.currentMax += effect.value;
+                        }
+                    } else if (context === 'play' && effect.abilityType === 'active') {
+                        if (modifiedCharacter.calculatedHealth) {
+                            modifiedCharacter.calculatedHealth.currentMax += effect.value;
+                        }
                     }
                     break;
                 case "temporary_buff":
