@@ -100,14 +100,16 @@ const EffectHandler = {
                     }
                     modifiedCharacter.activeRollEffects[effect.attribute].push(effect);
                     break;
-                case "max_health_mod": // New effect type for modifying max health
-                    if (!modifiedCharacter.calculatedHealth) {
-                        modifiedCharacter.calculatedHealth = {
-                            baseMax: modifiedCharacter.health.max, // Store base max health
-                            currentMax: modifiedCharacter.health.max
-                        };
+                case "max_health_mod": // New effect type for modifying max health - ONLY ACTIVE
+                    if (effect.type === "active") {
+                        if (!modifiedCharacter.calculatedHealth) {
+                            modifiedCharacter.calculatedHealth = {
+                                baseMax: modifiedCharacter.health.max, // Store base max health
+                                currentMax: modifiedCharacter.health.max
+                            };
+                        }
+                        modifiedCharacter.calculatedHealth.currentMax += effect.value;
                     }
-                    modifiedCharacter.calculatedHealth.currentMax += effect.value;
                     break;
                 case "temporary_buff": // New effect type for temporary buffs
                     // Logic to store and manage temporary buffs (e.g., specific attribute bonuses for a duration)

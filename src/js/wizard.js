@@ -1129,6 +1129,63 @@ class CharacterWizard {
     };
   }
 
+  calculateCharacterHealth() {
+    const activeEffects = [];
+
+    // Process Abilities
+    if (this.state.abilities) {
+      this.state.abilities.forEach(abilityState => {
+          const abilityDef = this.abilityData[abilityState.id];
+          if (abilityDef && abilityDef.effect) {
+              // ONLY PASSIVE ABILITIES
+              const isActive = (abilityDef.type === "passive");
+
+              if (isActive) {
+                  abilityDef.effect.forEach(effect => {
+                      // Store the raw effect data along with the ability name for context
+                      activeEffects.push({
+                          ...effect,
+                          abilityName: abilityDef.name,
+                          abilityId: abilityState.id, // Include ability ID for cost deduction
+                          abilityType: abilityDef.type,
+                          sourceType: "ability" // New: Indicate source is an ability
+                      });
+                  });
+              }
+          }
+      });
+    }
+
+    // Process Flaws (converted to virtual passive abilities for effect handling)
+    if (this.state.flaws && this.flawData) { // Ensure flawData is available
+        this.state.flaws.forEach(flawState => { // flawState might just be { id: "flaw-id" }
+            const flawDef = this.flawData[flawState.id];
+            if (flawDef && flawDef.effect) {
+                flawDef.effect.forEach(effect => {
+                    activeEffects.push({
+                        ...effect,
+                        abilityName: flawDef.name, // Use flaw name for context
+                        abilityId: flawState.id,
+                        abilityType: "passive", // Treat functionally as passive
+                        sourceType: "flaw" // New: Indicate source is a flaw
+                    });
+                });
+            }
+        });
+    }
+
+    let curr_health = this.destinyData[this.state.destiny].health.value;
+
+    activeEffects.forEach(effect => {
+      switch (effect.type) {
+        case "max_health_mod":
+          curr_health += effect.value;
+      }
+    })
+
+    return curr_health;
+  }
+
   finishWizard() {
     console.log('CharacterWizard.finishWizard: Attempting to finish wizard.');
     const validation = this.validateAllPages();
@@ -1139,13 +1196,15 @@ class CharacterWizard {
       return;
     }
 
+    const charHealth = this.calculateCharacterHealth();
+
     const character = {
       module: this.state.module,
       destiny: this.state.destiny,
       flaws: this.state.flaws, // Store the entire flaws array
       attributes: this.state.attributes,
-      health: { current: this.destinyData[this.state.destiny].health.value,
-          max: this.destinyData[this.state.destiny].health.value,
+      health: { current: charHealth,
+          max: charHealth,
           temporary: 0 },
       inventory: [],
       abilities: this.state.abilities, 
