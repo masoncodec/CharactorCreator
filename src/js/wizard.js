@@ -1137,7 +1137,7 @@ class CharacterWizard {
     };
   }
 
-  calculateCharacterHealth() {
+  calculateCharacterEffects() {
     // A temporary Set to mimic activeAbilityStates for wizard's calculation.
     // In a real scenario, the wizard might not need to distinguish between active/passive
     // for initial health calculation, but if effects differ, this is how you'd pass it.
@@ -1165,7 +1165,7 @@ class CharacterWizard {
     // Pass 'wizard' context here
     const effectedCharacter = EffectHandler.applyEffectsToCharacter(currentCharacterState, 'wizard'); // <-- Pass 'wizard' context
     
-    return effectedCharacter.calculatedHealth ? effectedCharacter.calculatedHealth.currentMax : effectedCharacter.health.max;
+    return effectedCharacter;
   }
 
   finishWizard() {
@@ -1178,15 +1178,15 @@ class CharacterWizard {
       return;
     }
 
-    const charHealth = this.calculateCharacterHealth();
+    const chararacterEffects = this.calculateCharacterEffects();
 
     const character = {
       module: this.state.module,
       destiny: this.state.destiny,
       flaws: this.state.flaws, // Store the entire flaws array
       attributes: this.state.attributes,
-      health: { current: charHealth,
-          max: charHealth,
+      health: { current: chararacterEffects.calculatedHealth.currentMax,
+          max: chararacterEffects.calculatedHealth.currentMax,
           temporary: 0 },
       inventory: [],
       abilities: this.state.abilities, 
