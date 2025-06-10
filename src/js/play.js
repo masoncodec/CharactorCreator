@@ -1,207 +1,32 @@
-// play.js
+// play.js (Updated)
+// This file handles the main character display and interaction on the play page.
 
-// In a new file, e.g., effectHandler.js (or within play.js for now, but separation is better long-term)
+// Import shared modules
+import { EffectHandler } from './effectHandler.js';
+import { loadGameData } from './dataLoader.js';
+import { alerter } from './alerter.js';
 
-const EffectHandler = {
-    // Stores currently active effects that influence character stats or state
-    activeEffects: [], // This will be a list of processed effects, not just raw ability effects
+// === Configuration for Attribute Display ===
+// IMPORTANT: This constant defines the maximum number of modifier columns.
+// If an attribute has more modifiers than this, they will not be displayed.
+// If an attribute has fewer, empty columns will be created to maintain grid structure.
+const MAX_MODIFIER_COLUMNS = 5; // User-defined maximum number of modifiers
 
-    // This function will be called whenever character state might change (e.g., ability toggle, character load)
-    // It processes all active abilities and compiles their effects
-    processActiveAbilities: function(character, abilityData, flawData, activeAbilityStates) {
-        this.activeEffects = []; // Clear previous active effects
+// Global variable to hold ability data and flaw data (now populated by dataLoader)
+let abilityData = {};
+let flawData = {};
 
-        if (!character) return;
+// Global variable to hold the state of active toggleable abilities
+// Resets on page refresh as requested.
+let activeAbilityStates = new Set(); // It is a Set.
 
-        // Process Abilities
-        if (character.abilities) {
-            character.abilities.forEach(abilityState => {
-                const abilityDef = abilityData[abilityState.id];
-                if (abilityDef && abilityDef.effect) {
-                    const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id));
+let activeCharacter = null; // Variable to store the active character
 
-                    if (isActive) {
-                        abilityDef.effect.forEach(effect => {
-                            // Store the raw effect data along with the ability name for context
-                            this.activeEffects.push({
-                                ...effect,
-                                abilityName: abilityDef.name,
-                                abilityId: abilityState.id, // Include ability ID for cost deduction
-                                abilityType: abilityDef.type,
-                                sourceType: "ability" // New: Indicate source is an ability
-                            });
-                        });
-                    }
-                }
-            });
-        }
-
-
-        // Process Flaws (converted to virtual passive abilities for effect handling)
-        if (character.flaws && flawData) { // Ensure flawData is available
-            character.flaws.forEach(flawState => { // flawState might just be { id: "flaw-id" }
-                const flawDef = flawData[flawState.id];
-                if (flawDef && flawDef.effect) {
-                    flawDef.effect.forEach(effect => {
-                        this.activeEffects.push({
-                            ...effect,
-                            abilityName: flawDef.name, // Use flaw name for context
-                            abilityId: flawState.id,
-                            abilityType: "passive", // Treat functionally as passive
-                            sourceType: "flaw" // New: Indicate source is a flaw
-                        });
-                    });
-                }
-            });
-        }
-        console.log("EffectHandler: Active Effects Processed", this.activeEffects);
-    },
-
-    // Filters active effects for a specific attribute (e.g., for attribute rolls)
-    getEffectsForAttribute: function(attributeName, effectType = null) {
-        return this.activeEffects.filter(effect => {
-            const targetsAttribute = effect.attribute && effect.attribute.toLowerCase() === attributeName;
-            const matchesType = effectType ? effect.type === effectType : true;
-            return targetsAttribute && matchesType;
-        });
-    },
-
-    // Applies effects to the character data. This will be called before rendering.
-    applyEffectsToCharacter: function(character) {
-        let modifiedCharacter = JSON.parse(JSON.stringify(character)); // Deep clone to avoid direct mutation
-
-        // Reset dynamic values that will be recalculated by effects
-        if (modifiedCharacter.calculatedHealth) {
-            modifiedCharacter.health.max = modifiedCharacter.calculatedHealth.baseMax; // Assuming a baseMax is stored
-        }
-        modifiedCharacter.tempResources = {}; // Clear temporary resources if any
-
-        this.activeEffects.forEach(effect => {
-            switch (effect.type) {
-                case "modifier":
-                    // Handled by getEffectsForAttribute for attribute rolls
-                    break;
-                case "language":
-                    if (!modifiedCharacter.languages) {
-                        modifiedCharacter.languages = [];
-                    }
-                    if (!modifiedCharacter.languages.includes(effect.name)) {
-                        modifiedCharacter.languages.push(effect.name);
-                    }
-                    break;
-                case "die_num":
-                    // Logic to adjust character's rolling capabilities (e.g., add advantage)
-                    // For now, just mark it as applied
-                    if (!modifiedCharacter.activeRollEffects) {
-                        modifiedCharacter.activeRollEffects = {};
-                    }
-                    if (!modifiedCharacter.activeRollEffects[effect.attribute]) {
-                        modifiedCharacter.activeRollEffects[effect.attribute] = [];
-                    }
-                    modifiedCharacter.activeRollEffects[effect.attribute].push(effect);
-                    break;
-                case "max_health_mod": // New effect type for modifying max health - ONLY ACTIVE
-                    if (effect.type === "active") {
-                        if (!modifiedCharacter.calculatedHealth) {
-                            modifiedCharacter.calculatedHealth = {
-                                baseMax: modifiedCharacter.health.max, // Store base max health
-                                currentMax: modifiedCharacter.health.max
-                            };
-                        }
-                        modifiedCharacter.calculatedHealth.currentMax += effect.value;
-                    }
-                    break;
-                case "temporary_buff": // New effect type for temporary buffs
-                    // Logic to store and manage temporary buffs (e.g., specific attribute bonuses for a duration)
-                    // This will require a more complex time-based system for durations.
-                    // For now, let's just add it to a list if we want to display it.
-                    if (!modifiedCharacter.temporaryBuffs) {
-                        modifiedCharacter.temporaryBuffs = [];
-                    }
-                    modifiedCharacter.temporaryBuffs.push(effect);
-                    break;
-                case "inventory_item": // New effect type for adding inventory
-                    if (!modifiedCharacter.inventory) {
-                        modifiedCharacter.inventory = [];
-                    }
-                    const existingItem = modifiedCharacter.inventory.find(item => item.name === effect.name);
-                    if (existingItem) {
-                        existingItem.quantity = (existingItem.quantity || 1) + (effect.quantity || 1);
-                    } else {
-                        modifiedCharacter.inventory.push({ name: effect.name, quantity: effect.quantity || 1 });
-                    }
-                    break;
-                case "trigger_event": // New effect type for triggering events
-                    // This is more complex and would likely involve dispatching custom events
-                    // or calling specific game logic functions based on the event name.
-                    console.log(`EffectHandler: Triggering event: ${effect.eventName}`);
-                    break;
-                case "summon_creature": // New effect type
-                    // Logic to add a summoned creature to the character's active summons
-                    if (!modifiedCharacter.summonedCreatures) {
-                        modifiedCharacter.summonedCreatures = [];
-                    }
-                    modifiedCharacter.summonedCreatures.push({ name: effect.creatureName, stats: effect.stats });
-                    break;
-                case "deal_damage": // New effect type
-                    // This would typically apply to a target, not the character gaining the ability.
-                    // Needs context of a target. For self-damage, `character.health.current -= effect.value;`
-                    break;
-                case "healing": // New effect type
-                    modifiedCharacter.health.current += effect.value;
-                    if (modifiedCharacter.health.current > modifiedCharacter.health.max) {
-                        modifiedCharacter.health.current = modifiedCharacter.health.max;
-                    }
-                    break;
-                case "status": // New effect type
-                    if (!modifiedCharacter.statuses) {
-                        modifiedCharacter.statuses = [];
-                    }
-                    // Prevent duplicate statuses if not stackable
-                    if (!modifiedCharacter.statuses.some(s => s.name === effect.name)) {
-                        modifiedCharacter.statuses.push({ name: effect.name, duration: effect.duration, appliedAt: Date.now() });
-                    }
-                    break;
-                case "resource_mod": // New effect type for modifying resource pools
-                    if (!modifiedCharacter.resources) {
-                        modifiedCharacter.resources = [];
-                    }
-                    let resource = modifiedCharacter.resources.find(r => r.type === effect.resource);
-                    if (resource) {
-                        resource.value += effect.value;
-                        if (resource.max !== undefined && resource.value > resource.max) {
-                            resource.value = resource.max;
-                        }
-                        if (resource.value < 0) resource.value = 0; // Prevent negative resources
-                    } else {
-                        // Add new resource if it doesn't exist
-                        modifiedCharacter.resources.push({ type: effect.resource, value: effect.value, max: effect.max });
-                    }
-                    break;
-                case "resistance_mod": // New effect type
-                    if (!modifiedCharacter.resistances) {
-                        modifiedCharacter.resistances = {};
-                    }
-                    if (!modifiedCharacter.resistances[effect.damageType]) {
-                        modifiedCharacter.resistances[effect.damageType] = 0;
-                    }
-                    modifiedCharacter.resistances[effect.damageType] += effect.value; // Additive resistances
-                    break;
-                case "movement_mod": // New effect type
-                    if (!modifiedCharacter.movement) {
-                        modifiedCharacter.movement = { base: 0, current: 0 }; // Assuming base movement exists
-                    }
-                    modifiedCharacter.movement.current += effect.value;
-                    break;
-                default:
-                    console.warn(`EffectHandler: Unknown effect type: ${effect.type}`, effect);
-            }
-        });
-        return modifiedCharacter; // Return the character with applied effects
-    }
-};
-
-// This function will be called to fully update the character display
+/**
+ * This function will be called to fully update the character display.
+ * It orchestrates processing effects and rendering the UI.
+ * @param {object} character - The character object to display.
+ */
 function processAndRenderCharacter(character) {
     if (!character) {
         document.getElementById('characterDetails').innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
@@ -209,7 +34,6 @@ function processAndRenderCharacter(character) {
     }
 
     // Step 1: Process all active abilities and flaws to populate EffectHandler.activeEffects
-    // Pass flawData to EffectHandler
     EffectHandler.processActiveAbilities(character, abilityData, flawData, activeAbilityStates);
 
     // Step 2: Apply all active effects to a cloned version of the character data
@@ -230,7 +54,8 @@ function processAndRenderCharacter(character) {
     let attributesHtml = '';
     if (effectedCharacter.attributes) {
         attributesHtml = Object.entries(effectedCharacter.attributes).map(([attr, die]) => {
-            const initialModifiers = EffectHandler.getEffectsForAttribute(attr, "modifier"); // Use EffectHandler
+            // Get initial modifiers for display. EffectHandler is now a global utility.
+            const initialModifiers = EffectHandler.getEffectsForAttribute(attr, "modifier");
 
             console.debug(`Processing attribute: ${attr}, Initial Modifiers:`, initialModifiers);
 
@@ -259,7 +84,7 @@ function processAndRenderCharacter(character) {
             `;
         }).join('');
 
-        const initialLuckModifiers = EffectHandler.getEffectsForAttribute('luck', "modifier"); // Use EffectHandler
+        const initialLuckModifiers = EffectHandler.getEffectsForAttribute('luck', "modifier");
         let luckModifierSpans = '';
         for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
             const mod = initialLuckModifiers[i];
@@ -318,148 +143,76 @@ function processAndRenderCharacter(character) {
     attachAttributeRollListeners(); // Re-attach listeners for all buttons
 }
 
-// === Configuration for Attribute Display ===
-// IMPORTANT: This constant defines the maximum number of modifier columns.
-// If an attribute has more modifiers than this, they will not be displayed.
-// If an attribute has fewer, empty columns will be created to maintain grid structure.
-const MAX_MODIFIER_COLUMNS = 5; // User-defined maximum number of modifiers
-
-// A simple alerter utility for displaying messages.
-// This uses alert() for immediate feedback and console.log() for logging.
-const alerter = {
-    show: function(message, type = 'info') {
-        alert(`[${type.toUpperCase()}] ${message}`);
-        console.log(`Alerter (${type}): ${message}`);
-
-        // Note for future: To implement a non-blocking UI message,
-        // you would dynamically create and display a styled message element
-        // (using _informer.css which you already have for styling purposes).
-        // Example (conceptual):
-        /*
-        const messageEl = document.createElement('div');
-        messageEl.classList.add('alerter-message', `alerter-${type}`); // Using alerter-message class
-        messageEl.textContent = message;
-        document.body.appendChild(messageEl);
-        setTimeout(() => {
-            messageEl.remove();
-        }, 3000); // Remove after 3 seconds
-        */
-    }
-};
-
-// Function to highlight the active navigation link
-function highlightActiveNav(pageName) {
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-        if (link.getAttribute('href').includes(pageName)) {
-            link.classList.add('active');
-        }
-    });
-}
-
-// Global variable to hold ability data
-let abilityData = {}; // Initialize as empty object
-// Global variable to hold flaw data
-let flawData = {}; // New: Initialize as empty object for flaws
-
-// Global variable to hold the state of active toggleable abilities
-// Resets on page refresh as requested.
-let activeAbilityStates = new Set(); // It is a Set.
-
-// Helper function to calculate and get active modifiers for a given attribute
-// This function was originally intended to be used, but direct access to 'modifier'
-// in raw effects proved more straightforward for current display logic.
-// Keeping it for potential future uses where a 'value' property might be universally desired.
-function getActiveModifiersForAttribute(attributeName) {
-    // Delegate to EffectHandler to get relevant modifier effects
-    return EffectHandler.getEffectsForAttribute(attributeName, "modifier")
-        .map(effect => ({
-            value: effect.modifier, // Correctly maps 'modifier' to 'value'
-            abilityName: effect.abilityName,
-            sourceType: effect.sourceType // Include sourceType
-        }));
-}
-
-// Helper function to render modifier display elements and the unmodified result
-// This function is now responsible for re-rendering the modifier columns within the attribute-row
-// It replaces the previous renderModifierDisplays functionality for dynamic updates
+/**
+ * Updates the display for an attribute roll, including results and modifiers.
+ * @param {HTMLElement} assignmentElement - The .attribute-row element.
+ * @param {number} baseResult - The raw dice roll result.
+ * @param {number} modifiedResult - The result after applying modifiers.
+ * @param {Array<object>} activeModifiers - An array of active modifier effects.
+ */
 function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResult, activeModifiers) {
-    // Select existing elements or create placeholders if they don't exist
     let yellowResultEl = assignmentElement.querySelector('.roll-result');
     let blueResultEl = assignmentElement.querySelector('.unmodified-roll-result');
 
-    // Ensure elements exist. They should be created during initial rendering, but this is a fallback.
-    if (!yellowResultEl) {
-        yellowResultEl = document.createElement('div');
-        yellowResultEl.classList.add('roll-result');
-        assignmentElement.appendChild(yellowResultEl);
-    }
-    if (!blueResultEl) {
-        blueResultEl = document.createElement('div');
-        blueResultEl.classList.add('unmodified-roll-result');
-        assignmentElement.appendChild(blueResultEl);
+    if (!yellowResultEl || !blueResultEl) {
+        console.error("Missing roll result display elements.");
+        return;
     }
 
-    // --- IMPORTANT FIX: Reset classes to ensure display on subsequent rolls ---
+    // Reset classes to ensure display on subsequent rolls
     yellowResultEl.classList.remove('visible', 'fade-out');
     blueResultEl.classList.remove('visible', 'fade-out');
-    blueResultEl.classList.remove('empty-unmodified-cell'); // Ensure visibility if it becomes active
+    blueResultEl.classList.remove('empty-unmodified-cell');
 
     // Clear previous dynamic modifier spans
     assignmentElement.querySelectorAll('.modifier-display, .empty-modifier-cell').forEach(el => el.remove());
 
-    // Display yellow modified result (Column 4)
+    // Display yellow modified result
     yellowResultEl.textContent = modifiedResult;
     yellowResultEl.classList.add('visible');
     setTimeout(() => yellowResultEl.classList.add('fade-out'), 2000);
 
+    // Re-render Modifiers
+    const modifiersToDisplay = activeModifiers.slice(0, MAX_MODIFIER_COLUMNS);
 
-    // Re-render Modifiers (Columns 5 to 5 + MAX_MODIFIER_COLUMNS - 1)
-    const modifiersToDisplay = activeModifiers.slice(0, MAX_MODIFIER_COLUMNS); // Cap at MAX_MODIFIER_COLUMNS
-
-    // Add actual modifiers and append them directly after the roll-result element
-    // This ensures they are inserted in the correct grid column order after the yellow result.
     const rollResultColumn = assignmentElement.querySelector('.roll-result');
-    let lastInsertedElement = rollResultColumn; // Start inserting after the roll result
+    let lastInsertedElement = rollResultColumn;
 
     modifiersToDisplay.forEach(mod => {
         const modSpan = document.createElement('span');
         modSpan.classList.add('modifier-display');
-        // CORRECTED: Access mod.modifier directly
         modSpan.textContent = (mod.modifier > 0 ? '+' : '') + mod.modifier;
         modSpan.style.color = mod.modifier > 0 ? '#03AC13' : '#FF0000';
         modSpan.dataset.abilityName = mod.abilityName;
-        modSpan.dataset.sourceType = mod.sourceType; // Add sourceType to data-attribute
+        modSpan.dataset.sourceType = mod.sourceType;
 
-        // Insert modifiers after the last inserted element
         lastInsertedElement.insertAdjacentElement('afterend', modSpan);
-        lastInsertedElement = modSpan; // Update last inserted element
+        lastInsertedElement = modSpan;
     });
 
-    // Add empty modifier cells to maintain grid columns (if needed)
+    // Add empty modifier cells to maintain grid columns
     for (let i = modifiersToDisplay.length; i < MAX_MODIFIER_COLUMNS; i++) {
         const emptyModSpan = document.createElement('span');
         emptyModSpan.classList.add('modifier-display', 'empty-modifier-cell');
-        emptyModSpan.innerHTML = '&nbsp;'; // Non-breaking space to maintain height
+        emptyModSpan.innerHTML = '&nbsp;';
         lastInsertedElement.insertAdjacentElement('afterend', emptyModSpan);
-        lastInsertedElement = emptyModSpan; // Update last inserted element
+        lastInsertedElement = emptyModSpan;
     }
 
-    // Display blue unmodified result (Column 10)
-    // This element should always be the last one in the grid row for attribute-row
+    // Display blue unmodified result
     if (activeModifiers.length > 0) {
         blueResultEl.textContent = baseResult;
         blueResultEl.classList.add('visible');
         setTimeout(() => blueResultEl.classList.add('fade-out'), 2000);
     } else {
-        // If no modifiers, ensure it's hidden but space is maintained
         blueResultEl.textContent = '';
         blueResultEl.classList.add('empty-unmodified-cell');
     }
 }
 
-
-// Function to attach attribute roll event listeners
+/**
+ * Attaches event listeners to all attribute roll buttons.
+ */
 function attachAttributeRollListeners() {
     document.querySelectorAll('.attribute-roll').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -468,8 +221,7 @@ function attachAttributeRollListeners() {
             const dieType = assignment.getAttribute('data-dice');
             let baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
 
-            // --- Cost Deduction Logic ---
-            // Only abilities can have costs, not flaws, so filter by sourceType
+            // Cost Deduction Logic - only abilities can have costs
             const relevantActiveEffects = EffectHandler.activeEffects.filter(effect =>
                 effect.attribute && effect.attribute.toLowerCase() === attributeName && effect.cost && effect.sourceType === "ability"
             );
@@ -510,7 +262,6 @@ function attachAttributeRollListeners() {
                     }
                     return res;
                 });
-                // Update activeCharacter and persist to DB
                 db.updateCharacterResources(activeCharacter.id, newResources).then(updatedChar => {
                     activeCharacter = updatedChar; // Update global activeCharacter
                     processAndRenderCharacter(activeCharacter); // Re-render the character sheet with updated resources
@@ -522,10 +273,8 @@ function attachAttributeRollListeners() {
                 });
             }
 
-
-            // Apply modifiers (uses the already updated EffectHandler.activeEffects from processAndRenderCharacter)
+            // Apply modifiers (uses the already updated EffectHandler.activeEffects)
             const activeModifiers = EffectHandler.getEffectsForAttribute(attributeName, "modifier");
-            // CORRECTED: Access mod.modifier directly
             let totalModifier = activeModifiers.reduce((sum, mod) => sum + mod.modifier, 0);
 
             const modifiedResult = baseResult + totalModifier; // Apply modifier to the result
@@ -536,7 +285,11 @@ function attachAttributeRollListeners() {
     });
 }
 
-// Function to render abilities, separating active and passive
+/**
+ * Renders the abilities section, separating active and passive abilities.
+ * @param {object} character - The character object with abilities.
+ * @returns {string} HTML string for abilities section.
+ */
 function renderAbilities(character) {
     if (!character.abilities || character.abilities.length === 0) {
         return '';
@@ -546,7 +299,7 @@ function renderAbilities(character) {
     const passiveAbilitiesHtml = [];
 
     character.abilities.forEach(abilityState => {
-        const abilityDef = abilityData[abilityState.id]; // Look up full ability definition
+        const abilityDef = abilityData[abilityState.id];
         if (!abilityDef) {
             console.warn(`Ability definition not found for ID: ${abilityState.id}`);
             return;
@@ -554,12 +307,12 @@ function renderAbilities(character) {
 
         let description = abilityDef.description;
 
-        // Replace template variables in the description
+        // Replace template variables in the description (e.g., ${cost.gold})
         description = description.replace(/\${([^}]+)}/g, (match, p1) => {
             let value;
             try {
                 const path = p1.split('.');
-                let current = abilityDef; // Use abilityDef as the base
+                let current = abilityDef;
                 for (let i = 0; i < path.length; i++) {
                     if (current === null || current === undefined) {
                         current = undefined;
@@ -634,10 +387,25 @@ function renderAbilities(character) {
     `;
 }
 
-let activeCharacter = null; // Variable to store the active character
+/**
+ * Highlights the active navigation link based on the page name.
+ * @param {string} pageName - The name of the current page (e.g., 'play.html').
+ */
+function highlightActiveNav(pageName) {
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href').includes(pageName)) {
+            link.classList.add('active');
+        }
+    });
+}
 
-// Function to render health display
-function renderHealthDisplay(character) { // Now accepts the effectedCharacter
+
+/**
+ * Renders the character's health display, including health bar and adjustment controls.
+ * @param {object} character - The character object (with applied effects) to render health for.
+ */
+function renderHealthDisplay(character) {
     if (!character || !character.health) {
         console.warn("Character or health data not available for rendering health display.");
         return;
@@ -652,7 +420,7 @@ function renderHealthDisplay(character) { // Now accepts the effectedCharacter
     // Use character.calculatedHealth if it exists, otherwise fall back to base health
     const currentMaxHealth = character.calculatedHealth ? character.calculatedHealth.currentMax : character.health.max;
 
-    // Calculate health percentage and determine health class
+    // Calculate health percentage and determine health class for styling
     const healthPercentage = (character.health.current / currentMaxHealth) * 100;
     let healthClass = '';
     if (healthPercentage > 60) {
@@ -698,7 +466,7 @@ function renderHealthDisplay(character) { // Now accepts the effectedCharacter
         if (newCurrentHealth > finalMaxHealth) {
             newCurrentHealth = finalMaxHealth;
         }
-        if (newCurrentHealth < 0) { // Prevent health from going below zero (unless temporary health allows)
+        if (newCurrentHealth < 0) {
             newCurrentHealth = 0;
         }
 
@@ -721,8 +489,11 @@ function renderHealthDisplay(character) { // Now accepts the effectedCharacter
     });
 }
 
-
-// Function to render resources
+/**
+ * Renders the character's resources.
+ * @param {object} character - The character object with resources.
+ * @returns {string} HTML string for resources section.
+ */
 function renderResources(character) {
     if (!character.resources || character.resources.length === 0) {
         return '';
@@ -742,7 +513,11 @@ function renderResources(character) {
     `;
 }
 
-// Function to render languages
+/**
+ * Renders the character's languages.
+ * @param {object} character - The character object with languages.
+ * @returns {string} HTML string for languages section.
+ */
 function renderLanguages(character) {
     if (!character.languages || character.languages.length === 0) {
         return '';
@@ -757,12 +532,15 @@ function renderLanguages(character) {
     `;
 }
 
-// Function to render statuses
+/**
+ * Renders the character's active statuses.
+ * @param {object} character - The character object with statuses.
+ * @returns {string} HTML string for statuses section.
+ */
 function renderStatuses(character) {
     if (!character.statuses || character.statuses.length === 0) {
         return '';
     }
-    // You might want to add duration display and expiration logic here
     return `
         <div class="character-statuses">
             <h4>Active Statuses</h4>
@@ -773,7 +551,11 @@ function renderStatuses(character) {
     `;
 }
 
-// New: Function to render flaws
+/**
+ * Renders the character's flaws.
+ * @param {object} character - The character object with flaws.
+ * @returns {string} HTML string for flaws section.
+ */
 function renderFlaws(character) {
     if (!character.flaws || character.flaws.length === 0) {
         return '';
@@ -801,40 +583,29 @@ function renderFlaws(character) {
 }
 
 
-// Initialize play page
-document.addEventListener('DOMContentLoaded', function() {
+// Initialize play page on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', async function() {
     highlightActiveNav('play.html'); // Highlight "Play" link
 
-    const characterDetails = document.getElementById('characterDetails'); // Get this element early
+    const characterDetails = document.getElementById('characterDetails');
 
-    // --- ONE AND ONLY ONE DELEGATED EVENT LISTENER FOR TOOLTIPS ---
-    // This listener will be active for ALL clicks within characterDetails,
-    // and it will check if the click originated from a .modifier-display.
+    // Delegated event listener for tooltips on modifier displays
     if (characterDetails) {
         characterDetails.addEventListener('click', function(event) {
-            // Use .closest() to find the .modifier-display element that was clicked or is an ancestor of the click target
             let targetModSpan = event.target.closest('.modifier-display');
 
-            // Ensure a .modifier-display was clicked AND it's not an empty placeholder
             if (targetModSpan && !targetModSpan.classList.contains('empty-modifier-cell')) {
-                // Remove any existing tooltips on this specific element before creating a new one
-                // This prevents multiple tooltips if clicked rapidly on the same span
                 targetModSpan.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove());
 
                 const tooltip = document.createElement('div');
                 tooltip.classList.add('modifier-tooltip');
-                // Display both ability name and source type in tooltip
                 const abilityName = targetModSpan.dataset.abilityName;
                 const sourceType = targetModSpan.dataset.sourceType;
                 tooltip.textContent = `${abilityName} (Source: ${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)})`;
 
-
-                // Append the tooltip directly to the clicked modifier span
                 targetModSpan.appendChild(tooltip);
 
-                // Set a timeout to remove the tooltip after 3 seconds
                 setTimeout(() => {
-                    // Ensure the tooltip is still a child of targetModSpan before trying to remove it
                     if (targetModSpan.contains(tooltip)) {
                         targetModSpan.removeChild(tooltip);
                     }
@@ -842,45 +613,30 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    // --- END OF DELEGATED EVENT LISTENER ---
 
+    // Load all game data using the new dataLoader module
+    try {
+        const loadedData = await loadGameData();
+        abilityData = loadedData.abilityData;
+        flawData = loadedData.flawData;
+        console.log('play.js: All game data loaded successfully.');
 
-    // Load abilities.json and flaws.json
-    Promise.all([
-        fetch('data/abilities.json').then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        }),
-        fetch('data/flaws.json').then(response => { // New: Fetch flaws.json
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-    ])
-    .then(([abilitiesDataLoaded, flawsDataLoaded]) => {
-        abilityData = abilitiesDataLoaded;
-        flawData = flawsDataLoaded; // Assign loaded flaw data
-        console.log('play.js: abilities.json and flaws.json loaded successfully.');
-
+        // Fetch and render the active character
         db.getActiveCharacter().then(function(character) {
             activeCharacter = character;
             processAndRenderCharacter(activeCharacter); // Initial render
-
         }).catch(function(err) {
             console.error('Error loading character:', err);
             alerter.show('Failed to load active character.', 'error');
         });
-    })
-    .catch(error => {
-        console.error('play.js: Error loading data files:', error);
-        alert('Failed to load game data (abilities.json or flaws.json). Please check the console for details.');
-    });
+
+    } catch (error) {
+        console.error('play.js: Error initializing data:', error);
+        alerter.show('Failed to load game data. Please check the console for details.', 'error');
+    }
+
 
     // Event listener for toggling active abilities
-    // Moved outside the initial characterDetails.innerHTML rendering to be persistent
     document.getElementById('characterDetails').addEventListener('click', function(event) {
         const button = event.target.closest('.ability-button');
         if (button) {
@@ -900,7 +656,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Dice roller functionality for D20
+    // Dice roller functionality for D20 (generic for the page)
     document.getElementById('rollD20').addEventListener('click', function() {
         const result = Math.floor(Math.random() * 20) + 1;
         const diceResult = document.getElementById('diceResult');
@@ -914,13 +670,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Export single character
     document.getElementById('exportSingleCharacterBtn').addEventListener('click', function() {
         if (!activeCharacter) {
-            alert('No character selected to export.');
+            alerter.show('No character selected to export.', 'info');
             return;
         }
 
         db.exportCharacter(activeCharacter.id, activeCharacter.info.name).then(function(exportData) {
             if (!exportData) {
-                alert('Selected character not found for export.');
+                alerter.show('Selected character not found for export.', 'error');
                 return;
             }
 
@@ -937,7 +693,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 100);
         }).catch(function(err) {
             console.error('Export failed:', err);
-            alerter.show('Export failed: ' + err, 'error'); // Alerter for export failure
+            alerter.show('Export failed: ' + err, 'error');
         });
     });
 });

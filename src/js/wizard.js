@@ -1,3 +1,11 @@
+// wizard.js (Updated)
+// This file manages the character creation wizard flow.
+
+// Import shared modules
+import { loadGameData, } from './dataLoader.js';
+import { alerter, } from './alerter.js';
+import { EffectHandler } from './effectHandler.js';
+
 class CharacterWizard {
   constructor(moduleSystem, flawData, destinyData, abilityData, db) {
     this.currentPage = 0;
@@ -410,7 +418,7 @@ class CharacterWizard {
                       if (this.selectedDice.has(die)) {
                           const assignedToAttr = this.selectedDice.get(die);
                           console.warn(`diceManager.processSelection: Die ${die} is already assigned to ${assignedToAttr}. Blocking selection.`);
-                          alert(`This die type (${die.toUpperCase()}) is already assigned to ${assignedToAttr.charAt(0).toUpperCase() + assignedToAttr.slice(1)}`);
+                          alerter.show(`This die type (${die.toUpperCase()}) is already assigned to ${assignedToAttr.charAt(0).toUpperCase() + assignedToAttr.slice(1)}`);
                           return;
                       }
       
@@ -880,9 +888,9 @@ class CharacterWizard {
       } else { // Checkbox logic
           if (isSelected) {
               // Check maxChoices before adding
-              if (abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null && abilityState.selections.length > abilityDef.maxChoices) {
+              if (abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null && abilityState.selections.length >= abilityDef.maxChoices) {
                   inputElement.checked = false; // Revert checkbox state
-                  alert(`You can only select up to ${abilityDef.maxChoices} option(s) for ${abilityDef.name}.`);
+                  alerter.show(`You can only select up to ${abilityDef.maxChoices} option(s) for ${abilityDef.name}.`);
                   this.refreshAbilityOptionStates(); // Ensure UI is consistent after alert
                   return; 
               }
@@ -1063,7 +1071,7 @@ class CharacterWizard {
       }, 2000);
     }
     console.error(`CharacterWizard.showPageError: Displaying error for page '${currentPageName}': ${message}`);
-    alert(message);
+    alerter.show(message);
   }
 
   // Final validation and completion
@@ -1130,53 +1138,31 @@ class CharacterWizard {
   }
 
   calculateCharacterHealth() {
-    const activeEffects = [];
-  
-    // Helper function to process effects from a source
-    const processEffects = (items, data, sourceType, defaultAbilityType = null) => {
-      if (!items || !data) return; // Exit early if no items or data
-  
-      items.forEach(itemState => {
-        const itemDef = data[itemState.id];
-        if (itemDef && itemDef.effect) {
-          // Determine if the item is "active" based on its type or a default
-          const isActive = (itemDef.type === "passive") || (defaultAbilityType === "passive");
-  
-          if (isActive) {
-            itemDef.effect.forEach(effect => {
-              activeEffects.push({
-                ...effect,
-                abilityName: itemDef.name,
-                abilityId: itemState.id,
-                abilityType: itemDef.type || defaultAbilityType, // Use itemDef.type if available, otherwise default
-                sourceType: sourceType
-              });
-            });
-          }
-        }
-      });
+    // A temporary Set to mimic activeAbilityStates for wizard's calculation.
+    // In a real scenario, the wizard might not need to distinguish between active/passive
+    // for initial health calculation, but if effects differ, this is how you'd pass it.
+    const tempActiveAbilityStates = new Set(this.state.abilities.filter(a => this.abilityData[a.id]?.type === 'active').map(a => a.id));
+
+    // Use EffectHandler to process effects based on current wizard state
+    const currentCharacterState = {
+        abilities: this.state.abilities,
+        flaws: this.state.flaws,
+        destiny: this.state.destiny, // Pass destiny for base health
+        health: { max: this.destinyData[this.state.destiny].health.value } // Provide initial health
     };
-  
-    // Process Abilities
-    processEffects(this.state.abilities, this.abilityData, "ability");
-  
-    // Process Flaws
-    // Flaws are treated as passive abilities for effect handling
-    processEffects(this.state.flaws, this.flawData, "flaw", "passive");
-  
-  
-    let currentHealth = this.destinyData[this.state.destiny].health.value;
-  
-    activeEffects.forEach(effect => {
-      switch (effect.type) {
-        case "max_health_mod":
-          currentHealth += effect.value;
-          break; // Added break for clarity and good practice
-        // Potentially add other effect types here in the future
-      }
-    });
-  
-    return currentHealth;
+
+    // Process effects based on the wizard's selections
+    EffectHandler.processActiveAbilities(
+        currentCharacterState,
+        this.abilityData,
+        this.flawData,
+        tempActiveAbilityStates
+    );
+
+    // Apply effects to a dummy character object to get the calculated health
+    const effectedCharacter = EffectHandler.applyEffectsToCharacter(currentCharacterState);
+    
+    return effectedCharacter.calculatedHealth ? effectedCharacter.calculatedHealth.currentMax : effectedCharacter.health.max;
   }
 
   finishWizard() {
@@ -1185,7 +1171,7 @@ class CharacterWizard {
     
     if (!validation.isValid) {
       console.warn('CharacterWizard.finishWizard: Validation failed. Showing errors.');
-      alert("Please complete the following:\n\n" + validation.message);
+      alerter.show("Please complete the following:\n\n" + validation.message, 'error');
       return;
     }
 
@@ -1213,7 +1199,7 @@ class CharacterWizard {
       })
       .catch(err => {
         console.error('CharacterWizard.finishWizard: Failed to save character:', err);
-        alert(`Failed to save character: ${err.message}`);
+        alerter.show(`Failed to save character: ${err.message}`, 'error');
       });
   }
 
@@ -1232,51 +1218,42 @@ class CharacterWizard {
               break;
               
           case 'destiny':
-              const roleSelect = document.getElementById('characterRole');
-              if (this.state.destiny) {
-                  if (roleSelect) {
-                      roleSelect.value = this.state.destiny;
-                      console.log(`CharacterWizard.restoreState (destiny): Destiny dropdown set to "${this.state.destiny}".`);
-                  }
-                  this.renderDestinyDetails(); // Render the flaw options first
-                  this.renderAbilitiesSection(); 
-                  console.log(`CharacterWizard.restoreState (destiny): Re-rendered destiny details and abilities section to reflect stored abilities selections.`);
+              // Rerender the entire destiny details and abilities section to ensure all dynamic elements are there
+              this.renderDestinyDetails();
+              this.renderAbilitiesSection(); 
+              console.log(`CharacterWizard.restoreState (destiny): Re-rendered destiny details and abilities section to reflect stored selections.`);
 
-                  // Restore selected flaw div based on the 'destiny' flag in the flaws array
-                  const selectedDestinyFlaw = this.state.flaws.find(f => f.destiny === true);
-                  if (selectedDestinyFlaw) {
-                      const flawDiv = document.querySelector(`.flaw-option[data-flaw-id="${selectedDestinyFlaw.id}"]`);
-                      if (flawDiv) {
-                          flawDiv.classList.add('selected');
-                          console.log(`CharacterWizard.restoreState (destiny): Flaw option "${selectedDestinyFlaw.id}" re-selected.`);
-                      }
+              // Restore selected destiny option
+              if (this.state.destiny) {
+                  const destinyOptionDiv = document.querySelector(`.destiny-option[data-destiny-id="${this.state.destiny}"]`);
+                  if (destinyOptionDiv) {
+                      destinyOptionDiv.classList.add('selected');
                   }
-                  
-                  // Restore selected ability cards and their radio buttons
-                  this.state.abilities.forEach(abilityState => {
-                    const abilityCard = document.querySelector(`.ability-card[data-ability-id="${abilityState.id}"][data-tier="${abilityState.tier}"]`);
-                    if (abilityCard) {
-                      abilityCard.classList.add('selected');
-                      const radioInput = abilityCard.querySelector('input[type="radio"]');
-                      if (radioInput) {
-                        radioInput.checked = true;
-                      }
-                      console.log(`CharacterWizard.restoreState (destiny): Ability card "${abilityState.id}" (Tier ${abilityState.tier}) re-selected.`);
-                    }
-                  });
-                  this.refreshAbilityOptionStates(); 
-              } else {
-                  if (roleSelect) {
-                      roleSelect.value = ""; 
-                  }
-                  const destinyDetailsContainer = document.querySelector('.destiny-details');
-                  if (destinyDetailsContainer) destinyDetailsContainer.remove(); 
-                  
-                  const abilitiesSectionContainer = document.querySelector('.abilities-section');
-                  if (abilitiesSectionContainer) abilitiesSectionContainer.remove(); 
-                  console.log(`CharacterWizard.restoreState (destiny): No destiny in state. Cleared destiny details and abilities section.`);
-                  this.refreshAbilityOptionStates(); 
               }
+
+              // Restore selected flaw div based on the 'destiny' flag in the flaws array
+              const selectedDestinyFlaw = this.state.flaws.find(f => f.destiny === true);
+              if (selectedDestinyFlaw) {
+                  const flawDiv = document.querySelector(`.flaw-option[data-flaw-id="${selectedDestinyFlaw.id}"]`);
+                  if (flawDiv) {
+                      flawDiv.classList.add('selected');
+                      console.log(`CharacterWizard.restoreState (destiny): Flaw option "${selectedDestinyFlaw.id}" re-selected.`);
+                  }
+              }
+              
+              // Restore selected ability cards and their radio buttons
+              this.state.abilities.forEach(abilityState => {
+                const abilityCard = document.querySelector(`.ability-card[data-ability-id="${abilityState.id}"][data-tier="${abilityState.tier}"]`);
+                if (abilityCard) {
+                  abilityCard.classList.add('selected');
+                  const radioInput = abilityCard.querySelector('input[type="radio"]');
+                  if (radioInput) {
+                    radioInput.checked = true;
+                  }
+                  console.log(`CharacterWizard.restoreState (destiny): Ability card "${abilityState.id}" (Tier ${abilityState.tier}) re-selected.`);
+                }
+              });
+              this.refreshAbilityOptionStates(); // Crucial to update disabled states based on selections
               break;
               
           case 'attributes':
@@ -1374,6 +1351,7 @@ class CharacterWizard {
   }
 }
 
+// Initialize CharacterWizard on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', async () => {
   if (typeof db === 'undefined') {
       console.error("CharacterWizard: Database module 'db' not loaded! Ensure db.js is included before wizard.js.");
@@ -1382,77 +1360,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   console.log('CharacterWizard: DOMContentLoaded event fired. Loading data...');
 
-  // Global data stores
-  const moduleSystemData = {};
-  const destinyData = {};
-  let flawData = null;
-  let abilityData = null;
-  let moduleList = null; 
-
   try {
-      // 1. Load abilities.json
-      console.log('CharacterWizard: Fetching abilities.json...');
-      const abilityResponse = await fetch('data/abilities.json');
-      if (!abilityResponse.ok) throw new Error(`HTTP error! status: ${abilityResponse.status}`);
-      abilityData = await abilityResponse.json();
-      console.log('CharacterWizard: abilities.json loaded successfully.');
-      console.debug('CharacterWizard: abilities.json data:', abilityData);
-
-      // 2. Load flaws.json
-      console.log('CharacterWizard: Fetching flaws.json...');
-      const flawResponse = await fetch('data/flaws.json');
-      if (!flawResponse.ok) throw new Error(`HTTP error! status: ${flawResponse.status}`);
-      flawData = await flawResponse.json();
-      console.log('CharacterWizard: flaws.json loaded successfully.');
-      console.debug('CharacterWizard: flaws.json data:', flawData);
-
-      // 3. Load module_list.json
-      console.log('CharacterWizard: Fetching data/module_list.json...');
-      const moduleListResponse = await fetch('data/module_list.json');
-      if (!moduleListResponse.ok) throw new Error(`HTTP error! status: ${moduleListResponse.status}`);
-      moduleList = await moduleListResponse.json();
-      console.log('CharacterWizard: module_list.json loaded successfully.');
-      console.debug('CharacterWizard: moduleList:', moduleList);
-
-      // 4. Discover and Load all Module and Destiny data dynamically
-      
-      console.log('CharacterWizard: Fetching all module and destiny data...');
-      const allFetches = [];
-
-      for (const moduleId of moduleList) {
-          allFetches.push(
-              (async () => {
-                  // Fetch module.json
-                  const moduleResponse = await fetch(`data/modules/${moduleId}/module.json`);
-                  if (!moduleResponse.ok) throw new Error(`HTTP error! status: ${moduleResponse.status} for module ${moduleId}`);
-                  const moduleJson = await moduleResponse.json();
-                  moduleSystemData[moduleId] = moduleJson;
-                  console.log(`CharacterWizard: Loaded module: ${moduleId}`);
-
-                  // Fetch associated destinies based on the 'destinies' array in module.json
-                  const destiniesInModule = moduleJson.destinies || [];
-                  const destinyFetches = destiniesInModule.map(async destinyId => {
-                      const destinyResponse = await fetch(`data/modules/${moduleId}/destinies/${destinyId}.json`);
-                      if (!destinyResponse.ok) throw new Error(`HTTP error! status: ${destinyResponse.status} for destiny ${destinyId} in module ${moduleId}`);
-                      const destinyJson = await destinyResponse.json();
-                      destinyData[destinyId] = destinyJson;
-                      console.log(`CharacterWizard: Loaded destiny: ${destinyId} for module ${moduleId}`);
-                  });
-                  await Promise.all(destinyFetches);
-              })()
-          );
-      }
-      await Promise.all(allFetches);
-      console.log('CharacterWizard: All module and destiny data loaded successfully.');
-      console.debug('CharacterWizard: moduleSystemData:', moduleSystemData);
-      console.debug('CharacterWizard: destinyData:', destinyData);
-
-      // Initialize CharacterWizard with all loaded data
+      // Load all game data using the new dataLoader module
+      const { moduleSystemData, flawData, destinyData, abilityData } = await loadGameData();
       console.log('CharacterWizard: All data loaded. Initializing CharacterWizard.');
+      
+      // Initialize CharacterWizard with all loaded data
       new CharacterWizard(moduleSystemData, flawData, destinyData, abilityData, db);
 
   } catch (error) {
       console.error('CharacterWizard: Error loading data:', error);
-      alert('Failed to load character data. Please check the console for details.');
+      alerter.show('Failed to load character data. Please check the console for details.', 'error');
   }
 });
