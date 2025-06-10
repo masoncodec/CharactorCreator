@@ -1131,59 +1131,52 @@ class CharacterWizard {
 
   calculateCharacterHealth() {
     const activeEffects = [];
-
-    // Process Abilities
-    if (this.state.abilities) {
-      this.state.abilities.forEach(abilityState => {
-          const abilityDef = this.abilityData[abilityState.id];
-          if (abilityDef && abilityDef.effect) {
-              // ONLY PASSIVE ABILITIES
-              const isActive = (abilityDef.type === "passive");
-
-              if (isActive) {
-                  abilityDef.effect.forEach(effect => {
-                      // Store the raw effect data along with the ability name for context
-                      activeEffects.push({
-                          ...effect,
-                          abilityName: abilityDef.name,
-                          abilityId: abilityState.id, // Include ability ID for cost deduction
-                          abilityType: abilityDef.type,
-                          sourceType: "ability" // New: Indicate source is an ability
-                      });
-                  });
-              }
+  
+    // Helper function to process effects from a source
+    const processEffects = (items, data, sourceType, defaultAbilityType = null) => {
+      if (!items || !data) return; // Exit early if no items or data
+  
+      items.forEach(itemState => {
+        const itemDef = data[itemState.id];
+        if (itemDef && itemDef.effect) {
+          // Determine if the item is "active" based on its type or a default
+          const isActive = (itemDef.type === "passive") || (defaultAbilityType === "passive");
+  
+          if (isActive) {
+            itemDef.effect.forEach(effect => {
+              activeEffects.push({
+                ...effect,
+                abilityName: itemDef.name,
+                abilityId: itemState.id,
+                abilityType: itemDef.type || defaultAbilityType, // Use itemDef.type if available, otherwise default
+                sourceType: sourceType
+              });
+            });
           }
+        }
       });
-    }
-
-    // Process Flaws (converted to virtual passive abilities for effect handling)
-    if (this.state.flaws && this.flawData) { // Ensure flawData is available
-        this.state.flaws.forEach(flawState => { // flawState might just be { id: "flaw-id" }
-            const flawDef = this.flawData[flawState.id];
-            if (flawDef && flawDef.effect) {
-                flawDef.effect.forEach(effect => {
-                    activeEffects.push({
-                        ...effect,
-                        abilityName: flawDef.name, // Use flaw name for context
-                        abilityId: flawState.id,
-                        abilityType: "passive", // Treat functionally as passive
-                        sourceType: "flaw" // New: Indicate source is a flaw
-                    });
-                });
-            }
-        });
-    }
-
-    let curr_health = this.destinyData[this.state.destiny].health.value;
-
+    };
+  
+    // Process Abilities
+    processEffects(this.state.abilities, this.abilityData, "ability");
+  
+    // Process Flaws
+    // Flaws are treated as passive abilities for effect handling
+    processEffects(this.state.flaws, this.flawData, "flaw", "passive");
+  
+  
+    let currentHealth = this.destinyData[this.state.destiny].health.value;
+  
     activeEffects.forEach(effect => {
       switch (effect.type) {
         case "max_health_mod":
-          curr_health += effect.value;
+          currentHealth += effect.value;
+          break; // Added break for clarity and good practice
+        // Potentially add other effect types here in the future
       }
-    })
-
-    return curr_health;
+    });
+  
+    return currentHealth;
   }
 
   finishWizard() {
