@@ -15,6 +15,7 @@
         { "level": 1, "ability": "easter-egg" },
         { "level": 2, "ability": "forest-feet" },
         { "level": 3, "ability": "natures-gift" },
-        { "level": 5, "ability": "small-domain" }
+        { "level": 5, "ability": "small-domain" },
+        { "level": 5, "ability": "large-domain" }
     ]
 }

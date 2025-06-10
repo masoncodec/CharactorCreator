@@ -1,107 +1,5 @@
 /* _abilities.css */
 /* Abilities Section */
-.abilities-section {
-    margin-top: 1.5rem;
-}
-
-.abilities-section h4 {
-    margin-bottom: 1rem;
-    color: #FFD700;
-    border-bottom: 1px solid #444;
-    padding-bottom: 0.5rem;
-}
-
-/* Individual ability item */
-.ability {
-    background: #1A1A1A;
-    padding: 1.2rem 1.5rem;
-    margin-bottom: 1.2rem; /* Keep this for spacing between abilities */
-    border-radius: 8px;
-    border: 1px solid #3A3A3A;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s ease, border-color 0.2s ease;
-}
-
-.ability:hover {
-    transform: translateY(-3px);
-    border-color: #B22222;
-}
-
-.ability.selected {
-    border: 2px solid #B22222;
-    background-color: #252525;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-}
-
-/* IMPORTANT FIX: Remove margin-bottom from the last ability item to prevent blocking */
-.ability:last-child {
-    margin-bottom: 0;
-}
-
-/* Ability header (radio, name, type tag) */
-.ability-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.8rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px dashed #3A3A3A;
-}
-
-.ability-header label {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    flex-grow: 1;
-}
-
-.ability-header input[type="radio"] {
-    margin-right: 0.8rem;
-    transform: scale(1.2);
-    accent-color: #B22222;
-}
-
-.ability-name {
-    font-size: 1.2rem;
-    font-weight: bold;
-    color: #FFD700;
-}
-
-.ability-types {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-}
-
-/* Ability type tags */
-.type-tag {
-    background-color: #444;
-    color: #eee;
-    padding: 0.3rem 0.7rem;
-    border-radius: 15px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-}
-
-.type-tag:has(.fa-star) {
-    background-color: #28A745;
-}
-
-.type-tag:has(.fa-bolt) {
-    background-color: #007BFF;
-}
-
-/* Ability description */
-.ability-description {
-    font-size: 0.95rem;
-    line-height: 1.5;
-    color: #ccc;
-    margin-bottom: 1rem;
-}
 
 /* Tier Headers */
 .tier-header {
@@ -116,163 +14,235 @@
     border-radius: 4px;
 }
 
-/* Ability options (checkboxes) */
+.abilities-section {
+    margin-top: 1.5rem;
+}
+
+.abilities-section h4 {
+    margin-bottom: 1rem;
+    color: #FFD700; /* Keeping gold for section headers as per existing theme */
+    border-bottom: 1px solid rgb(56, 56, 56); /* Updated to new default border */
+    padding-bottom: 0.5rem;
+}
+
+/* NEW: Grid container for multiple ability cards per row */
+.abilities-grid-container {
+    display: grid;
+    /* Updated: Use minmax(min-content, 1fr) to allow single column to fill width,
+       or auto-fit instead of auto-fill for better single-column stretching when content is small. */
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    padding: 0.5rem 0;
+}
+
+.abilities-grid-container .ability-container {
+    margin-bottom: 0;
+}
+
+/* The actual clickable ability card */
+.ability-card {
+    background: #252525; /* Updated to new background color */
+    padding: 1.2rem 1.5rem;
+    border-radius: 8px;
+    border: 1px solid rgb(56, 56, 56); /* Updated to new default border */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    transition: all 0.2s ease-in-out;
+}
+
+.ability-card:hover:not(.selected) {
+    border-color: #FFD700; /* Gold border on hover */
+    background-color: #3A3A3A; /* Updated to secondary accent background */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+.ability-card.selected {
+    border-color: #FFD700; /* Updated to primary accent border */
+    background-color: #B22222; /* Updated to primary accent background */
+    box-shadow: 0 4px 15px rgba(178, 34, 34, 0.4); /* Shadow color based on primary accent */
+}
+
+.ability-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.8rem;
+}
+
+.ability-header label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #FFD700; /* Keeping gold for headers/labels */
+}
+
+/* REMOVED: No longer need radio option for the overall ability selection */
+.ability-header input[type="radio"] {
+    display: none; /* Hide the radio button for the overall ability selection */
+}
+
+.ability-name {
+    flex-grow: 1;
+}
+
+.ability-types {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.type-tag {
+    background-color: #333; /* Keeping existing for type tags, adjust if needed */
+    color: #E0E0E0;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    border: 1px solid #555; /* Keeping existing for type tags, adjust if needed */
+}
+
+.ability-description {
+    font-size: 0.9rem;
+    color: #E0E0E0; /* Updated to main text color */
+    margin-bottom: 1rem;
+}
+
 .ability-options {
-    background-color: #252525;
-    padding: 1rem;
-    border-radius: 6px;
-    border: 1px dashed #3A3A3A;
     margin-top: 1rem;
+    padding: 1.2rem 1.5rem; /* Adjusted for more space */
+    border-top: 1px solid rgb(56, 56, 56); /* Updated to new default border */
+}
+
+.ability-card.selected .ability-options {
+    background-color: #252525; /* Darker red for cohesion */
+    border-top: 1px solid #FFD700; /* Darker red border */
+    border-right: 1px solid #FFD700; /* Darker red border */
+    border-bottom: 1px solid #FFD700; /* Darker red border */
+    border-left: 1px solid #FFD700; /* Darker red border */
 }
 
 .ability-options p {
-    font-weight: bold;
-    margin-bottom: 0.8rem;
-    color: #FFD700;
     font-size: 0.95rem;
+    color: #FFD700; /* Keeping gold for option titles */
+    margin-bottom: 0.8rem;
+    font-weight: bold;
 }
 
+/* Styles for individual ability options (labels wrapping inputs and text) */
 .ability-option {
     display: flex;
     align-items: flex-start;
     margin-bottom: 0.8rem;
     cursor: pointer;
     font-size: 0.9rem;
-    color: #E0E0E0;
+    color: #E0E0E0; /* Updated to main text color */
 }
 
 .ability-option:last-child {
     margin-bottom: 0;
 }
 
-.ability-option input[type="checkbox"] {
-    margin-right: 0.7rem;
-    margin-top: 0.2rem;
-    transform: scale(1.1);
-    accent-color: #4CAF50;
+/* Base styles for both checkbox and radio inputs */
+.ability-option input[type="checkbox"],
+.ability-option input[type="radio"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    
+    display: inline-block;
+    width: 1.1em;
+    height: 1.1em;
+    margin-right: 0.7rem; 
+    margin-top: 0.2rem;   
+    flex-shrink: 0;
+    
+    border: 2px solid rgb(56, 56, 56); /* Updated to new default border */
+    background-color: #252525; /* Updated to new background color */
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease-in-out;
 }
 
-/* Disabled option styling */
-.ability-option input[type="checkbox"]:disabled + span {
-    color: #777;
+/* Checkbox specific styles for the outer shape */
+.ability-option input[type="checkbox"] {
+    border-radius: 4px;
+}
+
+/* Radio button specific styles for the outer shape */
+.ability-option input[type="radio"] {
+    border-radius: 50%;
+}
+
+/* Custom indicator when checked - for checkboxes (the checkmark) */
+.ability-option input[type="checkbox"]:checked::before {
+    content: '\2713';
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1em;
+    line-height: 1;
+    color: #FFD700; /* Changed to gold */
+}
+
+/* Custom indicator when checked - for radio buttons (the inner dot) */
+.ability-option input[type="radio"]:checked::after {
+    content: '';
+    display: block;
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background-color: #FFD700; /* Changed to gold */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Disabled state for both inputs */
+.ability-option input[type="checkbox"]:disabled,
+.ability-option input[type="radio"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #FFD700; /* Keeping existing disabled border color */
+    background-color: #B22222; /* Keeping existing disabled background color */
+}
+
+/* Disabled text for the label's content (span) */
+.ability-option input[type="checkbox"]:disabled + span,
+.ability-option input[type="radio"]:disabled + span {
+    color: #777; /* Keeping existing disabled text color */
     cursor: not-allowed;
     opacity: 0.7;
 }
 
-.ability-option input[type="checkbox"]:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* Specific active ability button style */
-.ability-button.toggled-red {
-    background-color: #B22222;
-    border-color: #FFD700;
-}
-
-/* Styles for the default (non-active) ability button */
-.ability-button.ability-item { /* Target the button when it's not toggled-red */
-    background-color: #1A1A1A; /* Same as your body/general background */
-    color: #E0E0E0; /* Lighter grey for default text color */
-    border: 1px solid #3A3A3A; /* Subtle border to define the button shape */
-    border-radius: 8px; /* Consistent with other elements */
-    padding: 1.2rem 1.5rem; /* Consistent padding */
-    margin-bottom: 1.2rem; /* Spacing between ability buttons */
-    text-align: left; /* Align text to the left */
-    width: 100%; /* Ensure it takes full width within its container */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Subtle shadow */
-    transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-    cursor: pointer; /* Indicate it's clickable */
-}
-
-/* Ensure text inside default ability buttons remains readable */
-.ability-button.ability-item strong {
-    color: #FFFFFF; /* White for the ability name by default */
-}
-
-.ability-button.ability-item p {
-    color: #E0E0E0; /* Lighter grey for the description by default */
-}
-
-.ability-button.ability-item .ability-selections {
-    color: #FFD700; /* Gold for selections text by default */
-}
-
-
-/* Hover state for non-active ability buttons */
-.ability-button.ability-item:not(.toggled-red):hover {
-    transform: translateY(-3px);
-    border-color: #B22222; /* Red border on hover */
-    background-color: #252525; /* Slightly lighter dark on hover */
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-}
-
-
-/* Styles for the active ability button (toggled-red) */
-.ability-button.toggled-red {
-    background-color: #1A1A1A; /* Keep same as background */
-    border: 2px solid #FFD700; /* Gold border to indicate active state */
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); /* Subtle gold glow when active */
-    transform: translateY(-2px); /* Slight lift to indicate selection */
-    /* Ensure text colors are still good for active state */
-    color: #FFFFFF; /* Override default text color for active button */
-}
-
-/* Ensure text inside active ability buttons remains readable */
-.ability-button.toggled-red strong {
-    color: #FFFFFF; /* White color for the ability name when active */
-}
-
-.ability-button.toggled-red p {
-    color: #E0E0E0; /* Lighter grey for the description when active */
-}
-
-.ability-button.toggled-red .ability-selections {
-    color: #FFD700; /* Gold for selections text in active abilities */
-}
-
-/* Hover state for active (toggled-red) buttons */
-.ability-button.toggled-red:hover {
-    background-color: #252525; /* Slightly lighter on hover while active */
-    border-color: #FFD700; /* Keep gold border */
-    transform: translateY(-3px); /* Maintain a slight lift */
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); /* Enhanced glow on hover */
-}
-
-/* Base style for ability type tags */
-.ability-type-tag {
-    display: inline-block;
-    padding: 0.2em 0.6em;
-    border-radius: 4px;
-    font-size: 0.75em;
-    font-weight: bold;
-    text-transform: uppercase;
-    margin-left: 0.5rem;
-    vertical-align: middle;
-    border: 1px solid transparent; /* Default transparent border */
+/* Hover effect on the custom input visual */
+.ability-option input[type="checkbox"]:hover:not(:disabled),
+.ability-option input[type="radio"]:hover:not(:disabled) {
+    border-color: #FFD700; /* Gold border on hover */
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); /* Subtle gold glow */
 }
 
 /* Specific styles for ACTIVE ability type tag */
-.ability-type-tag.active {
-    background-color: #B22222; /* Red background */
+.type-tag.active {
+    background-color: #B22222; /* Red background, matching primary accent */
     color: white;
     border-color: #FFD700; /* Gold border */
 }
 
 /* Specific styles for PASSIVE ability type tag */
-.ability-type-tag.passive {
-    background-color: #4CAF50; /* Green background */
+.type-tag.passive {
+    background-color: #4CAF50; /* Keeping green background as no specific passive color was given */
     color: white;
     border-color: #FFD700; /* Gold border */
 }
 
 @media (max-width: 768px) {
-    .ability-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .ability-types {
-        margin-top: 0.5rem;
+    .abilities-grid-container {
+        grid-template-columns: 1fr; /* Ensures a single column fills the width on small screens */
     }
 }

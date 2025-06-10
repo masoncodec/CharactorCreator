@@ -100,14 +100,16 @@ const EffectHandler = {
                     }
                     modifiedCharacter.activeRollEffects[effect.attribute].push(effect);
                     break;
-                case "max_health_mod": // New effect type for modifying max health
-                    if (!modifiedCharacter.calculatedHealth) {
-                        modifiedCharacter.calculatedHealth = {
-                            baseMax: modifiedCharacter.health.max, // Store base max health
-                            currentMax: modifiedCharacter.health.max
-                        };
+                case "max_health_mod": // New effect type for modifying max health - ONLY ACTIVE
+                    if (effect.type === "active") {
+                        if (!modifiedCharacter.calculatedHealth) {
+                            modifiedCharacter.calculatedHealth = {
+                                baseMax: modifiedCharacter.health.max, // Store base max health
+                                currentMax: modifiedCharacter.health.max
+                            };
+                        }
+                        modifiedCharacter.calculatedHealth.currentMax += effect.value;
                     }
-                    modifiedCharacter.calculatedHealth.currentMax += effect.value;
                     break;
                 case "temporary_buff": // New effect type for temporary buffs
                     // Logic to store and manage temporary buffs (e.g., specific attribute bonuses for a duration)
@@ -592,10 +594,10 @@ function renderAbilities(character) {
         }
 
         if (abilityDef.type === "active") {
-            const isOn = activeAbilityStates.has(abilityState.id) ? 'toggled-red' : '';
+            const isOn = activeAbilityStates.has(abilityState.id) ? 'selected' : '';
             activeAbilitiesHtml.push(`
                 <li class="ability-list-item">
-                    <button class="ability-button ability-item ${isOn}" data-ability-id="${abilityState.id}">
+                    <button class="ability-button ability-card ${isOn}" data-ability-id="${abilityState.id}">
                         <strong>${abilityDef.name}</strong> <span class="ability-type-tag active">ACTIVE</span> (Tier ${abilityState.tier})
                         <p>${description}</p>
                         ${optionsHtml}
@@ -604,7 +606,7 @@ function renderAbilities(character) {
             `);
         } else { // Passive ability
             passiveAbilitiesHtml.push(`
-                <li class="ability-item passive-ability-item">
+                <li class="ability-card passive-ability-item">
                     <strong>${abilityDef.name}</strong> <span class="ability-type-tag passive">PASSIVE</span> (Tier ${abilityState.tier})
                     <p>${description}</p>
                     ${optionsHtml}

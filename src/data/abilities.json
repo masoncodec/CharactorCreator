@@ -66,6 +66,18 @@
         ],
         "tier": 2
     },
+    "large-domain": {
+        "name": "Large Domain",
+        "type": "active",
+        "description":  "Choose ${maxChoices} type of insect to gain low level control over.",
+        "maxChoices": 1,
+        "options": [
+            { "id": "tiger", "name": "Tiger", "description": "The perfect distraction." },
+            { "id": "bear", "name": "Bear", "description": "The perfect reconnaissance." },
+            { "id": "wolf", "name": "Wolf", "description": "The perfect food for scaly friends." }
+        ],
+        "tier": 2
+    },
     "spellcaster": {
         "name": "Spellcaster",
         "type": "active",
