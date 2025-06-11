@@ -793,7 +793,7 @@ class DestinyPageHandler {
             const currentSelectionsCount = abilityState.selections.length;
             const maxChoicesForOption = abilityData.maxChoices; // This refers to nested options' maxChoices
 
-            console.log(`  Option: ${optionId}, isSelected (from state): ${isOptionSelected}, currentSelectionsCount: ${currentSelectionsCount}, maxChoicesForOption: ${maxChoicesForOption}`);
+            console.debug(`  Option: ${optionId}, isSelected (from state): ${isOptionSelected}, currentSelectionsCount: ${currentSelectionsCount}, maxChoicesForOption: ${maxChoicesForOption}`);
 
             if (optionInput.type === 'radio') {
               shouldBeDisabled = false; // Nested radios always enabled if parent is selected
@@ -801,19 +801,19 @@ class DestinyPageHandler {
               if (maxChoicesForOption !== undefined && maxChoicesForOption !== null &&
                   currentSelectionsCount >= maxChoicesForOption && !isOptionSelected) {
                 shouldBeDisabled = true;
-                console.log(`    Option ${optionId} DISABLED: Max choices reached (${currentSelectionsCount}/${maxChoicesForOption}) and option not selected.`);
+                console.debug(`    Option ${optionId} DISABLED: Max choices reached (${currentSelectionsCount}/${maxChoicesForOption}) and option not selected.`);
               } else {
                 shouldBeDisabled = false;
-                console.log(`    Option ${optionId} ENABLED.`);
+                console.debug(`    Option ${optionId} ENABLED.`);
               }
             }
           }
           optionInput.disabled = shouldBeDisabled;
           optionInput.checked = isOptionSelected; // Ensure input reflects state
-          console.log(`    Option ${optionId} final state: disabled=${optionInput.disabled}, checked=${optionInput.checked}`);
+          console.debug(`    Option ${optionId} final state: disabled=${optionInput.disabled}, checked=${optionInput.checked}`);
         });
       } else if (optionsContainer) {
-        console.log(`_refreshAbilityOptionStates: Ability ${abilityId} has optionsContainer but no options in abilityData.`);
+        console.debug(`_refreshAbilityOptionStates: Ability ${abilityId} has optionsContainer but no options in abilityData.`);
       }
     });
     this.pageNavigator.updateNav(); // Update navigation based on completion
