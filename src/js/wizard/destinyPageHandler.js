@@ -258,7 +258,7 @@ class DestinyPageHandler {
     this.selectorPanel.addEventListener('click', this._boundAbilityCardClickHandler);
 
     this._boundAbilityOptionChangeHandler = this._handleAbilityOptionChange.bind(this);
-    this.selectorPanel.addEventListener('change', this._boundAbilityOptionChangeHandler);
+    this.selectorPanel.addEventListener('click', this._boundAbilityOptionChangeHandler);
 
     console.log('DestinyPageHandler: All event listeners attached.');
   }
@@ -415,21 +415,27 @@ class DestinyPageHandler {
    * @private
    */
   _handleAbilityOptionChange(e) {
-    // Ensure the event target is an option input
-    if (!e.target.matches('.ability-options input[type="checkbox"], .ability-options input[type="radio"]')) {
+    // START DIAGNOSTIC LOGS
+    console.log('--- _handleAbilityOptionChange (now click) triggered ---'); // Updated log
+    console.log('Event object:', e);
+    console.log('e.target:', e.target);
+    console.log('e.target.type:', e.target.type);
+    console.log('e.target.checked (from event):', e.target.checked);
+    console.log('e.target.dataset:', e.target.dataset);
+    // END DIAGNOSTIC LOGS
+
+    // Ensure the event target is an input with data-option (i.e., a nested option)
+    if (!e.target.matches('input[data-option]')) { // More generic check
+      console.log('Target does not match selector (input[data-option]). Exiting _handleAbilityOptionChange.');
       return;
     }
-    // Removed: e.preventDefault();
-    // Removed: e.stopPropagation();
-
-    console.log('--- _handleAbilityOptionChange triggered ---');
 
     const optionInput = e.target;
     const abilityId = optionInput.dataset.ability;
     const optionId = optionInput.dataset.option;
     const groupId = optionInput.closest('.ability-card').dataset.groupId; // Get groupId from parent card
     const source = optionInput.closest('.ability-card').dataset.source; // Get source from parent card
-    const isSelectedFromInput = optionInput.checked; // This is the actual checked state after user interaction
+    const isSelectedFromInput = optionInput.checked; // Still capture for logging/debugging
 
     console.log(`  Option Clicked: AbilityID=${abilityId}, OptionID=${optionId}, GroupID=${groupId}, Source=${source}, isSelectedFromInput (from input)=${isSelectedFromInput}`);
 
@@ -495,21 +501,15 @@ class DestinyPageHandler {
 
     // Determine if the option was *already* selected in the state
     const isOptionCurrentlyInState = abilityState.selections.some(s => s.id === optionId);
-    console.log(`  Option ${optionId} is currently in state: ${isOptionCurrentlyInState}`); // ADDED LOG
+    console.log(`  Option ${optionId} is currently in state: ${isOptionCurrentlyInState}`);
 
     if (inputElement.type === 'radio') {
       console.log('  Handling as radio button.');
-      // For radio buttons, if the input is `checked` after user interaction, it means this option is selected.
-      // We always set it as the *only* selection in the state for radios.
-      if (inputElement.checked) { // Rely directly on `inputElement.checked` for current visual state
-        newSelections = [{ id: optionId }];
-        console.log(`  Radio ${optionId} is checked. New selections will be:`, newSelections);
-      } else {
-        // This case for radio is generally not reached via user click (as radios are exclusive),
-        // but included for robustness if state changes programmatically or if a radio is explicitly unchecked.
-        newSelections = newSelections.filter(s => s.id !== optionId);
-        console.log(`  Radio ${optionId} is now unchecked. New selections will be:`, newSelections);
-      }
+      // For radio buttons, a click implies selection. We directly update the state.
+      // Since it's a radio, it should be the *only* selection in its group.
+      newSelections = [{ id: optionId }];
+      console.log(`  Radio ${optionId} clicked. New selections will be:`, newSelections);
+      inputElement.checked = true; // Explicitly ensure it's checked visually
     } else { // Checkbox logic
       console.log('  Handling as checkbox.');
       if (isOptionCurrentlyInState) { // Option is currently selected in state, user clicked to DESELECT
@@ -694,6 +694,10 @@ class DestinyPageHandler {
             const isOptionSelected = currentSelections.some(s => s.id === option.id);
             const disabledAttribute = !isParentAbilityCurrentlySelected ? 'disabled' : ''; // Initial disabled
             const checkedAttribute = isOptionSelected ? 'checked' : '';
+
+            // START DIAGNOSTIC LOG IN RENDERING
+            console.log(`  Rendering option for ${abilityId}: ${option.id}. Type: ${inputType}, Name: "${inputName}", Checked: ${isOptionSelected}, Disabled: ${!isParentAbilityCurrentlySelected}`);
+            // END DIAGNOSTIC LOG IN RENDERING
 
             return `
                 <label class="ability-option">
