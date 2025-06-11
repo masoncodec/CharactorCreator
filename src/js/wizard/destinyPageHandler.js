@@ -415,18 +415,8 @@ class DestinyPageHandler {
    * @private
    */
   _handleAbilityOptionChange(e) {
-    // START DIAGNOSTIC LOGS
-    console.log('--- _handleAbilityOptionChange (now click) triggered ---'); // Updated log
-    console.log('Event object:', e);
-    console.log('e.target:', e.target);
-    console.log('e.target.type:', e.target.type);
-    console.log('e.target.checked (from event):', e.target.checked);
-    console.log('e.target.dataset:', e.target.dataset);
-    // END DIAGNOSTIC LOGS
-
     // Ensure the event target is an input with data-option (i.e., a nested option)
-    if (!e.target.matches('input[data-option]')) { // More generic check
-      console.log('Target does not match selector (input[data-option]). Exiting _handleAbilityOptionChange.');
+    if (!e.target.matches('input[data-option]')) {
       return;
     }
 
@@ -435,9 +425,7 @@ class DestinyPageHandler {
     const optionId = optionInput.dataset.option;
     const groupId = optionInput.closest('.ability-card').dataset.groupId; // Get groupId from parent card
     const source = optionInput.closest('.ability-card').dataset.source; // Get source from parent card
-    const isSelectedFromInput = optionInput.checked; // Still capture for logging/debugging
-
-    console.log(`  Option Clicked: AbilityID=${abilityId}, OptionID=${optionId}, GroupID=${groupId}, Source=${source}, isSelectedFromInput (from input)=${isSelectedFromInput}`);
+    const isSelectedFromInput = optionInput.checked; // This is the actual checked state after user interaction
 
     this._handleAbilityOptionSelection(abilityId, source, groupId, optionId, isSelectedFromInput, optionInput);
   }
@@ -480,9 +468,6 @@ class DestinyPageHandler {
    * @private
    */
   _handleAbilityOptionSelection(abilityId, source, groupId, optionId, isSelectedFromInput, inputElement) {
-    console.log('--- _handleAbilityOptionSelection triggered ---');
-    console.log(`  Params: abilityId=${abilityId}, source=${source}, groupId=${groupId}, optionId=${optionId}, isSelectedFromInput=${isSelectedFromInput}`);
-
     const currentState = this.stateManager.getState();
     // Ensure we find the specific ability by ID, source, and groupId
     const abilityState = currentState.abilities.find(a => a.id === abilityId && a.source === source && a.groupId === groupId);
@@ -493,50 +478,38 @@ class DestinyPageHandler {
       this._refreshAbilityOptionStates();
       return;
     }
-    console.log('  Parent abilityState found:', abilityState);
-
 
     const abilityDef = this.stateManager.getAbility(abilityId);
     let newSelections = [...abilityState.selections]; // Create a mutable copy
 
     // Determine if the option was *already* selected in the state
     const isOptionCurrentlyInState = abilityState.selections.some(s => s.id === optionId);
-    console.log(`  Option ${optionId} is currently in state: ${isOptionCurrentlyInState}`);
 
     if (inputElement.type === 'radio') {
-      console.log('  Handling as radio button.');
       // For radio buttons, a click implies selection. We directly update the state.
       // Since it's a radio, it should be the *only* selection in its group.
       newSelections = [{ id: optionId }];
-      console.log(`  Radio ${optionId} clicked. New selections will be:`, newSelections);
       inputElement.checked = true; // Explicitly ensure it's checked visually
     } else { // Checkbox logic
-      console.log('  Handling as checkbox.');
       if (isOptionCurrentlyInState) { // Option is currently selected in state, user clicked to DESELECT
-        console.log(`  Checkbox clicked to DESELECT. Removing option ${optionId}.`);
         newSelections = newSelections.filter(s => s.id !== optionId);
         inputElement.checked = false; // Explicitly uncheck the input
       } else { // Option is NOT currently selected in state, user clicked to SELECT
-        console.log(`  Checkbox clicked to SELECT. Current selections count: ${newSelections.length}, Max Choices: ${abilityDef.maxChoices}`);
         if (abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null &&
             newSelections.length >= abilityDef.maxChoices) {
-          console.log(`  Max choices (${abilityDef.maxChoices}) reached for ability ${abilityDef.name}. Reverting input.`);
           inputElement.checked = false; // Revert checkbox state if over limit
           alerter.show(`You can only select up to ${abilityDef.maxChoices} option(s) for ${abilityDef.name}.`);
           this._refreshAbilityOptionStates(); // Refresh to ensure UI consistency
           return;
         }
-        console.log(`  Adding option ${optionId} to selections.`);
         newSelections.push({ id: optionId });
         inputElement.checked = true; // Explicitly check the input
       }
     }
-    console.log('  New selections array:', newSelections);
 
     this.stateManager.updateAbilitySelections(abilityId, source, groupId, newSelections);
     this.informerUpdater.update('destiny');
     this._refreshAbilityOptionStates(); // Update disabled states based on new selections
-    console.log('--- _handleAbilityOptionSelection finished ---');
   }
 
   /**
@@ -612,7 +585,7 @@ class DestinyPageHandler {
       'Combat': '⚔️',
       'Spell': '🔮',
       'Support': '🛡️',
-      'Social': '💬', // Changed '?' to '💬' for consistency with common social icons
+      'Social': '💬',
       'Holy': '✨',
       'Healing': '❤️',
       'Performance': '🎤',
@@ -694,10 +667,6 @@ class DestinyPageHandler {
             const isOptionSelected = currentSelections.some(s => s.id === option.id);
             const disabledAttribute = !isParentAbilityCurrentlySelected ? 'disabled' : ''; // Initial disabled
             const checkedAttribute = isOptionSelected ? 'checked' : '';
-
-            // START DIAGNOSTIC LOG IN RENDERING
-            console.log(`  Rendering option for ${abilityId}: ${option.id}. Type: ${inputType}, Name: "${inputName}", Checked: ${isOptionSelected}, Disabled: ${!isParentAbilityCurrentlySelected}`);
-            // END DIAGNOSTIC LOG IN RENDERING
 
             return `
                 <label class="ability-option">
