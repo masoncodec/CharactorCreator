@@ -16,15 +16,10 @@
             "maxChoices": 1,
             "abilities": ["speak-with-animals", "easter-egg"]
         },
-        "minor_growth": {
-            "name": "Minor Growth",
-            "maxChoices": 1,
-            "abilities": ["forest-feet"]
-        },
         "natures_blessing": {
             "name": "Nature's Blessing",
-            "maxChoices": 1,
-            "abilities": ["natures-gift"]
+            "maxChoices": 2,
+            "abilities": ["forest-feet", "natures-gift"]
         },
         "domain_abilities": {
             "name": "Domain Abilities",

@@ -333,80 +333,88 @@ class DestinyPageHandler {
   }
 
   /**
-   * Handles click on ability cards (radio/checkbox inputs).
+   * Handles click on ability cards.
+   * This method now robustly handles clicks on the card, its input, or its label,
+   * preventing double-toggling issues for checkboxes.
    * @param {Event} e - The click event.
    * @private
    */
   _handleAbilityCardClick(e) {
     const abilityCard = e.target.closest('.ability-card');
-    if (!abilityCard) return;
+    if (!abilityCard) return; // Not an ability card or a descendant of one
 
     const abilityId = abilityCard.dataset.abilityId;
     const groupId = abilityCard.dataset.groupId;
-    const source = abilityCard.dataset.source; // Should be 'destiny' for this handler
+    const source = abilityCard.dataset.source;
     const maxChoices = parseInt(abilityCard.dataset.maxChoices, 10);
 
     const inputElement = abilityCard.querySelector(`input[data-ability="${abilityId}"][data-group="${groupId}"][data-source="${source}"]`);
-
     if (!inputElement) {
       console.warn('DestinyPageHandler: Could not find associated input for clicked ability card.');
       return;
     }
 
+    // Determine the intended selection state based on the click target
+    let intendedSelectionState;
+
+    // IMPORTANT: Check if the actual click target is the input itself or its associated label.
+    // If it is, the browser's default behavior will toggle the input's 'checked' state.
+    // We should then rely on the *final* checked state of the input *after* the browser's default action.
+    if (e.target === inputElement || e.target.closest('label') === inputElement.closest('label')) {
+      // The browser's default action for input/label click will have already toggled 'checked'.
+      intendedSelectionState = inputElement.checked;
+    } else {
+      // If the click was on the card itself, but not directly on the input or label,
+      // we want to toggle the input's state.
+      intendedSelectionState = !inputElement.checked;
+      // Manually set the checked state here, as the browser won't have done it for us.
+      inputElement.checked = intendedSelectionState;
+    }
+
+    // Now, apply the state change based on 'intendedSelectionState'
     const currentState = this.stateManager.getState();
-    const selectedAbilitiesInGroup = currentState.abilities.filter(a => a.groupId === groupId && a.source === source);
-    const isCurrentlySelected = selectedAbilitiesInGroup.some(a => a.id === abilityId);
+    let currentAbilities = [...currentState.abilities]; // Create a mutable copy
 
     if (maxChoices === 1) { // Radio button behavior (only one can be selected in group)
-      if (!inputElement.checked) {
-        inputElement.checked = true; // Manually check the radio if not already
-        this._handleGroupSelection(groupId, abilityId, source); // Update state
-        // Update visual 'selected' class for ability cards within the same group
-        this.selectorPanel.querySelectorAll(`.ability-card[data-group-id="${groupId}"][data-source="${source}"]`).forEach(card => {
-          card.classList.remove('selected');
-        });
-        abilityCard.classList.add('selected');
+      if (intendedSelectionState) { // If we intend to select this radio
+        // Filter out any existing selections from this group
+        const filteredAbilities = currentAbilities.filter(a => !(a.groupId === groupId && a.source === source));
+        filteredAbilities.push({ id: abilityId, selections: [], source: source, groupId: groupId });
+        this.stateManager.set('abilities', filteredAbilities);
       }
+      // If intendedSelectionState is false for a radio, it means we clicked an already selected radio
+      // or clicked a different radio, which is handled by the 'if (intendedSelectionState)' block above.
+      // No explicit deselection logic needed for radios here.
     } else { // Checkbox behavior (multiple can be selected in group)
-      // Toggle selection for checkboxes
-      if (isCurrentlySelected) {
-        // Deselecting: remove from state
-        this.stateManager.set('abilities', currentState.abilities.filter(a => !(a.id === abilityId && a.groupId === groupId && a.source === source)));
-        abilityCard.classList.remove('selected');
-        inputElement.checked = false;
-      } else {
-        // Selecting: check max choices
-        if (selectedAbilitiesInGroup.length < maxChoices) {
-          // Add to state
-          const newAbilityState = {
-            id: abilityId,
-            selections: [], // No nested options for this ability, or will be managed by _handleAbilityOptionChange
-            source: source,
-            groupId: groupId
-          };
-          // For checkboxes, we need to push the new ability directly if not already there
-          // and then update the 'abilities' state.
-          const existingAbilityInState = currentState.abilities.find(a => a.id === abilityId && a.groupId === groupId && a.source === source);
-          if (!existingAbilityInState) {
-            this.stateManager.set('abilities', [...currentState.abilities, newAbilityState]);
-          } else {
-            // If it exists, but was somehow not selected, just update its 'selected' state if needed
-            // This scenario is less likely with correct UI state management, but good for robustness.
-            console.warn(`Ability ${abilityId} already in state for group ${groupId}, but was not marked as selected.`);
-          }
+      const selectedAbilitiesInGroup = currentAbilities.filter(a => a.groupId === groupId && a.source === source);
+      const isCurrentlyInState = selectedAbilitiesInGroup.some(a => a.id === abilityId);
 
-          abilityCard.classList.add('selected');
-          inputElement.checked = true;
+      if (intendedSelectionState && !isCurrentlyInState) { // Selecting
+        if (selectedAbilitiesInGroup.length < maxChoices) {
+          currentAbilities.push({ id: abilityId, selections: [], source: source, groupId: groupId });
+          this.stateManager.set('abilities', currentAbilities);
         } else {
           alerter.show(`You can only select up to ${maxChoices} abilities from this group.`);
           inputElement.checked = false; // Revert checkbox if max choices exceeded
-          return; // Do not proceed with state update if max choices are met
+          this._refreshAbilityOptionStates(); // Update UI immediately after failed selection
+          return; // Stop further processing
         }
+      } else if (!intendedSelectionState && isCurrentlyInState) { // Deselecting
+        currentAbilities = currentAbilities.filter(a => !(a.id === abilityId && a.groupId === groupId && a.source === source));
+        this.stateManager.set('abilities', currentAbilities);
+      } else {
+          // No actual state change needed if current state matches intended state (e.g., clicking already selected checkbox)
+          // or if the `intendedSelectionState` is false but it wasn't selected in state (e.g., a programmatic deselect attempt).
+          console.log(`DestinyPageHandler: Click on ${abilityId} resulted in no state change (current: ${isCurrentlyInState}, intended: ${intendedSelectionState}).`);
+          this.informerUpdater.update('destiny'); // Still update informer in case of refresh or subtle changes.
+          this._refreshAbilityOptionStates();
+          return; // No change, so exit early.
       }
-      this.informerUpdater.update('destiny'); // Update informer with new state
-      this.pageNavigator.updateNav(); // Update navigation
     }
-    this._refreshAbilityOptionStates(); // Always refresh to update disabled states
+
+    console.log(`DestinyPageHandler: Ability selected/deselected: ${abilityId}, intended: ${intendedSelectionState}.`);
+    this.informerUpdater.update('destiny');
+    this._refreshAbilityOptionStates(); // Crucial to update disabled states and visual cues
   }
 
   /**
