@@ -268,6 +268,7 @@ class AttributesPageHandler {
     }
 
     // Reset the moduleChanged flag in stateManager after handling its effect on rendering
+    // this specifically is used to reset DOM
     this.stateManager.resetModuleChangedFlag();
   }
 
