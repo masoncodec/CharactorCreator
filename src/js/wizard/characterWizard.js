@@ -125,6 +125,7 @@ class CharacterWizard {
 
   /**
    * Validates all loaded game data.
+   * This method is crucial for catching missing data in your JSON files early.
    */
   validateLoadedData() {
     console.log('CharacterWizard.validateLoadedData: Running initial data validation.');
@@ -144,11 +145,23 @@ class CharacterWizard {
               console.error(`Missing flaw data: ${flawId} for destiny ${destinyId}`);
             }
           });
-          destinyData[destinyId].levelUnlocks.forEach(unlock => {
-            if (!abilityData[unlock.ability]) {
-              console.error(`Missing ability data: ${unlock.ability} for destiny ${destinyId}`);
-            }
-          });
+
+          // NEW: Iterate through abilityGroups instead of levelUnlocks
+          if (destinyData[destinyId].abilityGroups) {
+            Object.entries(destinyData[destinyId].abilityGroups).forEach(([groupId, groupDef]) => {
+              if (!groupDef.abilities || !Array.isArray(groupDef.abilities)) {
+                  console.error(`Ability group '${groupId}' in destiny '${destinyId}' has no 'abilities' array or it's invalid.`);
+                  return;
+              }
+              groupDef.abilities.forEach(abilityId => {
+                if (!abilityData[abilityId]) {
+                  console.error(`Missing ability data: ${abilityId} in group '${groupId}' for destiny ${destinyId}`);
+                }
+              });
+            });
+          } else {
+              console.warn(`Destiny '${destinyId}' has no 'abilityGroups' defined. Ensure this is intentional.`);
+          }
         }
       });
     });
@@ -162,7 +175,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (typeof db === 'undefined') {
       console.error("CharacterWizard: Database module 'db' not loaded! Ensure db.js is included before characterWizard.js.");
       alerter.show("Database module not found. Character saving may not work.", 'error');
-      // Continue without db, or prevent initialization if db is strictly required
       // For this example, we'll proceed but character saving will fail.
       return;
   }

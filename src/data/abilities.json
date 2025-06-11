@@ -10,8 +10,7 @@
           "attribute": "nature",
           "modifier": 3
         }
-      ],
-      "tier": 3
+      ]
     },
     "forest-feet": {
       "type": "active",
@@ -24,8 +23,7 @@
           "attribute": "speed",
           "modifier": 5
         }
-      ],
-      "tier": 2
+      ]
     },
     "speak-with-animals": {
         "type": "passive",
@@ -36,8 +34,7 @@
               "type": "language",
               "name": "Animal"
           }
-        ],
-        "tier": 1
+        ]
     },
     "easter-egg": {
         "name": "Easter Egg",
@@ -51,20 +48,18 @@
               "modifier": 1,
               "cost": { "resource": "mana", "value": 5 }
           }
-        ],
-        "tier": 1
+        ]
     },
     "small-domain": {
         "name": "Small Domain",
         "type": "active",
-        "description":  "Choose ${maxChoices} type of insect to gain low level control over.",
-        "maxChoices": 1,
+        "description":  "Choose ${maxChoices} types of insects to gain low level control over.",
+        "maxChoices": 2,
         "options": [
             { "id": "ants", "name": "Ants", "description": "The perfect distraction." },
             { "id": "butterfly", "name": "Butterfly", "description": "The perfect reconnaissance." },
             { "id": "beetles", "name": "Beetles", "description": "The perfect food for scaly friends." }
-        ],
-        "tier": 2
+        ]
     },
     "large-domain": {
         "name": "Large Domain",
@@ -75,8 +70,7 @@
             { "id": "tiger", "name": "Tiger", "description": "The perfect distraction." },
             { "id": "bear", "name": "Bear", "description": "The perfect reconnaissance." },
             { "id": "wolf", "name": "Wolf", "description": "The perfect food for scaly friends." }
-        ],
-        "tier": 2
+        ]
     },
     "spellcaster": {
         "name": "Spellcaster",
@@ -88,50 +82,43 @@
             { "id": "shield", "name": "Shield", "description": "Create a magical barrier." },
             { "id": "mage-hand", "name": "Mage Hand", "description": "A spectral, floating hand." },
             { "id": "lightning-bolt", "name": "Lightning Bolt", "description": "A streak of lightning that deals lightning damage." }
-        ],
-        "tier": 1
+        ]
     },
     "arcane-intellect": {
         "name": "Arcane Intellect",
         "type": "passive",
         "description": "Learn spells from scrolls by spending ${cost.gold}.",
-        "cost": { "gold": 50, "item": "spell-scroll" },
-        "tier": 2
+        "cost": { "gold": 50, "item": "spell-scroll" }
     },
     "armored-warrior": {
         "name": "Armored Warrior",
         "type": "passive",
         "description": "Gain +${bonus} to Constitution when wearing heavy armor.",
-        "bonus": 3,
-        "tier": 1
+        "bonus": 3
     },
     "fealty": {
         "name": "Fealty",
         "type": "passive",
-        "description": "Advantage on Charisma checks in your lord's domain.",
-        "tier": 2
+        "description": "Advantage on Charisma checks in your lord's domain."
     },
     "backstab": {
         "name": "Backstab",
         "type": "active",
         "description": "Deal ${damage}x damage when attacking from stealth.",
         "damage": 2,
-        "cost": { "stamina": 10 },
-        "tier": 1
+        "cost": { "stamina": 10 }
     },
     "divine-smite": {
         "name": "Divine Smite",
         "type": "active",
         "description": "Channel holy energy to deal ${damage} + WIS radiant damage.",
         "damage": 5,
-        "cost": { "faith": 1 },
-        "tier": 1
+        "cost": { "faith": 1 }
     },
     "spell-mastery": {
         "name": "Spell Mastery",
         "type": "passive",
         "description": "Gain powerful control over a chosen school of magic. Choose one school to specialize in.",
-        "tier": 5,
         "maxChoices": 1,
         "options": [
             {
@@ -166,7 +153,6 @@
         "description": "Use your shield to stun an enemy, dealing ${damage} blunt damage. Target must succeed on a Constitution saving throw (DC 8 + STR modifier) or be Stunned for 1 round. Usable once per combat.",
         "damage": "5 + STR",
         "cost": { "stamina": 15 },
-        "tier": 5,
         "usage": "once-per-combat",
         "synergy": "armored-warrior"
     },
@@ -174,14 +160,12 @@
         "name": "Lockpick",
         "type": "active",
         "description": "Expertly pick any non-magical lock with a successful Dexterity check (DC 10 + lock complexity). Can be used to disarm simple traps. You gain proficiency with Thieves' Tools.",
-        "tier": 3,
         "synergy": "backstab"
     },
     "poison-mastery": {
         "name": "Poison Mastery",
         "type": "active",
         "description": "You can craft ${maxChoices} unique poisons daily, choosing from a list. Applying a poison to a weapon takes a bonus action. Poisons inflict effects and ${bonus} necrotic damage. Your Backstab ability deals an additional 1x damage if the target is poisoned.",
-        "tier": 5,
         "maxChoices": 2,
         "options": [
             {
@@ -215,7 +199,6 @@
         "description": "As an action, you can touch a creature and heal them for ${healing} hit points. Alternatively, you can expend 5 points to cure one disease or neutralize one poison affecting the creature. Your healing is boosted by your Wisdom.",
         "healing": "5 + WIS * 2",
         "cost": { "faith": 3 },
-        "tier": 3,
         "usage": "faith-points-based",
         "newResources": {
             "faith-points": {
@@ -228,7 +211,6 @@
         "name": "Turn Undead",
         "type": "active",
         "description": "As an action, present your holy symbol and speak a prayer. Each undead within 30 feet that can hear you must make a Wisdom saving throw (DC 8 + WIS modifier) or be Turned for 1 minute. A Turned creature must spend its turns trying to move as far away from you as it can. It cannot willingly move into a space within 30 feet of you. It also can't take reactions. For low-level undead (CR 1/2 or less), you can attempt to command them instead (Wisdom check vs their DC). Usable once per short rest.",
-        "tier": 5,
         "cost": { "faith": 2 },
         "usage": "once-per-short-rest",
         "synergy": "divine-smite"
@@ -237,42 +219,36 @@
         "name": "Virtuoso",
         "type": "passive",
         "description": "Gain +${bonus} to technical skill checks.",
-        "bonus": 2,
-        "tier": 1
+        "bonus": 2
     },
     "improvisation": {
         "name": "Improvisation",
         "type": "active",
         "description": "Reroll a failed performance check once per session.",
-        "cost": { "inspiration": 1 },
-        "tier": 2
+        "cost": { "inspiration": 1 }
     },
     "power-chord": {
         "name": "Power Chord",
         "type": "active",
         "description": "Deal ${damage} sonic damage to nearby enemies.",
         "damage": 4,
-        "cost": { "stamina": 15 },
-        "tier": 1
+        "cost": { "stamina": 15 }
     },
     "high-note": {
         "name": "High Note",
         "type": "active",
-        "description": "Automatically succeed on a vocal check (once per session).",
-        "tier": 1
+        "description": "Automatically succeed on a vocal check (once per session)."
     },
     "double-kick": {
         "name": "Double Kick",
         "type": "active",
         "description": "Gain an extra action during drum solos.",
-        "cost": { "stamina": 20 },
-        "tier": 1
+        "cost": { "stamina": 20 }
     },
     "grand-finale": {
         "name": "Grand Finale",
         "type": "active",
         "description": "Unleash a captivating musical climax. Choose one powerful finale effect to execute. Usable once per concert.",
-        "tier": 5,
         "maxChoices": 1,
         "options": [
             {
@@ -309,7 +285,6 @@
         "description": "Unleash a blistering guitar solo that deals ${damage} psychic damage to a single target and forces them to make a Wisdom saving throw (DC 8 + STYLE modifier) or be Frightened for 1 round. Your style boosts this effect.",
         "damage": "6 + STYLE",
         "cost": { "stamina": 25 },
-        "tier": 3,
         "usage": "once-per-scene",
         "synergy": "power-chord"
     },
@@ -317,7 +292,6 @@
         "name": "Feedback Loop",
         "type": "active",
         "description": "Manipulate sonic feedback to your advantage. Choose one effect. The effectiveness is influenced by your Rhythm.",
-        "tier": 5,
         "maxChoices": 1,
         "options": [
             {
@@ -352,7 +326,6 @@
         "name": "Crowd Hush",
         "type": "active",
         "description": "Deliver a vocal performance so subtle and profound it captures the full attention of the audience. Gain Advantage on your next Charisma (Performance) check this scene. Silences minor distractions. Your Passion helps you silence the crowd.",
-        "tier": 3,
         "cost": { "inspiration": 1 },
         "usage": "once-per-scene",
         "scalesWith": "Passion"
@@ -361,7 +334,6 @@
         "name": "Golden Voice",
         "type": "active",
         "description": "Your voice is imbued with irresistible charm and authority. Choose one powerful vocal effect. Usable once per session.",
-        "tier": 5,
         "maxChoices": 1,
         "options": [
             {
@@ -395,7 +367,6 @@
         "name": "Fill Master",
         "type": "active",
         "description": "Execute a complex drum fill that can set up an ally or disrupt an enemy. Choose one effect. This requires precise Rhythm.",
-        "tier": 3,
         "maxChoices": 1,
         "options": [
             {
@@ -417,7 +388,6 @@
         "name": "Metronome Sense",
         "type": "passive",
         "description": "You possess an uncanny sense of rhythm and timing, allowing you to manipulate the flow of time in minor ways. Choose one application of your Metronome Sense. This ability makes you the ultimate tempo-keeper.",
-        "tier": 5,
         "maxChoices": 1,
         "options": [
             {

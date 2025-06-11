@@ -16,7 +16,8 @@ class WizardStateManager {
       moduleChanged: false, // Flag to indicate if the module has been changed, triggering resets
       destiny: null,
       flaws: [], // Array of {id, destiny: boolean}
-      abilities: [], // Array of {id, selections: [], tier: number, source: string}
+      // abilities: Array of {id, selections: [], source: string, groupId: string} <--- Added 'groupId', removed 'tier'
+      abilities: [],
       attributes: {},
       info: { name: '', bio: '' }
     };
@@ -56,7 +57,7 @@ class WizardStateManager {
           // Reset dependent state when the module changes
           this.state.destiny = null;
           this.state.flaws = [];
-          this.state.abilities = [];
+          this.state.abilities = []; // Abilities are reset regardless of source, on module change
           this.state.attributes = {};
         } else {
           console.log(`WizardStateManager: Module re-selected: ${value}. No change.`);
@@ -136,34 +137,68 @@ class WizardStateManager {
   }
 
   /**
-   * Adds or updates an ability in the state, including its source.
-   * Ensures only one ability per tier per source is selected (if applicable).
-   * @param {Object} newAbility - The ability object to add/update {id, tier, selections, source}.
+   * Adds or updates an ability in the state, including its source and group ID.
+   * When adding, it ensures only one ability from the same source and group ID is selected,
+   * respecting the 'Choose N' rule if applicable.
+   * @param {Object} newAbility - The ability object to add/update {id, selections: [], source: string, groupId: string}.
    */
   addOrUpdateAbility(newAbility) {
-    console.log(`WizardStateManager: Adding/updating ability: ${newAbility.id} for Tier ${newAbility.tier} (Source: ${newAbility.source || 'N/A'})`);
+    console.log(`WizardStateManager: Adding/updating ability: ${newAbility.id} (Source: ${newAbility.source || 'N/A'}, Group: ${newAbility.groupId || 'N/A'})`);
 
-    // Filter out any existing ability from the same tier AND the same source
-    this.state.abilities = this.state.abilities.filter(ability =>
-      !(ability.tier === newAbility.tier && ability.source === newAbility.source)
-    );
-    // Add the new ability
-    this.state.abilities.push(newAbility);
+    // Ensure newAbility has necessary properties, particularly 'groupId' and 'source'
+    if (!newAbility.groupId || !newAbility.source) {
+      console.error('WizardStateManager: newAbility must have groupId and source properties.', newAbility);
+      return;
+    }
+
+    // Filter out existing abilities from the same source and group.
+    // This assumes that for a given source and groupId, only one selection behavior is desired.
+    // If a group allows multiple choices (maxChoices > 1), we would filter differently.
+    // Given 'Choose N' per group, we just replace the specific selection if it's a radio,
+    // or manage a set of checkboxes. The current model for `abilities` array suggests
+    // one entry per chosen ability, which is then managed.
+    // For single-choice groups (radio buttons), we filter out any existing ability
+    // from the same group and source to enforce "choose 1".
+    const destinyData = this.getDestiny(this.state.destiny);
+    const groupDef = destinyData?.abilityGroups?.[newAbility.groupId];
+    const maxChoices = groupDef?.maxChoices || 1; // Default to 1 if not specified
+
+    if (maxChoices === 1) { // This behavior implies a radio button choice
+      this.state.abilities = this.state.abilities.filter(ability =>
+        !(ability.source === newAbility.source && ability.groupId === newAbility.groupId)
+      );
+      this.state.abilities.push(newAbility);
+    } else {
+      // For groups allowing multiple choices (checkboxes), this `addOrUpdateAbility`
+      // method would typically be called when a *specific option* is checked/unchecked,
+      // not when the *parent ability* is selected. The `updateAbilitySelections`
+      // method is more appropriate for managing selections within a multi-choice ability.
+      // However, if `addOrUpdateAbility` is still used to initially "select" the ability
+      // as a container, its implementation for maxChoices > 1 might need refinement.
+      // For now, it will just add the new ability (assuming it's a new unique one for the group).
+      // The `DestinyPageHandler`'s `_handleTierSelection` (now `_handleGroupSelection`)
+      // will create this newAbility entry in state.
+      if (!this.state.abilities.some(a => a.id === newAbility.id && a.source === newAbility.source && a.groupId === newAbility.groupId)) {
+        this.state.abilities.push(newAbility);
+      }
+    }
     console.log('WizardStateManager: Current abilities state:', this.state.abilities);
   }
 
   /**
    * Updates selections for a specific ability.
    * @param {string} abilityId - The ID of the ability to update.
+   * @param {string} source - The source of the ability (e.g., 'destiny').
+   * @param {string} groupId - The ID of the group the ability belongs to.
    * @param {Array<Object>} newSelections - The new array of selections for that ability.
    */
-  updateAbilitySelections(abilityId, newSelections) {
-    const abilityIndex = this.state.abilities.findIndex(a => a.id === abilityId);
+  updateAbilitySelections(abilityId, source, groupId, newSelections) {
+    const abilityIndex = this.state.abilities.findIndex(a => a.id === abilityId && a.source === source && a.groupId === groupId); // Use source and groupId for finding
     if (abilityIndex !== -1) {
       this.state.abilities[abilityIndex].selections = newSelections;
-      console.log(`WizardStateManager: Selections updated for ability ${abilityId}:`, newSelections);
+      console.log(`WizardStateManager: Selections updated for ability ${abilityId} (Source: ${source}, Group: ${groupId}):`, newSelections);
     } else {
-      console.warn(`WizardStateManager: Attempted to update selections for non-existent ability: ${abilityId}`);
+      console.warn(`WizardStateManager: Attempted to update selections for non-existent ability: ${abilityId} (Source: ${source}, Group: ${groupId})`);
     }
   }
 

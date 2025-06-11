@@ -110,10 +110,6 @@ class PageNavigator {
       return false;
     }
 
-    // ORIGINAL BEHAVIOR: All pages other than module/info require only module selection to be accessible.
-    // The previous implementation added a check here for 'attributes' requiring 'destiny' to be completed,
-    // which was the unintended functionality change. This line has been removed to restore original behavior.
-
     return true;
   }
 
@@ -126,7 +122,6 @@ class PageNavigator {
   getNavigationBlockReason(index, currentState) {
     if (index === this.pages.length - 1) return "Enter basic details anytime";
     if (!currentState.module) return "Select a module first";
-    // No specific block reason for attributes now, as it only requires module selection.
     return "";
   }
 
@@ -173,7 +168,7 @@ class PageNavigator {
   }
 
   /**
-   * Validates if the destiny page (including flaws and abilities) is complete.
+   * Validates if the destiny page (including flaws and ability groups) is complete.
    * This is a helper for `isPageCompleted`.
    * @param {Object} currentState - The current wizard state.
    * @returns {boolean} True if destiny page is complete, false otherwise.
@@ -181,8 +176,8 @@ class PageNavigator {
   validateDestinyCompletion(currentState) {
     if (!currentState.destiny) return false;
     const destiny = this.stateManager.getDestiny(currentState.destiny);
-    if (!destiny) {
-        console.warn('PageNavigator.validateDestinyCompletion: Destiny data missing for:', currentState.destiny);
+    if (!destiny || !destiny.abilityGroups) {
+        console.warn('PageNavigator.validateDestinyCompletion: Destiny data or ability groups missing for:', currentState.destiny);
         return false;
     }
 
@@ -193,27 +188,38 @@ class PageNavigator {
       return false;
     }
 
-    // Check at least one ability per tier is selected
-    const tiers = [...new Set(destiny.levelUnlocks.map(u => u.level))];
-    const tierComplete = tiers.every(tier => {
-      return currentState.abilities.some(a =>
-        destiny.levelUnlocks.some(u => u.level == tier && u.ability === a.id)
+    // Validate each ability group
+    const allGroupsComplete = Object.entries(destiny.abilityGroups).every(([groupId, groupDef]) => {
+      const selectedAbilitiesInGroup = currentState.abilities.filter(a =>
+        a.groupId === groupId && a.source === 'destiny' // Filter abilities chosen from this destiny's group
       );
+
+      // Check if the number of selected abilities matches the maxChoices for this group
+      if (selectedAbilitiesInGroup.length !== groupDef.maxChoices) {
+        console.log(`Validation (Destiny): Group '${groupDef.name}' incomplete. Expected ${groupDef.maxChoices}, got ${selectedAbilitiesInGroup.length}.`);
+        return false;
+      }
+
+      // For each selected ability in the group, validate its nested options
+      const nestedOptionsComplete = selectedAbilitiesInGroup.every(abilityState => {
+        const abilityDef = this.stateManager.getAbility(abilityState.id);
+        if (!abilityDef || !abilityDef.options) return true; // No nested options to validate
+        if (abilityDef.maxChoices === undefined || abilityDef.maxChoices === null) return true; // No explicit maxChoices for nested options
+
+        return abilityState.selections.length === abilityDef.maxChoices;
+      });
+
+      if (!nestedOptionsComplete) {
+        console.log(`Validation (Destiny): Nested options incomplete for an ability in group '${groupDef.name}'.`);
+        return false;
+      }
+
+      return true; // This group is complete
     });
-    // console.log("Validation (Destiny): All tiers completed:", tierComplete);
-    if (!tierComplete) return false;
 
-    // Check ability option requirements
-    const optionsComplete = currentState.abilities.every(abilityState => {
-      const abilityDef = this.stateManager.getAbility(abilityState.id);
-      if (!abilityDef || !abilityDef.options) return true; // No options to choose from or abilityDef missing
-      if (abilityDef.maxChoices === undefined || abilityDef.maxChoices === null) return true; // No explicit maxChoices, so any number is fine
+    // console.log("Validation (Destiny): All groups completed:", allGroupsComplete);
 
-      return abilityState.selections.length === abilityDef.maxChoices;
-    });
-    // console.log("Validation (Destiny): All ability options complete:", optionsComplete);
-
-    return tierComplete && optionsComplete && selectedDestinyFlaws.length === 1;
+    return allGroupsComplete && selectedDestinyFlaws.length === 1;
   }
 
 
@@ -287,7 +293,7 @@ class PageNavigator {
       },
       destiny: {
         element: '#destiny-options-container', // More specific element
-        message: 'Please select a Destiny and exactly one Flaw, and ensure all ability options are selected.'
+        message: 'Please select a Destiny and exactly one Flaw, and ensure all ability groups are complete and all chosen abilities have their options selected.'
       },
       attributes: {
         element: '.dice-assignment-table',

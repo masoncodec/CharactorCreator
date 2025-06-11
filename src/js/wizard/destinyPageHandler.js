@@ -79,7 +79,7 @@ class DestinyPageHandler {
 
     // After rendering destinies, render the associated flaw and ability sections
     this._renderFlawSelection();
-    this._renderAbilitiesSection();
+    this._renderAbilityGroupsSection(); // Call the new method for rendering ability groups
   }
 
   /**
@@ -146,10 +146,10 @@ class DestinyPageHandler {
   }
 
   /**
-   * Renders the abilities section for the current destiny.
+   * Renders the ability groups section for the current destiny.
    * @private
    */
-  _renderAbilitiesSection() {
+  _renderAbilityGroupsSection() {
     const abilitiesSection = this.selectorPanel.querySelector('.abilities-section');
     // Remove old abilities section if it exists and no destiny is selected
     if (!this.stateManager.get('destiny')) {
@@ -158,51 +158,54 @@ class DestinyPageHandler {
     }
 
     const destiny = this.stateManager.getDestiny(this.stateManager.get('destiny'));
-    if (!destiny) {
-        console.warn('DestinyPageHandler: No destiny data to render abilities.');
+    if (!destiny || !destiny.abilityGroups) {
+        console.warn('DestinyPageHandler: No destiny data or ability groups to render abilities.');
         return;
     }
 
     const container = document.createElement('div');
     container.className = 'abilities-section';
-    container.innerHTML = '<h4>Abilities</h4>';
-
-    const abilitiesByTier = {};
-    destiny.levelUnlocks.forEach(unlock => {
-      if (!abilitiesByTier[unlock.level]) {
-        abilitiesByTier[unlock.level] = [];
-      }
-      abilitiesByTier[unlock.level].push(unlock.ability);
-    });
+    container.innerHTML = '<h4>Choose Your Abilities</h4>';
 
     const currentAbilitiesState = this.stateManager.get('abilities');
 
-    Object.entries(abilitiesByTier).forEach(([tier, abilityIds]) => {
-      container.innerHTML += `<h5 class="tier-header">Tier ${tier} (Choose 1)</h5>`;
+    Object.entries(destiny.abilityGroups).forEach(([groupId, groupDef]) => {
+      const maxChoicesText = groupDef.maxChoices === 1 ? 'Choose 1' : `Choose ${groupDef.maxChoices}`;
+      container.innerHTML += `<h5 class="group-header">${groupDef.name} (${maxChoicesText})</h5>`;
 
-      const tierGridContainer = document.createElement('div');
-      tierGridContainer.className = 'abilities-grid-container';
+      const groupGridContainer = document.createElement('div');
+      groupGridContainer.className = 'abilities-grid-container';
 
-      abilityIds.forEach(abilityId => {
+      groupDef.abilities.forEach(abilityId => {
         const ability = this.stateManager.getAbility(abilityId);
         if (!ability) {
-          console.warn(`DestinyPageHandler: Missing ability: ${abilityId}`);
+          console.warn(`DestinyPageHandler: Missing ability: ${abilityId} in group ${groupId}`);
           return;
         }
 
-        // Check if this ability is selected AND its source is 'destiny'
-        const isSelected = currentAbilitiesState.some(a => a.id === abilityId && a.tier === parseInt(tier) && a.source === 'destiny');
-        const abilityTypeClass = ability.type === 'active' ? 'active' : (ability.type === 'passive' ? 'passive' : '');
+        // Check if this ability is selected for THIS specific group AND source 'destiny'
+        const isSelected = currentAbilitiesState.some(a =>
+          a.id === abilityId && a.groupId === groupId && a.source === 'destiny'
+        );
 
-        tierGridContainer.innerHTML += `
+        const abilityTypeClass = ability.type === 'active' ? 'active' : (ability.type === 'passive' ? 'passive' : '');
+        const inputType = groupDef.maxChoices === 1 ? 'radio' : 'checkbox';
+        const inputName = groupDef.maxChoices === 1 ? `name="group-${groupId}"` : ''; // Radios need a name for exclusivity
+
+        groupGridContainer.innerHTML += `
           <div class="ability-container">
-              <div class="ability-card ${isSelected ? 'selected' : ''}" data-ability-id="${abilityId}" data-tier="${tier}">
+              <div class="ability-card ${isSelected ? 'selected' : ''}"
+                   data-ability-id="${abilityId}"
+                   data-group-id="${groupId}"
+                   data-max-choices="${groupDef.maxChoices}"
+                   data-source="destiny">
                   <div class="ability-header">
                       <label>
-                          <input type="radio" name="tier-${tier}"
+                          <input type="${inputType}" ${inputName}
                               ${isSelected ? 'checked' : ''}
-                              data-tier="${tier}"
-                              data-ability="${abilityId}">
+                              data-ability="${abilityId}"
+                              data-group="${groupId}"
+                              data-source="destiny">
                           <span class="ability-name">${ability.name}</span>
                       </label>
                       <div class="ability-types">
@@ -210,12 +213,12 @@ class DestinyPageHandler {
                       </div>
                   </div>
                   <div class="ability-description">${this._renderAbilityDescription(ability)}</div>
-                  ${ability.options ? this._renderAbilityOptions(ability, abilityId) : ''}
+                  ${ability.options ? this._renderAbilityOptions(ability, abilityId, groupId, 'destiny') : ''}
               </div>
           </div>
         `;
       });
-      container.appendChild(tierGridContainer);
+      container.appendChild(groupGridContainer);
     });
 
     if (abilitiesSection) {
@@ -242,8 +245,8 @@ class DestinyPageHandler {
     // Ensure only one listener per event type on the selectorPanel
     this.selectorPanel.removeEventListener('click', this._boundDestinyOptionClickHandler);
     this.selectorPanel.removeEventListener('click', this._boundFlawOptionClickHandler);
-    this.selectorPanel.removeEventListener('click', this._boundAbilityCardClickHandler);
-    this.selectorPanel.removeEventListener('change', this._boundAbilityOptionChangeHandler);
+    this.selectorPanel.removeEventListener('click', this._boundAbilityCardClickHandler); // This will handle both radio/checkbox parent clicks
+    this.selectorPanel.removeEventListener('change', this._boundAbilityOptionChangeHandler); // For nested options
 
     this._boundDestinyOptionClickHandler = this._handleDestinyOptionClick.bind(this);
     this.selectorPanel.addEventListener('click', this._boundDestinyOptionClickHandler);
@@ -292,8 +295,8 @@ class DestinyPageHandler {
 
       // Re-render sections and update UI
       this._renderFlawSelection();
-      this._renderAbilitiesSection();
-      this._autoSelectSingleAbilityTier(); // Auto-select abilities if applicable
+      this._renderAbilityGroupsSection(); // Re-render ability groups section
+      this._autoSelectSingleAbilityGroup(); // Auto-select abilities if applicable
       this._refreshAbilityOptionStates(); // Update disabled states after state change
 
       this.informerUpdater.update('destiny');
@@ -330,7 +333,7 @@ class DestinyPageHandler {
   }
 
   /**
-   * Handles click on ability cards (radio buttons).
+   * Handles click on ability cards (radio/checkbox inputs).
    * @param {Event} e - The click event.
    * @private
    */
@@ -339,102 +342,201 @@ class DestinyPageHandler {
     if (!abilityCard) return;
 
     const abilityId = abilityCard.dataset.abilityId;
-    const tier = abilityCard.dataset.tier;
-    const radioInput = abilityCard.querySelector(`input[type="radio"][data-ability="${abilityId}"][data-tier="${tier}"]`);
+    const groupId = abilityCard.dataset.groupId;
+    const source = abilityCard.dataset.source; // Should be 'destiny' for this handler
+    const maxChoices = parseInt(abilityCard.dataset.maxChoices, 10);
 
-    if (radioInput && !radioInput.checked) {
-      radioInput.checked = true; // Manually check the radio if not already
-      this._handleTierSelection(tier, abilityId);
+    const inputElement = abilityCard.querySelector(`input[data-ability="${abilityId}"][data-group="${groupId}"][data-source="${source}"]`);
 
-      // Update visual 'selected' class for ability cards within the same tier
-      this.selectorPanel.querySelectorAll(`.ability-card[data-tier="${tier}"]`).forEach(card => {
-        card.classList.remove('selected');
-      });
-      abilityCard.classList.add('selected');
+    if (!inputElement) {
+      console.warn('DestinyPageHandler: Could not find associated input for clicked ability card.');
+      return;
     }
+
+    const currentState = this.stateManager.getState();
+    const selectedAbilitiesInGroup = currentState.abilities.filter(a => a.groupId === groupId && a.source === source);
+    const isCurrentlySelected = selectedAbilitiesInGroup.some(a => a.id === abilityId);
+
+    if (maxChoices === 1) { // Radio button behavior (only one can be selected in group)
+      if (!inputElement.checked) {
+        inputElement.checked = true; // Manually check the radio if not already
+        this._handleGroupSelection(groupId, abilityId, source); // Update state
+        // Update visual 'selected' class for ability cards within the same group
+        this.selectorPanel.querySelectorAll(`.ability-card[data-group-id="${groupId}"][data-source="${source}"]`).forEach(card => {
+          card.classList.remove('selected');
+        });
+        abilityCard.classList.add('selected');
+      }
+    } else { // Checkbox behavior (multiple can be selected in group)
+      // Toggle selection for checkboxes
+      if (isCurrentlySelected) {
+        // Deselecting: remove from state
+        this.stateManager.set('abilities', currentState.abilities.filter(a => !(a.id === abilityId && a.groupId === groupId && a.source === source)));
+        abilityCard.classList.remove('selected');
+        inputElement.checked = false;
+      } else {
+        // Selecting: check max choices
+        if (selectedAbilitiesInGroup.length < maxChoices) {
+          // Add to state
+          const newAbilityState = {
+            id: abilityId,
+            selections: [], // No nested options for this ability, or will be managed by _handleAbilityOptionChange
+            source: source,
+            groupId: groupId
+          };
+          // For checkboxes, we need to push the new ability directly if not already there
+          // and then update the 'abilities' state.
+          const existingAbilityInState = currentState.abilities.find(a => a.id === abilityId && a.groupId === groupId && a.source === source);
+          if (!existingAbilityInState) {
+            this.stateManager.set('abilities', [...currentState.abilities, newAbilityState]);
+          } else {
+            // If it exists, but was somehow not selected, just update its 'selected' state if needed
+            // This scenario is less likely with correct UI state management, but good for robustness.
+            console.warn(`Ability ${abilityId} already in state for group ${groupId}, but was not marked as selected.`);
+          }
+
+          abilityCard.classList.add('selected');
+          inputElement.checked = true;
+        } else {
+          alerter.show(`You can only select up to ${maxChoices} abilities from this group.`);
+          inputElement.checked = false; // Revert checkbox if max choices exceeded
+          return; // Do not proceed with state update if max choices are met
+        }
+      }
+      this.informerUpdater.update('destiny'); // Update informer with new state
+      this.pageNavigator.updateNav(); // Update navigation
+    }
+    this._refreshAbilityOptionStates(); // Always refresh to update disabled states
   }
 
   /**
-   * Handles change event on ability option checkboxes/radio buttons.
+   * Handles change event on nested ability option checkboxes/radio buttons.
    * @param {Event} e - The change event.
    * @private
    */
   _handleAbilityOptionChange(e) {
-    if (e.target.matches('.ability-option input[type="checkbox"]') || e.target.matches('.ability-option input[type="radio"]')) {
-      const abilityId = e.target.dataset.ability;
-      const optionId = e.target.dataset.option;
-      const isSelected = e.target.checked;
-      this._handleAbilityOptionSelection(abilityId, optionId, isSelected, e.target);
+    // Ensure the event target is an option input
+    if (!e.target.matches('.ability-options input[type="checkbox"], .ability-options input[type="radio"]')) {
+      return;
     }
+    // Removed: e.preventDefault();
+    // Removed: e.stopPropagation();
+
+    console.log('--- _handleAbilityOptionChange triggered ---');
+
+    const optionInput = e.target;
+    const abilityId = optionInput.dataset.ability;
+    const optionId = optionInput.dataset.option;
+    const groupId = optionInput.closest('.ability-card').dataset.groupId; // Get groupId from parent card
+    const source = optionInput.closest('.ability-card').dataset.source; // Get source from parent card
+    const isSelectedFromInput = optionInput.checked; // This is the actual checked state after user interaction
+
+    console.log(`  Option Clicked: AbilityID=${abilityId}, OptionID=${optionId}, GroupID=${groupId}, Source=${source}, isSelectedFromInput (from input)=${isSelectedFromInput}`);
+
+    this._handleAbilityOptionSelection(abilityId, source, groupId, optionId, isSelectedFromInput, optionInput);
   }
 
   /**
-   * Handles the selection of a specific ability for a tier.
-   * @param {string} tier - The tier of the ability.
+   * Handles the selection of a specific ability from a group.
+   * This is typically for radio button style selections within a group.
+   * @param {string} groupId - The ID of the group the ability belongs to.
    * @param {string} abilityId - The ID of the selected ability.
+   * @param {string} source - The source of the ability (e.g., 'destiny').
    * @private
    */
-  _handleTierSelection(tier, abilityId) {
-    console.log(`DestinyPageHandler._handleTierSelection: Tier ${tier}, Ability: ${abilityId}`);
-    // Create a new ability state object, explicitly setting the source
+  _handleGroupSelection(groupId, abilityId, source) {
+    console.log(`DestinyPageHandler._handleGroupSelection: Group ${groupId}, Ability: ${abilityId}, Source: ${source}`);
+    // Create a new ability state object, explicitly setting the source and groupId
     const newAbilityState = {
       id: abilityId,
-      tier: parseInt(tier),
-      selections: [],
-      source: 'destiny' // <--- Explicitly set source here
+      selections: [], // Reset selections for the newly chosen ability in this group
+      source: source,
+      groupId: groupId
     };
+    // Add or update the ability in the state manager.
+    // The state manager handles filtering out old selections from the same group if maxChoices is 1.
     this.stateManager.addOrUpdateAbility(newAbilityState);
 
     // After updating state, refresh all ability option states globally to reflect changes
     this._refreshAbilityOptionStates();
-    this.pageNavigator.updateNav();
+    this.informerUpdater.update('destiny'); // Update informer with new state
+    // Removed: this.pageNavigator.updateNav(); // Called by _refreshAbilityOptionStates
   }
 
   /**
-   * Handles the selection/deselection of an ability option (checkbox/radio).
+   * Handles the selection/deselection of an ability option (checkbox/radio) nested within an ability.
    * @param {string} abilityId - The ID of the parent ability.
+   * @param {string} source - The source of the parent ability.
+   * @param {string} groupId - The ID of the group the parent ability belongs to.
    * @param {string} optionId - The ID of the option selected/deselected.
-   * @param {boolean} isSelected - True if selected, false if deselected.
+   * @param {boolean} isSelectedFromInput - True if the input element is checked after the user's interaction, false otherwise.
    * @param {HTMLElement} inputElement - The input element (checkbox/radio).
    * @private
    */
-  _handleAbilityOptionSelection(abilityId, optionId, isSelected, inputElement) {
+  _handleAbilityOptionSelection(abilityId, source, groupId, optionId, isSelectedFromInput, inputElement) {
+    console.log('--- _handleAbilityOptionSelection triggered ---');
+    console.log(`  Params: abilityId=${abilityId}, source=${source}, groupId=${groupId}, optionId=${optionId}, isSelectedFromInput=${isSelectedFromInput}`);
+
     const currentState = this.stateManager.getState();
-    // Ensure we find the ability by ID and source for correct state update if multiple sources exist
-    const abilityState = currentState.abilities.find(a => a.id === abilityId && a.source === 'destiny'); // <--- Find by source too
+    // Ensure we find the specific ability by ID, source, and groupId
+    const abilityState = currentState.abilities.find(a => a.id === abilityId && a.source === source && a.groupId === groupId);
 
     if (!abilityState) {
-      console.warn(`DestinyPageHandler._handleAbilityOptionSelection: Parent ability '${abilityId}' (source: destiny) not found in state.`);
-      inputElement.checked = false; // Ensure it's unchecked if parent isn't selected
+      console.warn(`DestinyPageHandler._handleAbilityOptionSelection: Parent ability '${abilityId}' (source: ${source}, group: ${groupId}) NOT FOUND IN STATE. Cannot select nested option.`);
+      inputElement.checked = false; // Ensure it's unchecked if parent isn't selected or in state
       this._refreshAbilityOptionStates();
       return;
     }
+    console.log('  Parent abilityState found:', abilityState);
+
 
     const abilityDef = this.stateManager.getAbility(abilityId);
     let newSelections = [...abilityState.selections]; // Create a mutable copy
 
+    // Determine if the option was *already* selected in the state
+    const isOptionCurrentlyInState = abilityState.selections.some(s => s.id === optionId);
+    console.log(`  Option ${optionId} is currently in state: ${isOptionCurrentlyInState}`); // ADDED LOG
+
     if (inputElement.type === 'radio') {
-      newSelections = [{ id: optionId }]; // For radio, always one selection
+      console.log('  Handling as radio button.');
+      // For radio buttons, if the input is `checked` after user interaction, it means this option is selected.
+      // We always set it as the *only* selection in the state for radios.
+      if (inputElement.checked) { // Rely directly on `inputElement.checked` for current visual state
+        newSelections = [{ id: optionId }];
+        console.log(`  Radio ${optionId} is checked. New selections will be:`, newSelections);
+      } else {
+        // This case for radio is generally not reached via user click (as radios are exclusive),
+        // but included for robustness if state changes programmatically or if a radio is explicitly unchecked.
+        newSelections = newSelections.filter(s => s.id !== optionId);
+        console.log(`  Radio ${optionId} is now unchecked. New selections will be:`, newSelections);
+      }
     } else { // Checkbox logic
-      if (isSelected) {
+      console.log('  Handling as checkbox.');
+      if (isOptionCurrentlyInState) { // Option is currently selected in state, user clicked to DESELECT
+        console.log(`  Checkbox clicked to DESELECT. Removing option ${optionId}.`);
+        newSelections = newSelections.filter(s => s.id !== optionId);
+        inputElement.checked = false; // Explicitly uncheck the input
+      } else { // Option is NOT currently selected in state, user clicked to SELECT
+        console.log(`  Checkbox clicked to SELECT. Current selections count: ${newSelections.length}, Max Choices: ${abilityDef.maxChoices}`);
         if (abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null &&
             newSelections.length >= abilityDef.maxChoices) {
-          inputElement.checked = false; // Revert checkbox state
+          console.log(`  Max choices (${abilityDef.maxChoices}) reached for ability ${abilityDef.name}. Reverting input.`);
+          inputElement.checked = false; // Revert checkbox state if over limit
           alerter.show(`You can only select up to ${abilityDef.maxChoices} option(s) for ${abilityDef.name}.`);
-          this._refreshAbilityOptionStates();
+          this._refreshAbilityOptionStates(); // Refresh to ensure UI consistency
           return;
         }
-        if (!newSelections.some(s => s.id === optionId)) {
-          newSelections.push({ id: optionId });
-        }
-      } else {
-        newSelections = newSelections.filter(s => s.id !== optionId);
+        console.log(`  Adding option ${optionId} to selections.`);
+        newSelections.push({ id: optionId });
+        inputElement.checked = true; // Explicitly check the input
       }
     }
+    console.log('  New selections array:', newSelections);
 
-    this.stateManager.updateAbilitySelections(abilityId, newSelections); // Update state manager
-    this._refreshAbilityOptionStates(); // Update disabled states based on new selections
+    this.stateManager.updateAbilitySelections(abilityId, source, groupId, newSelections);
     this.informerUpdater.update('destiny');
+    this._refreshAbilityOptionStates(); // Update disabled states based on new selections
+    console.log('--- _handleAbilityOptionSelection finished ---');
   }
 
   /**
@@ -463,23 +565,39 @@ class DestinyPageHandler {
       }
     }
 
-    // Restore selected ability cards and their radio buttons (only those from 'destiny' source)
+    // Restore selected ability cards and their inputs (only those from 'destiny' source)
     currentState.abilities.forEach(abilityState => {
       // Ensure we only restore abilities originating from this page ('destiny')
-      if (abilityState.source === 'destiny') { // <--- Check source here
-        const abilityCard = this.selectorPanel.querySelector(`.ability-card[data-ability-id="${abilityState.id}"][data-tier="${abilityState.tier}"]`);
+      if (abilityState.source === 'destiny') {
+        const abilityCard = this.selectorPanel.querySelector(
+          `.ability-card[data-ability-id="${abilityState.id}"][data-group-id="${abilityState.groupId}"][data-source="${abilityState.source}"]`
+        );
         if (abilityCard) {
           abilityCard.classList.add('selected');
-          const radioInput = abilityCard.querySelector('input[type="radio"]');
-          if (radioInput) {
-            radioInput.checked = true;
+          // Select the correct input element within the card based on type (radio/checkbox)
+          const groupDef = this.stateManager.getDestiny(currentState.destiny)?.abilityGroups?.[abilityState.groupId];
+          const inputType = groupDef?.maxChoices === 1 ? 'radio' : 'checkbox';
+          const inputElement = abilityCard.querySelector(`input[type="${inputType}"][data-ability="${abilityState.id}"][data-group="${abilityState.groupId}"][data-source="${abilityState.source}"]`);
+
+          if (inputElement) {
+            inputElement.checked = true;
           }
-          console.log(`DestinyPageHandler._restoreState: Ability card "${abilityState.id}" (Tier ${abilityState.tier}, Source: ${abilityState.source}) re-selected.`);
+          console.log(`DestinyPageHandler._restoreState: Ability card "${abilityState.id}" (Group ${abilityState.groupId}, Source: ${abilityState.source}) re-selected.`);
+
+          // Restore nested ability options
+          if (abilityState.selections && abilityState.selections.length > 0) {
+            abilityState.selections.forEach(option => {
+              const optionInput = abilityCard.querySelector(`input[data-ability="${abilityState.id}"][data-option="${option.id}"]`);
+              if (optionInput) {
+                optionInput.checked = true;
+              }
+            });
+          }
         }
       }
     });
 
-    this._autoSelectSingleAbilityTier(); // Re-run auto-selection on restore
+    this._autoSelectSingleAbilityGroup(); // Re-run auto-selection on restore
     this._refreshAbilityOptionStates(); // Crucial to update disabled states based on selections
   }
 
@@ -494,7 +612,7 @@ class DestinyPageHandler {
       'Combat': '⚔️',
       'Spell': '🔮',
       'Support': '🛡️',
-      'Social': '💬',
+      'Social': '💬', // Changed '?' to '💬' for consistency with common social icons
       'Holy': '✨',
       'Healing': '❤️',
       'Performance': '🎤',
@@ -547,23 +665,26 @@ class DestinyPageHandler {
   }
 
   /**
-   * Helper function to render ability options (checkboxes/radio buttons).
+   * Helper function to render ability options (checkboxes/radio buttons) nested within an ability.
    * @param {Object} ability - The parent ability object.
    * @param {string} abilityId - The ID of the parent ability.
+   * @param {string} groupId - The ID of the group the parent ability belongs to.
+   * @param {string} source - The source of the parent ability.
    * @returns {string} HTML string for options.
    * @private
    */
-  _renderAbilityOptions(ability, abilityId) {
+  _renderAbilityOptions(ability, abilityId, groupId, source) {
     if (!ability.options) return '';
 
     const currentState = this.stateManager.getState();
-    // When rendering, check for the specific ability (ID + source)
-    const abilityState = currentState.abilities.find(a => a.id === abilityId && a.source === 'destiny'); // <--- Find by source
+    // When rendering, check for the specific ability (ID + source + groupId)
+    const abilityState = currentState.abilities.find(a => a.id === abilityId && a.source === source && a.groupId === groupId);
     const currentSelections = abilityState ? abilityState.selections : [];
     const isParentAbilityCurrentlySelected = !!abilityState;
 
     const inputType = (ability.maxChoices === 1) ? 'radio' : 'checkbox';
-    const inputName = (inputType === 'radio') ? `name="${abilityId}"` : '';
+    // For nested options, the name should be unique to the parent ability's options, not the group.
+    const inputName = (inputType === 'radio') ? `name="ability-options-${abilityId}"` : '';
     const chooseText = (ability.maxChoices === 1) ? 'Choose one' : `Choose ${ability.maxChoices || 'any'}`;
 
     return `
@@ -581,6 +702,8 @@ class DestinyPageHandler {
                         ${checkedAttribute}
                         data-ability="${abilityId}"
                         data-option="${option.id}"
+                        data-group="${groupId}"
+                        data-source="${source}"
                         ${disabledAttribute}
                     >
                     ${option.name}: ${this._renderAbilityDescription(option)}
@@ -591,37 +714,36 @@ class DestinyPageHandler {
   }
 
   /**
-   * Auto-selects abilities if a tier has only one option and it's not already selected.
+   * Auto-selects abilities if a group has only one option and it's not already selected.
    * @private
    */
-  _autoSelectSingleAbilityTier() {
+  _autoSelectSingleAbilityGroup() {
     const currentState = this.stateManager.getState();
     if (!currentState.destiny) return;
 
     const destiny = this.stateManager.getDestiny(currentState.destiny);
-    const abilitiesByTier = {};
-    destiny.levelUnlocks.forEach(unlock => {
-      if (!abilitiesByTier[unlock.level]) {
-        abilitiesByTier[unlock.level] = [];
-      }
-      abilitiesByTier[unlock.level].push(unlock.ability);
-    });
+    if (!destiny || !destiny.abilityGroups) return;
 
-    Object.entries(abilitiesByTier).forEach(([tier, abilityIds]) => {
-      if (abilityIds.length === 1) {
-        const singleAbilityId = abilityIds[0];
-        // Check if this specific ability from 'destiny' source is already selected
-        const isAlreadySelected = currentState.abilities.some(a => a.id === singleAbilityId && a.tier === parseInt(tier) && a.source === 'destiny'); // <--- Check source here
+    Object.entries(destiny.abilityGroups).forEach(([groupId, groupDef]) => {
+      // Auto-select if exactly one ability in group AND it's a "choose 1" group for the *group itself*
+      if (groupDef.abilities.length === 1 && groupDef.maxChoices === 1) {
+        const singleAbilityId = groupDef.abilities[0];
+        const source = 'destiny'; // Assuming destiny page always implies 'destiny' source for its abilities
+
+        // Check if this specific ability from 'destiny' source and group is already selected
+        const isAlreadySelected = currentState.abilities.some(a =>
+          a.id === singleAbilityId && a.groupId === groupId && a.source === source
+        );
 
         if (!isAlreadySelected) {
-          console.log(`DestinyPageHandler: Auto-selecting ability "${singleAbilityId}" for Tier ${tier} (Source: destiny).`);
-          // Simulate radio button click to trigger the full handling logic
-          const radioInput = this.selectorPanel.querySelector(
-            `.ability-card[data-ability-id="${singleAbilityId}"][data-tier="${tier}"] input[type="radio"]`
+          console.log(`DestinyPageHandler: Auto-selecting ability "${singleAbilityId}" for Group ${groupId} (Source: ${source}).`);
+          // Simulate input check and call the handler for group selection
+          const inputElement = this.selectorPanel.querySelector(
+            `.ability-card[data-ability-id="${singleAbilityId}"][data-group-id="${groupId}"][data-source="${source}"] input[type="radio"]` // Assuming radio for auto-select single
           );
-          if (radioInput) {
-            radioInput.checked = true; // Visually check
-            this._handleTierSelection(tier, singleAbilityId); // Call the handler directly
+          if (inputElement) {
+            inputElement.checked = true; // Visually check
+            this._handleGroupSelection(groupId, singleAbilityId, source); // Call the handler directly
           }
         }
       }
@@ -637,24 +759,49 @@ class DestinyPageHandler {
     console.log('DestinyPageHandler._refreshAbilityOptionStates: Updating all ability option disabled states.');
     const currentState = this.stateManager.getState();
 
-    this.selectorPanel.querySelectorAll('.ability-container').forEach(abilityContainer => {
-      const abilityCard = abilityContainer.querySelector('.ability-card');
-      if (!abilityCard) return;
-
+    // Iterate through each ability card on the page
+    this.selectorPanel.querySelectorAll('.ability-card').forEach(abilityCard => {
       const abilityId = abilityCard.dataset.abilityId;
+      const groupId = abilityCard.dataset.groupId;
+      const source = abilityCard.dataset.source;
+      const maxChoicesForGroup = parseInt(abilityCard.dataset.maxChoices, 10);
+
       const abilityData = this.stateManager.getAbility(abilityId);
+      if (!abilityData) {
+        console.warn(`_refreshAbilityOptionStates: Missing abilityData for ${abilityId}. Skipping updates for its options.`);
+        return; // Should not happen if data is loaded correctly
+      }
 
       // Find the ability state for THIS specific ability coming from 'destiny' page
-      const abilityState = currentState.abilities.find(a => a.id === abilityId && a.source === 'destiny'); // <--- Find by source too
+      const abilityState = currentState.abilities.find(a => a.id === abilityId && a.source === source && a.groupId === groupId);
       const isParentAbilityCurrentlySelected = !!abilityState;
 
-      // Update card visual selection state
+      // Update parent ability card visual 'selected' state
       if (isParentAbilityCurrentlySelected) {
         abilityCard.classList.add('selected');
       } else {
         abilityCard.classList.remove('selected');
       }
 
+      // Handle the main ability input (radio/checkbox for selecting the ability itself within the group)
+      const mainAbilityInput = abilityCard.querySelector(`input[data-ability="${abilityId}"][data-group="${groupId}"][data-source="${source}"]`);
+      if (mainAbilityInput) {
+        const selectedAbilitiesInThisGroup = currentState.abilities.filter(a => a.groupId === groupId && a.source === source);
+        const countSelectedInGroup = selectedAbilitiesInThisGroup.length;
+
+        if (maxChoicesForGroup === 1) { // Radio button group
+          // Only the truly selected ability for this group should be checked and enabled.
+          mainAbilityInput.checked = isParentAbilityCurrentlySelected;
+          mainAbilityInput.disabled = false; // All radios within a "choose 1" group are always enabled if the group itself is enabled.
+        } else { // Checkbox group
+          mainAbilityInput.checked = isParentAbilityCurrentlySelected; // Checkbox state directly reflects its selection
+          // Disable if max choices are reached AND this ability is NOT currently selected
+          mainAbilityInput.disabled = (countSelectedInGroup >= maxChoicesForGroup && !isParentAbilityCurrentlySelected);
+        }
+      }
+
+
+      // Now handle nested options within this ability card
       const optionsContainer = abilityCard.querySelector('.ability-options');
       if (optionsContainer && abilityData && abilityData.options) {
         optionsContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(optionInput => {
@@ -665,30 +812,35 @@ class DestinyPageHandler {
           let shouldBeDisabled = false;
 
           if (!isParentAbilityCurrentlySelected) {
-            shouldBeDisabled = true;
-            if (optionInput.checked) { // Ensure unselected parent's options are unchecked
-              optionInput.checked = false;
-              // Clean up state if necessary (should be handled by parent ability deselection)
-              // Note: The parent ability deselection logic implicitly clears its selections
-              // when a new ability for the same tier/source is chosen.
+            shouldBeDisabled = true; // Nested options disabled if parent ability is not selected
+            if (optionInput.checked) {
+              optionInput.checked = false; // Ensure unselected parent's options are unchecked
             }
           } else {
             const currentSelectionsCount = abilityState.selections.length;
-            const maxChoices = abilityData.maxChoices;
+            const maxChoicesForOption = abilityData.maxChoices; // This refers to nested options' maxChoices
+
+            console.log(`  Option: ${optionId}, isSelected (from state): ${isOptionSelected}, currentSelectionsCount: ${currentSelectionsCount}, maxChoicesForOption: ${maxChoicesForOption}`);
 
             if (optionInput.type === 'radio') {
-              shouldBeDisabled = false; // Radios are always enabled if parent is selected
-            } else { // Checkbox logic
-              if (maxChoices !== undefined && maxChoices !== null && currentSelectionsCount >= maxChoices && !isOptionSelected) {
+              shouldBeDisabled = false; // Nested radios always enabled if parent is selected
+            } else { // Nested Checkbox logic
+              if (maxChoicesForOption !== undefined && maxChoicesForOption !== null &&
+                  currentSelectionsCount >= maxChoicesForOption && !isOptionSelected) {
                 shouldBeDisabled = true;
+                console.log(`    Option ${optionId} DISABLED: Max choices reached (${currentSelectionsCount}/${maxChoicesForOption}) and option not selected.`);
               } else {
                 shouldBeDisabled = false;
+                console.log(`    Option ${optionId} ENABLED.`);
               }
             }
           }
           optionInput.disabled = shouldBeDisabled;
           optionInput.checked = isOptionSelected; // Ensure input reflects state
+          console.log(`    Option ${optionId} final state: disabled=${optionInput.disabled}, checked=${optionInput.checked}`);
         });
+      } else if (optionsContainer) {
+        console.log(`_refreshAbilityOptionStates: Ability ${abilityId} has optionsContainer but no options in abilityData.`);
       }
     });
     this.pageNavigator.updateNav(); // Update navigation based on completion

@@ -352,7 +352,7 @@ function renderAbilities(character) {
             activeAbilitiesHtml.push(`
                 <li class="ability-list-item">
                     <button class="ability-button ability-card ${isOn}" data-ability-id="${abilityState.id}">
-                        <strong>${abilityDef.name}</strong> <span class="ability-type-tag active">ACTIVE</span> (Tier ${abilityState.tier})
+                        <strong>${abilityDef.name}</strong> <span class="ability-type-tag active">ACTIVE</span>)
                         <p>${description}</p>
                         ${optionsHtml}
                     </button>
@@ -361,7 +361,7 @@ function renderAbilities(character) {
         } else { // Passive ability
             passiveAbilitiesHtml.push(`
                 <li class="ability-card passive-ability-item">
-                    <strong>${abilityDef.name}</strong> <span class="ability-type-tag passive">PASSIVE</span> (Tier ${abilityState.tier})
+                    <strong>${abilityDef.name}</strong> <span class="ability-type-tag passive">PASSIVE</span>)
                     <p>${description}</p>
                     ${optionsHtml}
                 </li>

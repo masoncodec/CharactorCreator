@@ -10,12 +10,26 @@
         { "id": "nature", "display": "Nature", "color": "#28a745", "icon": "🌳" },
         { "id": "beast-tamer", "display": "Beast Tamer", "color": "#C4A484", "icon": "🐻" }
     ],
-    "levelUnlocks": [
-        { "level": 1, "ability": "speak-with-animals" },
-        { "level": 1, "ability": "easter-egg" },
-        { "level": 2, "ability": "forest-feet" },
-        { "level": 3, "ability": "natures-gift" },
-        { "level": 5, "ability": "small-domain" },
-        { "level": 5, "ability": "large-domain" }
-    ]
+    "abilityGroups": {
+        "initial_abilities": {
+            "name": "Starting Abilities",
+            "maxChoices": 1,
+            "abilities": ["speak-with-animals", "easter-egg"]
+        },
+        "minor_growth": {
+            "name": "Minor Growth",
+            "maxChoices": 1,
+            "abilities": ["forest-feet"]
+        },
+        "natures_blessing": {
+            "name": "Nature's Blessing",
+            "maxChoices": 1,
+            "abilities": ["natures-gift"]
+        },
+        "domain_abilities": {
+            "name": "Domain Abilities",
+            "maxChoices": 1,
+            "abilities": ["small-domain", "large-domain"]
+        }
+    }
 }
