@@ -23,7 +23,7 @@
         },
         "domain_abilities": {
             "name": "Domain Abilities",
-            "maxChoices": 1,
+            "maxChoices": 2,
             "abilities": ["small-domain", "large-domain"]
         }
     }
