@@ -80,10 +80,19 @@
     color: #FFD700; /* Keeping gold for headers/labels */
 }
 
-/* REMOVED: No longer need radio option for the overall ability selection */
+/* NEW: Hide the actual checkbox/radio inputs for the main ability card selection */
+.ability-header input[type="checkbox"],
 .ability-header input[type="radio"] {
-    display: none; /* Hide the radio button for the overall ability selection */
+    appearance: none; /* Standard way to remove default browser styling */
+    -webkit-appearance: none; /* For WebKit browsers */
+    -moz-appearance: none; /* For Firefox */
+    width: 0; /* Make them take up no space */
+    height: 0;
+    opacity: 0; /* Ensure they are fully invisible */
+    position: absolute; /* Take them out of normal flow */
+    pointer-events: none; /* Prevent interaction with the hidden input directly */
 }
+
 
 .ability-name {
     flex-grow: 1;
@@ -173,6 +182,13 @@
     transition: all 0.2s ease-in-out;
 }
 
+/* NEW: Background color change for checked nested options */
+.ability-option input[type="checkbox"]:checked,
+.ability-option input[type="radio"]:checked {
+    background-color: #FFD700; /* Gold background when checked */
+    border-color: #FFD700; /* Gold border when checked */
+}
+
 /* Checkbox specific styles for the outer shape */
 .ability-option input[type="checkbox"] {
     border-radius: 4px;
@@ -193,7 +209,7 @@
     transform: translate(-50%, -50%);
     font-size: 1em;
     line-height: 1;
-    color: #FFD700; /* Changed to gold */
+    color: #252525; /* Changed to dark background color for contrast */
 }
 
 /* Custom indicator when checked - for radio buttons (the inner dot) */
@@ -203,7 +219,7 @@
     width: 0.5em;
     height: 0.5em;
     border-radius: 50%;
-    background-color: #FFD700; /* Changed to gold */
+    background-color: #252525; /* Changed to dark background color for contrast */
     position: absolute;
     top: 50%;
     left: 50%;
