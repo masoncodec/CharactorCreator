@@ -156,6 +156,13 @@ class DestinyPageHandler {
       return;
     }
 
+    // If the card is visually disabled, prevent any clicks on it.
+    if (abilityCard.classList.contains('disabled-for-selection')) {
+        console.log(`Click prevented on disabled ability card: ${abilityId}`);
+        return;
+    }
+
+
     const currentState = this.stateManager.getState();
     const isParentAbilityCurrentlySelected = currentState.abilities.some(a => a.id === abilityId && a.groupId === groupId && a.source === source);
 
@@ -841,10 +848,23 @@ class DestinyPageHandler {
           // Only the truly selected ability for this group should be checked and enabled.
           mainAbilityInput.checked = isParentAbilityCurrentlySelected;
           mainAbilityInput.disabled = false; // All radios within a "choose 1" group are always enabled if the group itself is enabled.
+
+          // For radio groups, DO NOT apply disabled-for-selection class to unselected cards.
+          // All radio cards should remain selectable.
+          abilityCard.classList.remove('disabled-for-selection'); // Ensure it's not disabled for selection
         } else { // Checkbox group
           mainAbilityInput.checked = isParentAbilityCurrentlySelected; // Checkbox state directly reflects its selection
           // Disable if max choices are reached AND this ability is NOT currently selected
           mainAbilityInput.disabled = (countSelectedInGroup >= maxChoicesForGroup && !isParentAbilityCurrentlySelected);
+
+          // Apply/remove 'disabled-for-selection' class to the entire card for checkbox groups
+          // A card should be disabled for selection if its group is full AND this card is not selected.
+          const isGroupFull = (maxChoicesForGroup > 0 && countSelectedInGroup >= maxChoicesForGroup);
+          if (isGroupFull && !isParentAbilityCurrentlySelected) {
+              abilityCard.classList.add('disabled-for-selection');
+          } else {
+              abilityCard.classList.remove('disabled-for-selection');
+          }
         }
       }
 

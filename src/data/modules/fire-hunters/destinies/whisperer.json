@@ -24,7 +24,7 @@
         "domain_abilities": {
             "name": "Domain Abilities",
             "maxChoices": 2,
-            "abilities": ["small-domain", "large-domain"]
+            "abilities": ["small-domain", "medium-domain", "large-domain"]
         }
     }
 }

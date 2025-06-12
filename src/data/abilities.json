@@ -53,12 +53,23 @@
     "small-domain": {
         "name": "Small Domain",
         "type": "active",
-        "description":  "Choose ${maxChoices} types of insects to gain low level control over.",
+        "description":  "Choose ${maxChoices} types of insects to gain medium level control over.",
         "maxChoices": 2,
         "options": [
             { "id": "ants", "name": "Ants", "description": "The perfect distraction." },
             { "id": "butterfly", "name": "Butterfly", "description": "The perfect reconnaissance." },
             { "id": "beetles", "name": "Beetles", "description": "The perfect food for scaly friends." }
+        ]
+    },
+    "medium-domain": {
+        "name": "Medium Domain",
+        "type": "passive",
+        "description":  "Choose ${maxChoices} types of pets to gain low level control over.",
+        "maxChoices": 2,
+        "options": [
+            { "id": "dog", "name": "Dog", "description": "The perfect distraction." },
+            { "id": "cat", "name": "Cat", "description": "The perfect reconnaissance." },
+            { "id": "bird", "name": "Bird", "description": "The perfect food for scaly friends." }
         ]
     },
     "large-domain": {

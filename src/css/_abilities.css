@@ -124,6 +124,13 @@
     border-left: 1px solid #FFD700; /* Darker red border */
 }
 
+.ability-card.disabled-for-selection {
+    opacity: 0.5; /* Make it look faded */
+    cursor: not-allowed; /* Change cursor to indicate it's not clickable */
+    pointer-events: none; /* Crucial: Prevents all mouse events on the element and its children */
+    transition: opacity 0.3s ease; /* Smooth transition for the visual change */
+}
+
 .ability-options p {
     font-size: 0.95rem;
     color: #FFD700; /* Keeping gold for option titles */
