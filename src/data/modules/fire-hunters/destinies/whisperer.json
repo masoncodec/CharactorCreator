@@ -21,6 +21,11 @@
             "maxChoices": 2,
             "abilities": ["forest-feet", "natures-gift"]
         },
+        "birdseed": {
+            "name": "Birdseed",
+            "maxChoices": 1,
+            "abilities": ["birdseed"]
+        },
         "domain_abilities": {
             "name": "Domain Abilities",
             "maxChoices": 2,

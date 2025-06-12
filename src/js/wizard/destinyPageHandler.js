@@ -97,7 +97,7 @@ class DestinyPageHandler {
       // Re-render sections and update UI
       this._renderFlawSelection();
       this._renderAbilityGroupsSection(); // Re-render ability groups section
-      this._autoSelectSingleAbilityGroup(); // Auto-select abilities if applicable
+      this._autoSelectAbilitiesInGroup(); // Auto-select abilities if applicable (renamed)
       this._refreshAbilityOptionStates(); // Update disabled states after state change
 
       this.informerUpdater.update('destiny');
@@ -450,7 +450,7 @@ class DestinyPageHandler {
       }
     });
 
-    this._autoSelectSingleAbilityGroup(); // Re-run auto-selection on restore
+    this._autoSelectAbilitiesInGroup(); // Re-run auto-selection on restore
     this._refreshAbilityOptionStates(); // Crucial to update disabled states based on selections
   }
 
@@ -768,10 +768,11 @@ class DestinyPageHandler {
   }
 
   /**
-   * Auto-selects abilities if a group has only one option and it's not already selected.
+   * Auto-selects abilities if a group has a specific configuration (e.g., maxChoices === number of abilities).
    * @private
+   * @name _autoSelectAbilitiesInGroup
    */
-  _autoSelectSingleAbilityGroup() {
+  _autoSelectAbilitiesInGroup() { // Renamed from _autoSelectSingleAbilityGroup
     const currentState = this.stateManager.getState();
     if (!currentState.destiny) return;
 
@@ -779,28 +780,29 @@ class DestinyPageHandler {
     if (!destiny || !destiny.abilityGroups) return;
 
     Object.entries(destiny.abilityGroups).forEach(([groupId, groupDef]) => {
-      // Auto-select if exactly one ability in group AND it's a "choose 1" group for the *group itself*
-      if (groupDef.abilities.length === 1 && groupDef.maxChoices === 1) {
-        const singleAbilityId = groupDef.abilities[0];
-        const source = 'destiny'; // Assuming destiny page always implies 'destiny' source for its abilities
+      // NEW LOGIC: Auto-select if maxChoices is equal to the number of abilities in the group
+      if (groupDef.maxChoices > 0 && groupDef.maxChoices === groupDef.abilities.length) {
+        groupDef.abilities.forEach(abilityId => {
+          const source = 'destiny'; // Assuming destiny page always implies 'destiny' source for its abilities
 
-        // Check if this specific ability from 'destiny' source and group is already selected
-        const isAlreadySelected = currentState.abilities.some(a =>
-          a.id === singleAbilityId && a.groupId === groupId && a.source === source
-        );
-
-        if (!isAlreadySelected) {
-          console.log(`DestinyPageHandler: Auto-selecting ability "${singleAbilityId}" for Group ${groupId} (Source: ${source}).`);
-          // Simulate input check and call the handler for group selection
-          const inputElement = this.selectorPanel.querySelector(
-            `.ability-card[data-ability-id="${singleAbilityId}"][data-group-id="${groupId}"][data-source="${source}"] input[type="radio"]` // Assuming radio for auto-select single
+          // Check if this specific ability from 'destiny' source and group is already selected
+          const isAlreadySelected = currentState.abilities.some(a =>
+            a.id === abilityId && a.groupId === groupId && a.source === source
           );
-          if (inputElement) {
-            inputElement.checked = true; // Visually check
-            // Use _processParentAbilitySelection as it's the unified handler now
-            this._processParentAbilitySelection(singleAbilityId, groupId, source, groupDef.maxChoices, inputElement, true);
+
+          if (!isAlreadySelected) {
+            console.log(`DestinyPageHandler: Auto-selecting ability "${abilityId}" for Group ${groupId} (Source: ${source}) due to maxChoices matching ability count.`);
+            // Get the actual input element for this ability card
+            const inputElement = this.selectorPanel.querySelector(
+              `.ability-card[data-ability-id="${abilityId}"][data-group-id="${groupId}"][data-source="${source}"] input[data-ability]`
+            );
+            if (inputElement) {
+              inputElement.checked = true; // Visually check
+              // Use _processParentAbilitySelection to update state and refresh UI
+              this._processParentAbilitySelection(abilityId, groupId, source, groupDef.maxChoices, inputElement, true);
+            }
           }
-        }
+        });
       }
     });
   }

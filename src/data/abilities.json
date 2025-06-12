@@ -50,6 +50,17 @@
           }
         ]
     },
+    "birdseed": {
+        "type": "active",
+        "name": "Birdseed",
+        "description": "You are able to create magical birdseed.",
+        "effect": [
+          {
+              "type": "inventory_item",
+              "name": "Birdseed"
+          }
+        ]
+    },
     "small-domain": {
         "name": "Small Domain",
         "type": "active",
