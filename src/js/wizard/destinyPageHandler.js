@@ -171,7 +171,7 @@ class DestinyPageHandler {
     const mainLabel = inputElement.closest('label');
     const isClickOnMainInputOrLabel = (e.target === inputElement || (mainLabel && mainLabel.contains(e.target)));
 
-    // NEW & IMPROVED: Identify if the click target is anywhere within the nested ability-options container.
+    // Identify if the click target is anywhere within the nested ability-options container.
     const isClickOnNestedOptionArea = e.target.closest('.ability-options');
 
     // --- SCENARIO 1: Clicked anywhere within the nested options area ---
@@ -305,6 +305,9 @@ class DestinyPageHandler {
     
     const isSelectedFromInput = optionInput.checked; // This is the actual checked state after user interaction
 
+    // Directly set the checked state of the input based on user interaction
+    optionInput.checked = isSelectedFromInput; // Crucial fix: ensure the DOM input state reflects the click
+
     this._handleAbilityOptionSelection(abilityId, source, groupId, optionId, isSelectedFromInput, optionInput);
   }
 
@@ -356,7 +359,9 @@ class DestinyPageHandler {
 
     if (!abilityState) {
       console.warn(`DestinyPageHandler._handleAbilityOptionSelection: Parent ability '${abilityId}' (source: ${source}, group: ${groupId}) NOT FOUND IN STATE. Cannot select nested option.`);
-      inputElement.checked = false; // Ensure it's unchecked if parent isn't selected or in state
+      // If parent ability is not in state, this nested option should not be selectable.
+      // Explicitly set checked to false and refresh to ensure UI reflects this.
+      inputElement.checked = false; // Ensure the input is unchecked if parent isn't selected or in state
       this._refreshAbilityOptionStates();
       return;
     }
@@ -760,7 +765,8 @@ class DestinyPageHandler {
                         data-source="${source}"
                         ${disabledAttribute}
                     >
-                    ${option.name}: ${this._renderAbilityDescription(option)}
+                    <span class="option-visual"></span>
+                    <span class="option-text-content">${option.name}: ${this._renderAbilityDescription(option)}</span> <!-- NEW: Wrapper for text -->
                 </label>`;
           }).join('')}
       </div>
@@ -798,7 +804,7 @@ class DestinyPageHandler {
             );
             if (inputElement) {
               inputElement.checked = true; // Visually check
-              // Use _processParentAbilitySelection to update state and refresh UI
+              // Use _processParentAbilitySelection as it's the unified handler now
               this._processParentAbilitySelection(abilityId, groupId, source, groupDef.maxChoices, inputElement, true);
             }
           }
@@ -883,6 +889,7 @@ class DestinyPageHandler {
 
           if (!isParentAbilityCurrentlySelected) {
             shouldBeDisabled = true; // Nested options disabled if parent ability is not selected
+            // Force uncheck if parent is not selected
             if (optionInput.checked) {
               optionInput.checked = false; // Ensure unselected parent's options are unchecked
             }
@@ -906,7 +913,10 @@ class DestinyPageHandler {
             }
           }
           optionInput.disabled = shouldBeDisabled;
-          optionInput.checked = isOptionSelected; // Ensure input reflects state
+          // IMPORTANT: Do NOT set optionInput.checked here if _handleAbilityOptionSelection directly handles it.
+          // The checked state should already be correct from _handleAbilityOptionSelection.
+          // This method only needs to set 'disabled' and ensure visual consistency for 'checked' state.
+          // The visual 'checked' state is handled by CSS based on the input's actual state.
           console.debug(`    Option ${optionId} final state: disabled=${optionInput.disabled}, checked=${optionInput.checked}`);
         });
       } else if (optionsContainer) {
