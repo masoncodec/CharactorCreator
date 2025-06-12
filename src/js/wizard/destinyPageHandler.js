@@ -159,37 +159,34 @@ class DestinyPageHandler {
 
     // Identify if the click target is the main input itself or an element within its associated label.
     // This addresses the "double click on ability-name" bug.
-    // Use closest('label') from the event target to accurately check if it's within *this specific* input's label.
     const mainLabel = inputElement.closest('label');
     const isClickOnMainInputOrLabel = (e.target === inputElement || (mainLabel && mainLabel.contains(e.target)));
 
-    // Identify if the click target is a nested option's input or its label.
-    const isClickOnNestedOption = e.target.matches('input[data-option]') || e.target.closest('.ability-options label');
+    // NEW & IMPROVED: Identify if the click target is anywhere within the nested ability-options container.
+    const isClickOnNestedOptionArea = e.target.closest('.ability-options');
 
-    // --- SCENARIO 1: Clicked on a nested option (input[data-option] or its label) ---
-    if (isClickOnNestedOption) {
+    // --- SCENARIO 1: Clicked anywhere within the nested options area ---
+    if (isClickOnNestedOptionArea) {
         if (!isParentAbilityCurrentlySelected) {
             // User clicked a nested option, and the parent ability is NOT selected.
             // We want to select the parent ability FIRST.
             inputElement.checked = true; // Manually check the main ability input
             this._processParentAbilitySelection(abilityId, groupId, source, maxChoices, inputElement, true);
 
-            // After selecting the parent, dispatch a 'change' event on the nested option
-            // so _handleAbilityOptionChange can handle its state correctly.
-            // This ensures both parent and nested option are selected on one click.
-            if (e.target.matches('input[data-option]')) {
-              e.target.dispatchEvent(new Event('change', { bubbles: true }));
-            } else if (e.target.closest('label') && e.target.closest('label').querySelector('input[data-option]')) {
-              e.target.closest('label').querySelector('input[data-option]').dispatchEvent(new Event('change', { bubbles: true }));
+            // After selecting the parent, if the actual target was a nested input,
+            // dispatch a 'change' event on it so _handleAbilityOptionChange can handle its state correctly.
+            const nestedOptionInput = e.target.matches('input[data-option]') ? e.target : e.target.closest('.ability-options label')?.querySelector('input[data-option]');
+            if (nestedOptionInput) {
+              nestedOptionInput.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }
         // In either case (parent was selected or just got selected),
-        // we prevent _handleAbilityCardClick from processing further for this specific click.
-        // The nested option's 'change' event will be handled by _handleAbilityOptionChange.
+        // we prevent _handleAbilityCardClick from processing further for this click.
+        // The nested option's 'change' event (if an input was clicked) will be handled by _handleAbilityOptionChange.
         return;
     }
 
-    // --- SCENARIO 2: Clicked on main ability card (input, label, or other parts) ---
+    // --- SCENARIO 2: Clicked on main ability card (input, label, or other parts *outside* nested options) ---
     // This logic handles the main ability selection/deselection and addresses the double-click bug.
     let intendedSelectionState;
     if (isClickOnMainInputOrLabel) {
@@ -197,7 +194,7 @@ class DestinyPageHandler {
         // The inputElement.checked already reflects the state after browser's native toggle.
         intendedSelectionState = inputElement.checked;
     } else {
-        // If click is on other parts of the card (not input/label/nested options),
+        // If click is on other parts of the card (not main input/label, and not nested options),
         // manually toggle the main input.
         intendedSelectionState = !inputElement.checked;
         inputElement.checked = intendedSelectionState; // Apply the manual toggle immediately
