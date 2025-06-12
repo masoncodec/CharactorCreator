@@ -2,6 +2,8 @@
 // This module handles the UI rendering and event handling for the 'destiny' selection page,
 // including destinies, flaws, and abilities.
 
+import { alerter } from '../alerter.js'; 
+
 class DestinyPageHandler {
   /**
    * @param {WizardStateManager} stateManager - The instance of the WizardStateManager.
