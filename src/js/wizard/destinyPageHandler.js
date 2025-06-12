@@ -176,24 +176,33 @@ class DestinyPageHandler {
 
     // --- SCENARIO 1: Clicked anywhere within the nested options area ---
     if (isClickOnNestedOptionArea) {
-        if (!isParentAbilityCurrentlySelected) {
-            // User clicked a nested option, and the parent ability is NOT selected.
-            // We want to select the parent ability FIRST.
-            inputElement.checked = true; // Manually check the main ability input
-            this._processParentAbilitySelection(abilityId, groupId, source, maxChoices, inputElement, true);
+      if (!isParentAbilityCurrentlySelected) {
+          // User clicked a nested option, and the parent ability is NOT selected.
+          // We want to select the parent ability FIRST, and then the nested option atomically.
+          // Let _processParentAbilitySelection handle the main input's checked state.
+          this._processParentAbilitySelection(abilityId, groupId, source, maxChoices, inputElement, true);
 
-            // After selecting the parent, if the actual target was a nested input,
-            // dispatch a 'change' event on it so _handleAbilityOptionChange can handle its state correctly.
-            const nestedOptionInput = e.target.matches('input[data-option]') ? e.target : e.target.closest('.ability-options label')?.querySelector('input[data-option]');
-            if (nestedOptionInput) {
+          // IMPORTANT: After selecting the parent, trigger a 'change' event on the nested option input.
+          // This ensures the nested option is processed through the standard _handleAbilityOptionChange flow.
+          if (nestedOptionInput) {
+              // Do NOT set nestedOptionInput.checked directly here.
+              // Let _handleAbilityOptionChange manage the visual state based on its logic.
               nestedOptionInput.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }
-        // In either case (parent was selected or just got selected),
-        // we prevent _handleAbilityCardClick from processing further for this click.
-        // The nested option's 'change' event (if an input was clicked) will be handled by _handleAbilityOptionChange.
-        return;
-    }
+          }
+      } else {
+          // Parent ability is already selected, so the click on nested option
+          // should be handled normally by _handleAbilityOptionChange.
+          // The change event is already handled by _handleAbilityOptionChange listener on the panel.
+          // No explicit action needed here, as the change listener is on the panel.
+          // Just ensure we return to prevent main ability card logic.
+          if (!nestedOptionInput) { // If it was a click on the container, but not an input
+              console.log(`DestinyPageHandler: Clicked on nested options area (not an input) while parent was selected. No action.`);
+          }
+      }
+      // In all cases of clicking within the nested options, we return to prevent
+      // the main ability card click logic from interfering.
+      return;
+  }
 
     // --- SCENARIO 2: Clicked on main ability card (input, label, or other parts *outside* nested options) ---
     // This logic handles the main ability selection/deselection and addresses the double-click bug.
