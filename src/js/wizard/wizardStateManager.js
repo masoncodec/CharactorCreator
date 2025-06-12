@@ -15,7 +15,7 @@ class WizardStateManager {
       module: null,
       moduleChanged: false, // Flag to indicate if the module has been changed, triggering resets
       destiny: null,
-      flaws: [], // Array of {id, destiny: boolean}
+      flaws: [], // Array of {id, source: string}
       // abilities: Array of {id, selections: [], source: string, groupId: string} <--- Added 'groupId', removed 'tier'
       abilities: [],
       attributes: {},
@@ -204,16 +204,21 @@ class WizardStateManager {
 
   /**
    * Adds or updates a flaw in the state.
-   * @param {Object} newFlaw - The flaw object to add/update {id, destiny: boolean}.
+   * @param {Object} newFlaw - The flaw object to add/update {id, source: string}.
    * @param {boolean} isDestinyFlaw - True if this is a destiny-specific flaw (only one allowed).
    */
   addOrUpdateFlaw(newFlaw, isDestinyFlaw) {
     if (isDestinyFlaw) {
       // Clear any existing destiny-specific flaws
-      this.state.flaws = this.state.flaws.filter(f => !f.destiny);
+      this.state.flaws = this.state.flaws.filter(f => f.source !== 'destiny');
     }
     // Add the new flaw if it's not already there
-    if (!this.state.flaws.some(f => f.id === newFlaw.id && f.destiny === newFlaw.destiny)) {
+    // Ensure newFlaw has a 'source' property for filtering
+    if (!newFlaw.source) {
+        console.error('WizardStateManager: newFlaw must have a "source" property.', newFlaw);
+        return;
+    }
+    if (!this.state.flaws.some(f => f.id === newFlaw.id && f.source === newFlaw.source)) { // UPDATED: check f.source
       this.state.flaws.push(newFlaw);
     }
     console.log('WizardStateManager: Current flaws state:', this.state.flaws);

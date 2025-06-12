@@ -90,7 +90,7 @@ class DestinyPageHandler {
       // Filter out only abilities sourced from 'destiny' when destiny changes
       this.stateManager.set('abilities', this.stateManager.get('abilities').filter(a => a.source !== 'destiny'));
       // Filter out only 'destiny' type flaws
-      this.stateManager.set('flaws', this.stateManager.get('flaws').filter(f => !f.destiny));
+      this.stateManager.set('flaws', this.stateManager.get('flaws').filter(f => f.source !== 'destiny'));
 
       console.log(`DestinyPageHandler: Destiny selected: ${selectedDestinyId}.`);
 
@@ -119,7 +119,7 @@ class DestinyPageHandler {
     const selectedFlawId = flawOptionDiv.dataset.flawId;
 
     // Clear any existing destiny-specific flaws and add the new one
-    this.stateManager.addOrUpdateFlaw({ id: selectedFlawId, destiny: true }, true);
+    this.stateManager.addOrUpdateFlaw({ id: selectedFlawId, source: 'destiny' }, true);
 
     // Update UI for flaw selection
     this.selectorPanel.querySelectorAll('.flaw-option').forEach(opt => {
@@ -423,7 +423,7 @@ class DestinyPageHandler {
     }
 
     // Restore selected flaw div based on the 'destiny' flag
-    const selectedDestinyFlaw = currentState.flaws.find(f => f.destiny === true);
+    const selectedDestinyFlaw = currentState.flaws.find(f => f.source === 'destiny');
     if (selectedDestinyFlaw) {
       const flawDiv = this.selectorPanel.querySelector(`.flaw-option[data-flaw-id="${selectedDestinyFlaw.id}"]`);
       if (flawDiv) {
@@ -538,7 +538,7 @@ class DestinyPageHandler {
 
     // Helper to check if a flaw is currently selected as a 'destiny' flaw
     const isFlawSelected = (flawId) =>
-      this.stateManager.get('flaws').some(f => f.id === flawId && f.destiny === true);
+      this.stateManager.get('flaws').some(f => f.id === flawId && f.source === 'destiny');
 
     container.innerHTML = `
       <div class="flaw-selection">
@@ -775,8 +775,7 @@ class DestinyPageHandler {
                         ${disabledAttribute}
                     >
                     <span class="option-visual"></span>
-                    <span class="option-text-content">${option.name}: ${this._renderAbilityDescription(option)}</span> <!-- NEW: Wrapper for text -->
-                </label>`;
+                    <span class="option-text-content">${option.name}: ${this._renderAbilityDescription(option)}</span> </label>`;
           }).join('')}
       </div>
       `;

@@ -44,7 +44,7 @@ class CharacterFinisher {
         console.log('  - Validation error: Destiny not selected.');
       } else {
           // Validate exactly one 'destiny' flaw
-          const selectedDestinyFlaws = currentState.flaws.filter(f => f.destiny === true);
+          const selectedDestinyFlaws = currentState.flaws.filter(f => f.source === 'destiny'); // MODIFIED: Check f.source instead of f.destiny
           if (selectedDestinyFlaws.length !== 1) {
               errors.push("• Please select exactly one Flaw for your character from the Destiny page.");
               console.log('  - Validation error: Destiny flaw not selected or multiple selected.');

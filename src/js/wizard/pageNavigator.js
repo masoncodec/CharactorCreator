@@ -181,8 +181,8 @@ class PageNavigator {
         return false;
     }
 
-    // Check if exactly one flaw with destiny: true is selected
-    const selectedDestinyFlaws = currentState.flaws.filter(f => f.destiny === true);
+    // Check if exactly one flaw with source: 'destiny' is selected
+    const selectedDestinyFlaws = currentState.flaws.filter(f => f.source === 'destiny');
     if (selectedDestinyFlaws.length !== 1) {
       // console.log("Validation (Destiny): Exactly one destiny flaw must be selected. Current count:", selectedDestinyFlaws.length);
       return false;
