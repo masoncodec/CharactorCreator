@@ -80,10 +80,19 @@
     color: #FFD700; /* Keeping gold for headers/labels */
 }
 
-/* REMOVED: No longer need radio option for the overall ability selection */
+/* Hide the actual checkbox/radio inputs for the main ability card selection */
+.ability-header input[type="checkbox"],
 .ability-header input[type="radio"] {
-    display: none; /* Hide the radio button for the overall ability selection */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    position: absolute;
+    pointer-events: none;
 }
+
 
 .ability-name {
     flex-grow: 1;
@@ -95,38 +104,45 @@
 }
 
 .type-tag {
-    background-color: #333; /* Keeping existing for type tags, adjust if needed */
+    background-color: #333;
     color: #E0E0E0;
     padding: 0.3em 0.6em;
     border-radius: 4px;
     font-size: 0.75rem;
     text-transform: uppercase;
-    border: 1px solid #555; /* Keeping existing for type tags, adjust if needed */
+    border: 1px solid #555;
 }
 
 .ability-description {
     font-size: 0.9rem;
-    color: #E0E0E0; /* Updated to main text color */
+    color: #E0E0E0;
     margin-bottom: 1rem;
 }
 
 .ability-options {
     margin-top: 1rem;
-    padding: 1.2rem 1.5rem; /* Adjusted for more space */
-    border-top: 1px solid rgb(56, 56, 56); /* Updated to new default border */
+    padding: 1.2rem 1.5rem;
+    border-top: 1px solid rgb(56, 56, 56);
 }
 
 .ability-card.selected .ability-options {
-    background-color: #252525; /* Darker red for cohesion */
-    border-top: 1px solid #FFD700; /* Darker red border */
-    border-right: 1px solid #FFD700; /* Darker red border */
-    border-bottom: 1px solid #FFD700; /* Darker red border */
-    border-left: 1px solid #FFD700; /* Darker red border */
+    background-color: #252525;
+    border-top: 1px solid #FFD700;
+    border-right: 1px solid #FFD700;
+    border-bottom: 1px solid #FFD700;
+    border-left: 1px solid #FFD700;
+}
+
+.ability-card.disabled-for-selection {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
 }
 
 .ability-options p {
     font-size: 0.95rem;
-    color: #FFD700; /* Keeping gold for option titles */
+    color: #FFD700;
     margin-bottom: 0.8rem;
     font-weight: bold;
 }
@@ -138,46 +154,63 @@
     margin-bottom: 0.8rem;
     cursor: pointer;
     font-size: 0.9rem;
-    color: #E0E0E0; /* Updated to main text color */
+    color: #E0E0E0;
+    padding: 0.5rem 0.8rem; /* Added padding to the label */
+    border-radius: 4px;
+    border: 1px solid transparent; /* Default transparent border for label */
+    transition: all 0.2s ease-in-out;
 }
 
 .ability-option:last-child {
     margin-bottom: 0;
 }
 
-/* Base styles for both checkbox and radio inputs */
+/* Hide the actual input within the nested ability options */
 .ability-option input[type="checkbox"],
 .ability-option input[type="radio"] {
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
-    
+    width: 0;
+    height: 0;
+    opacity: 0;
+    position: absolute;
+    pointer-events: none; /* Crucial to prevent direct interaction */
+}
+
+/* NEW: Styles for the visual representation of the checkbox/radio */
+.ability-option .option-visual {
     display: inline-block;
     width: 1.1em;
     height: 1.1em;
     margin-right: 0.7rem; 
     margin-top: 0.2rem;   
     flex-shrink: 0;
-    
-    border: 2px solid rgb(56, 56, 56); /* Updated to new default border */
-    background-color: #252525; /* Updated to new background color */
+    border: 2px solid rgb(56, 56, 56);
+    background-color: #252525;
     cursor: pointer;
-    position: relative;
+    position: relative; /* For pseudo-elements */
     transition: all 0.2s ease-in-out;
 }
 
-/* Checkbox specific styles for the outer shape */
-.ability-option input[type="checkbox"] {
+/* Specific shapes for visual checkbox/radio */
+.ability-option input[type="checkbox"] + .option-visual {
     border-radius: 4px;
 }
 
-/* Radio button specific styles for the outer shape */
-.ability-option input[type="radio"] {
+.ability-option input[type="radio"] + .option-visual {
     border-radius: 50%;
 }
 
-/* Custom indicator when checked - for checkboxes (the checkmark) */
-.ability-option input[type="checkbox"]:checked::before {
+/* NEW: Styles when the hidden input is checked */
+.ability-option input[type="checkbox"]:checked + .option-visual,
+.ability-option input[type="radio"]:checked + .option-visual {
+    background-color: #FFD700; /* Gold background for the visual indicator */
+    border-color: #FFD700; /* Gold border for the visual indicator */
+}
+
+/* NEW: Checkmark for custom checkbox */
+.ability-option input[type="checkbox"]:checked + .option-visual::before {
     content: '\2713';
     display: block;
     position: absolute;
@@ -186,63 +219,81 @@
     transform: translate(-50%, -50%);
     font-size: 1em;
     line-height: 1;
-    color: #FFD700; /* Changed to gold */
+    color: #252525; /* Dark color for contrast against gold */
 }
 
-/* Custom indicator when checked - for radio buttons (the inner dot) */
-.ability-option input[type="radio"]:checked::after {
-    content: '';
+/* NEW: Inner dot for custom radio button */
+.ability-option input[type="radio"]:checked + .option-visual::after {
+    content: '\00a0'; /* Non-breaking space for robust rendering */
     display: block;
     width: 0.5em;
     height: 0.5em;
     border-radius: 50%;
-    background-color: #FFD700; /* Changed to gold */
+    background-color: #252525; /* Dark color for contrast against gold */
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
 }
 
-/* Disabled state for both inputs */
-.ability-option input[type="checkbox"]:disabled,
-.ability-option input[type="radio"]:disabled {
+/* NEW: Highlight the entire label when the input is checked */
+.ability-option input[type="checkbox"]:checked ~ .option-text-content,
+.ability-option input[type="radio"]:checked ~ .option-text-content {
+    color: #FFD700; /* Gold text for selected option */
+}
+/* You might also want to apply a background/border to the entire label
+   when its input is checked for a stronger visual cue like your main abilities.
+   This would require the `:has()` selector, which is not universally supported yet.
+   For now, the visual indicator and text color change will serve.
+   If you want the whole row to highlight, let me know, and we can explore `:has()`
+   or a JS-based class toggle for the label. */
+.ability-option:has(input[type="checkbox"]:checked),
+.ability-option:has(input[type="radio"]:checked) {
+    background-color: #3A3A3A; /* Secondary accent for selected option row */
+    border-color: #FFD700; /* Gold border for selected option row */
+}
+
+
+/* Disabled state for inputs (these rules now apply to the hidden inputs directly) */
+.ability-option input[type="checkbox"]:disabled + .option-visual,
+.ability-option input[type="radio"]:disabled + .option-visual {
     opacity: 0.5;
     cursor: not-allowed;
-    border-color: #FFD700; /* Keeping existing disabled border color */
-    background-color: #B22222; /* Keeping existing disabled background color */
+    border-color: #FFD700; /* Use your existing disabled color */
+    background-color: #B22222; /* Use your existing disabled color */
 }
 
 /* Disabled text for the label's content (span) */
-.ability-option input[type="checkbox"]:disabled + span,
-.ability-option input[type="radio"]:disabled + span {
-    color: #777; /* Keeping existing disabled text color */
+.ability-option input[type="checkbox"]:disabled ~ .option-text-content,
+.ability-option input[type="radio"]:disabled ~ .option-text-content {
+    color: #777;
     cursor: not-allowed;
     opacity: 0.7;
 }
 
 /* Hover effect on the custom input visual */
-.ability-option input[type="checkbox"]:hover:not(:disabled),
-.ability-option input[type="radio"]:hover:not(:disabled) {
-    border-color: #FFD700; /* Gold border on hover */
-    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); /* Subtle gold glow */
+.ability-option input[type="checkbox"]:hover:not(:disabled) + .option-visual,
+.ability-option input[type="radio"]:hover:not(:disabled) + .option-visual {
+    border-color: #FFD700;
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
 }
 
 /* Specific styles for ACTIVE ability type tag */
 .type-tag.active {
-    background-color: #B22222; /* Red background, matching primary accent */
+    background-color: #B22222;
     color: white;
-    border-color: #FFD700; /* Gold border */
+    border-color: #FFD700;
 }
 
 /* Specific styles for PASSIVE ability type tag */
 .type-tag.passive {
-    background-color: #4CAF50; /* Keeping green background as no specific passive color was given */
+    background-color: #4CAF50;
     color: white;
-    border-color: #FFD700; /* Gold border */
+    border-color: #FFD700;
 }
 
 @media (max-width: 768px) {
     .abilities-grid-container {
-        grid-template-columns: 1fr; /* Ensures a single column fills the width on small screens */
+        grid-template-columns: 1fr;
     }
 }

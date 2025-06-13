@@ -49,7 +49,30 @@
         <p>Redirecting to character selection...</p>
     </div>
 
-    <script src="js/db.js"></script>
-    <script src="js/wizard.js"></script>
+    <!-- DB -->
+    <script type="module" src="js/db.js"></script>
+    <!-- Core Utility Modules -->
+    <script type="module" src="js/alerter.js"></script>
+    <script type="module" src="js/dataLoader.js"></script>
+    <script type="module" src="js/effectHandler.js"></script>
+
+    <!-- State Management Module (must come before anything that reads/writes state) -->
+    <script type="module" src="js/wizard/wizardStateManager.js"></script>
+
+    <!-- Navigation and UI Update Modules (depend on state manager) -->
+    <script type="module" src="js/wizard/pageNavigator.js"></script>
+    <script type="module" src="js/wizard/informerUpdater.js"></script>
+
+    <!-- Page-Specific Handlers (depend on state, navigator, informer) -->
+    <script type="module" src="js/wizard/modulePageHandler.js"></script>
+    <script type="module" src="js/wizard/destinyPageHandler.js"></script>
+    <script type="module" src="js/wizard/attributesPageHandler.js"></script>
+    <script type="module" src="js/wizard/infoPageHandler.js"></script>
+
+    <!-- Character Finalization Module (depends on state, alerter, effectHandler, and potentially db) -->
+    <script type="module" src="js/wizard/characterFinisher.js"></script>
+
+    <!-- Main Application Entry Point (instantiates all other modules) -->
+    <script type="module" src="js/wizard/characterWizard.js"></script>
 </body>
 </html>
