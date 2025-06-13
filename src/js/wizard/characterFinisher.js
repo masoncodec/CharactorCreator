@@ -43,40 +43,34 @@ class CharacterFinisher {
         errors.push("• Please select a Destiny.");
         console.log('  - Validation error: Destiny not selected.');
       } else {
-          // Validate exactly one 'destiny' flaw
-          const selectedDestinyFlaws = currentState.flaws.filter(f => f.source === 'destiny'); // MODIFIED: Check f.source instead of f.destiny
-          if (selectedDestinyFlaws.length !== 1) {
-              errors.push("• Please select exactly one Flaw for your character from the Destiny page.");
-              console.log('  - Validation error: Destiny flaw not selected or multiple selected.');
-          }
-
-          // Validate ability groups and their selections
+          // Validate ability groups and their selections (now includes flaws)
           const destiny = this.stateManager.getDestiny(currentState.destiny);
           if (destiny && destiny.abilityGroups) {
             Object.entries(destiny.abilityGroups).forEach(([groupId, groupDef]) => {
-                const selectedAbilitiesInGroup = currentState.abilities.filter(a =>
-                  a.groupId === groupId && a.source === 'destiny'
-                );
+                const isFlawGroup = groupId === 'flaws';
+                const selectedItemsInGroup = isFlawGroup
+                    ? currentState.flaws.filter(f => f.groupId === groupId && f.source === 'destiny')
+                    : currentState.abilities.filter(a => a.groupId === groupId && a.source === 'destiny');
 
-                if (selectedAbilitiesInGroup.length !== groupDef.maxChoices) {
-                    errors.push(`• For "${groupDef.name}" group, please select exactly ${groupDef.maxChoices} abilit${groupDef.maxChoices === 1 ? 'y' : 'ies'}.`);
-                    console.log(`  - Validation error: Incorrect number of abilities selected for group "${groupDef.name}".`);
+                if (selectedItemsInGroup.length !== groupDef.maxChoices) {
+                    errors.push(`• For "${groupDef.name}" group, please select exactly ${groupDef.maxChoices} ${isFlawGroup ? 'flaw' : 'abilit'}${groupDef.maxChoices === 1 ? '' : 'ies'}.`);
+                    console.log(`  - Validation error: Incorrect number of ${isFlawGroup ? 'flaws' : 'abilities'} selected for group "${groupDef.name}".`);
                 }
 
-                // Validate nested options for each selected ability in the group
-                selectedAbilitiesInGroup.forEach(abilityState => {
-                    const abilityDef = this.stateManager.getAbility(abilityState.id);
-                    if (abilityDef && abilityDef.options && abilityDef.maxChoices !== undefined && abilityDef.maxChoices !== null) {
-                        if (abilityState.selections.length !== abilityDef.maxChoices) {
-                            errors.push(`• Please select exactly ${abilityDef.maxChoices} option(s) for the ability "${abilityDef.name}".`);
-                            console.log(`  - Validation error: Incorrect number of options for nested ability "${abilityDef.name}".`);
+                // Validate nested options for each selected item in the group
+                selectedItemsInGroup.forEach(itemState => {
+                    const itemDef = this.stateManager.getAbilityOrFlawData(itemState.id, itemState.groupId); // Use unified getter
+                    if (itemDef && itemDef.options && itemDef.maxChoices !== undefined && itemDef.maxChoices !== null) {
+                        if (itemState.selections.length !== itemDef.maxChoices) {
+                            errors.push(`• Please select exactly ${itemDef.maxChoices} option(s) for the ${itemDef.type} "${itemDef.name}".`);
+                            console.log(`  - Validation error: Incorrect number of options for nested ${itemDef.type} "${itemDef.name}".`);
                         }
                     }
                 });
             });
           } else {
-              errors.push("• Destiny data or ability groups missing, cannot validate abilities.");
-              console.error("CharacterFinisher: Destiny data or ability groups are null when validating abilities.");
+              errors.push("• Destiny data or ability groups missing, cannot validate abilities/flaws.");
+              console.error("CharacterFinisher: Destiny data or ability groups are null when validating abilities/flaws.");
           }
       }
 
@@ -123,7 +117,6 @@ class CharacterFinisher {
     const flawData = this.stateManager.getFlawData();
 
     // Re-create the activeAbilityStates Set as expected by EffectHandler.processActiveAbilities
-    // This is crucial for fixing the "undefined is not an object (evaluating 'activeAbilityStates.has')" error.
     const activeAbilityStates = new Set(
         currentState.abilities
             .filter(a => abilityData[a.id]?.type === 'active')
@@ -133,9 +126,8 @@ class CharacterFinisher {
     // Prepare character state for EffectHandler
     const characterStateForEffects = {
         abilities: currentState.abilities,
-        flaws: currentState.flaws,
+        flaws: currentState.flaws, // Now contains groupId and selections
         destiny: currentState.destiny,
-        // Provide initial health from destiny data for calculation
         health: { max: destinyData[currentState.destiny].health.value }
     };
 
@@ -145,13 +137,13 @@ class CharacterFinisher {
         abilityData,
         flawData,
         activeAbilityStates,
-        'wizard' // Pass 'wizard' context if EffectHandler uses it for logging/behavior
+        'wizard'
     );
 
     // Apply effects to a dummy character object to get the calculated health
     const effectedCharacter = this.EffectHandler.applyEffectsToCharacter(
         characterStateForEffects,
-        'wizard' // Context for applyEffectsToCharacter
+        'wizard'
     );
 
     return effectedCharacter;
@@ -179,7 +171,7 @@ class CharacterFinisher {
     const character = {
       module: currentState.module,
       destiny: currentState.destiny,
-      flaws: currentState.flaws, // Store the entire flaws array
+      flaws: currentState.flaws, // Store the entire flaws array with groupId and selections
       attributes: currentState.attributes,
       health: {
           current: characterEffects.calculatedHealth.currentMax,
