@@ -181,13 +181,6 @@ class PageNavigator {
         return false;
     }
 
-    // Check if exactly one flaw with source: 'destiny' is selected
-    const selectedDestinyFlaws = currentState.flaws.filter(f => f.source === 'destiny');
-    if (selectedDestinyFlaws.length !== 1) {
-      // console.log("Validation (Destiny): Exactly one destiny flaw must be selected. Current count:", selectedDestinyFlaws.length);
-      return false;
-    }
-
     // Validate each ability group
     const allGroupsComplete = Object.entries(destiny.abilityGroups).every(([groupId, groupDef]) => {
       const selectedAbilitiesInGroup = currentState.abilities.filter(a =>
@@ -217,7 +210,7 @@ class PageNavigator {
       return true; // This group is complete
     });
 
-    // console.log("Validation (Destiny): All groups completed:", allGroupsComplete);
+    console.log("Validation (Destiny): All groups completed:", allGroupsComplete);
 
     return allGroupsComplete && selectedDestinyFlaws.length === 1;
   }
