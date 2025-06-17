@@ -174,52 +174,55 @@ class PageNavigator {
    * @returns {boolean} True if destiny page is complete, false otherwise.
    */
   validateDestinyCompletion(currentState) {
-    if (!currentState.destiny) return false;
-    const destiny = this.stateManager.getDestiny(currentState.destiny);
-    if (!destiny || !destiny.abilityGroups) {
+    if (!currentState.destiny) {
+        console.log('Validation (Destiny): No destiny selected.');
+        return false;
+    }
+
+    const destinyDefinition = this.stateManager.getDestiny(currentState.destiny);
+    if (!destinyDefinition || !destinyDefinition.abilityGroups) {
         console.warn('PageNavigator.validateDestinyCompletion: Destiny data or ability groups missing for:', currentState.destiny);
         return false;
     }
 
-    // Check if exactly one flaw with source: 'destiny' is selected
-    const selectedDestinyFlaws = currentState.flaws.filter(f => f.source === 'destiny');
-    if (selectedDestinyFlaws.length !== 1) {
-      // console.log("Validation (Destiny): Exactly one destiny flaw must be selected. Current count:", selectedDestinyFlaws.length);
-      return false;
-    }
+    const allGroupsComplete = Object.entries(destinyDefinition.abilityGroups).every(([groupId, groupDef]) => {
+      let selectedItemsInGroup;
 
-    // Validate each ability group
-    const allGroupsComplete = Object.entries(destiny.abilityGroups).every(([groupId, groupDef]) => {
-      const selectedAbilitiesInGroup = currentState.abilities.filter(a =>
-        a.groupId === groupId && a.source === 'destiny' // Filter abilities chosen from this destiny's group
-      );
+      // Determine which state array to check based on groupId
+      if (groupId === 'flaws') {
+        selectedItemsInGroup = currentState.flaws.filter(item => item.groupId === groupId && item.source === 'destiny');
+      } else {
+        selectedItemsInGroup = currentState.abilities.filter(item => item.groupId === groupId && item.source === 'destiny');
+      }
 
-      // Check if the number of selected abilities matches the maxChoices for this group
-      if (selectedAbilitiesInGroup.length !== groupDef.maxChoices) {
-        console.log(`Validation (Destiny): Group '${groupDef.name}' incomplete. Expected ${groupDef.maxChoices}, got ${selectedAbilitiesInGroup.length}.`);
+      if (selectedItemsInGroup.length !== groupDef.maxChoices) {
+        console.log(`Validation (Destiny): Group '${groupDef.name}' (${groupId}) incomplete. Expected ${groupDef.maxChoices}, got ${selectedItemsInGroup.length}.`);
         return false;
       }
 
-      // For each selected ability in the group, validate its nested options
-      const nestedOptionsComplete = selectedAbilitiesInGroup.every(abilityState => {
-        const abilityDef = this.stateManager.getAbility(abilityState.id);
-        if (!abilityDef || !abilityDef.options) return true; // No nested options to validate
-        if (abilityDef.maxChoices === undefined || abilityDef.maxChoices === null) return true; // No explicit maxChoices for nested options
+      // For each selected item in the group, validate its nested options
+      const nestedOptionsComplete = selectedItemsInGroup.every(itemState => {
+        // Use getAbilityOrFlawData and ensure the 'this' context is bound
+        const itemDef = this.stateManager.getAbilityOrFlawData.bind(this.stateManager)(itemState.id, itemState.groupId);
 
-        return abilityState.selections.length === abilityDef.maxChoices;
+        // If itemDef or itemDef.options is missing, or maxChoices is not defined, assume no nested options or they are not required.
+        if (!itemDef || !itemDef.options || itemDef.maxChoices === undefined || itemDef.maxChoices === null) {
+          return true;
+        }
+        return itemState.selections.length === itemDef.maxChoices;
       });
 
       if (!nestedOptionsComplete) {
-        console.log(`Validation (Destiny): Nested options incomplete for an ability in group '${groupDef.name}'.`);
+        console.log(`Validation (Destiny): Nested options incomplete for an item in group '${groupDef.name}' (${groupId}).`);
         return false;
       }
 
       return true; // This group is complete
     });
 
-    // console.log("Validation (Destiny): All groups completed:", allGroupsComplete);
+    console.log("Validation (Destiny): All groups completed:", allGroupsComplete);
 
-    return allGroupsComplete && selectedDestinyFlaws.length === 1;
+    return allGroupsComplete;
   }
 
 
@@ -293,7 +296,7 @@ class PageNavigator {
       },
       destiny: {
         element: '#destiny-options-container', // More specific element
-        message: 'Please select a Destiny and exactly one Flaw, and ensure all ability groups are complete and all chosen abilities have their options selected.'
+        message: 'Please select a Destiny and ensure all ability and flaw selections are complete.'
       },
       attributes: {
         element: '.dice-assignment-table',

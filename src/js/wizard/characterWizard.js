@@ -140,15 +140,24 @@ class CharacterWizard {
         if (!destinyData[destinyId]) {
           console.error(`Missing destiny data for: ${destinyId} (from module ${moduleId})`);
         } else {
-          destinyData[destinyId].flaws.forEach(flawId => {
-            if (!flawData[flawId]) {
-              console.error(`Missing flaw data: ${flawId} for destiny ${destinyId}`);
-            }
-          });
+          // Check for flaws within the new abilityGroups structure
+          const flawsGroup = destinyData[destinyId].abilityGroups?.flaws;
+          if (flawsGroup && flawsGroup.abilities) {
+            flawsGroup.abilities.forEach(flawId => {
+              if (!flawData[flawId]) {
+                console.error(`Missing flaw data: ${flawId} in flaws group for destiny ${destinyId}`);
+              }
+            });
+          } else {
+            console.warn(`Destiny '${destinyId}' has no 'flaws' ability group defined or it has no abilities. Ensure this is intentional.`);
+          }
 
-          // NEW: Iterate through abilityGroups instead of levelUnlocks
+          // Iterate through all other abilityGroups
           if (destinyData[destinyId].abilityGroups) {
             Object.entries(destinyData[destinyId].abilityGroups).forEach(([groupId, groupDef]) => {
+              // Skip the 'flaws' group as it's handled separately above
+              if (groupId === 'flaws') return; 
+
               if (!groupDef.abilities || !Array.isArray(groupDef.abilities)) {
                   console.error(`Ability group '${groupId}' in destiny '${destinyId}' has no 'abilities' array or it's invalid.`);
                   return;

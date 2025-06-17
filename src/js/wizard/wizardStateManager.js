@@ -15,9 +15,9 @@ class WizardStateManager {
       module: null,
       moduleChanged: false, // Flag to indicate if the module has been changed, triggering resets
       destiny: null,
-      flaws: [], // Array of {id, source: string}
-      // abilities: Array of {id, selections: [], source: string, groupId: string} <--- Added 'groupId', removed 'tier'
-      abilities: [],
+      // Flaws now also support 'selections' for nested options, like abilities
+      flaws: [], // Array of {id, selections: [], source: string, groupId: string}
+      abilities: [], // Array of {id, selections: [], source: string, groupId: string}
       attributes: {},
       info: { name: '', bio: '' }
     };
@@ -56,8 +56,8 @@ class WizardStateManager {
           console.log(`WizardStateManager: Module changed from ${oldModule} to ${value}. Resetting dependent state.`);
           // Reset dependent state when the module changes
           this.state.destiny = null;
-          this.state.flaws = [];
-          this.state.abilities = []; // Abilities are reset regardless of source, on module change
+          this.state.flaws = []; // Reset flaws
+          this.state.abilities = []; // Reset abilities
           this.state.attributes = {};
         } else {
           console.log(`WizardStateManager: Module re-selected: ${value}. No change.`);
@@ -124,8 +124,27 @@ class WizardStateManager {
     return this.abilityData;
   }
 
-  getAbility(abilityId) {
-    return this.abilityData[abilityId];
+  /**
+   * Retrieves either an ability or a flaw definition based on its ID and optional group ID.
+   * This is used to generalize fetching details for both abilities and flaws.
+   * @param {string} itemId - The ID of the ability or flaw.
+   * @param {string} [groupId] - The ID of the group the item belongs to. Used to determine if it's a flaw.
+   * @returns {Object|null} The ability or flaw data, or null if not found.
+   */
+  getAbilityOrFlawData(itemId, groupId) {
+    // If the groupId indicates a flaw group, try to get from flawData
+    if (groupId === 'flaws' && this.flawData[itemId]) {
+      // Return a copy and add a 'type' property to distinguish it
+      return { ...this.flawData[itemId], type: 'flaw' };
+    }
+    // Otherwise, assume it's a regular ability
+    if (this.abilityData[itemId]) {
+      // Return a copy and add a 'type' property to distinguish it
+      // If ability already has a type, keep it. Otherwise, default to 'ability'.
+      return { ...this.abilityData[itemId], type: this.abilityData[itemId].type || 'ability' };
+    }
+    console.warn(`WizardStateManager: Item with ID '${itemId}' (Group: '${groupId}') not found in abilityData or flawData.`);
+    return null;
   }
 
   /**
@@ -151,37 +170,22 @@ class WizardStateManager {
       return;
     }
 
-    // Filter out existing abilities from the same source and group.
-    // This assumes that for a given source and groupId, only one selection behavior is desired.
-    // If a group allows multiple choices (maxChoices > 1), we would filter differently.
-    // Given 'Choose N' per group, we just replace the specific selection if it's a radio,
-    // or manage a set of checkboxes. The current model for `abilities` array suggests
-    // one entry per chosen ability, which is then managed.
-    // For single-choice groups (radio buttons), we filter out any existing ability
-    // from the same group and source to enforce "choose 1".
     const destinyData = this.getDestiny(this.state.destiny);
     const groupDef = destinyData?.abilityGroups?.[newAbility.groupId];
     const maxChoices = groupDef?.maxChoices || 1; // Default to 1 if not specified
 
-    if (maxChoices === 1) { // This behavior implies a radio button choice
+    // Remove any existing selection from this group if it's a single-choice group (radio behavior)
+    if (maxChoices === 1) {
       this.state.abilities = this.state.abilities.filter(ability =>
         !(ability.source === newAbility.source && ability.groupId === newAbility.groupId)
       );
-      this.state.abilities.push(newAbility);
-    } else {
-      // For groups allowing multiple choices (checkboxes), this `addOrUpdateAbility`
-      // method would typically be called when a *specific option* is checked/unchecked,
-      // not when the *parent ability* is selected. The `updateAbilitySelections`
-      // method is more appropriate for managing selections within a multi-choice ability.
-      // However, if `addOrUpdateAbility` is still used to initially "select" the ability
-      // as a container, its implementation for maxChoices > 1 might need refinement.
-      // For now, it will just add the new ability (assuming it's a new unique one for the group).
-      // The `DestinyPageHandler`'s `_handleTierSelection` (now `_handleGroupSelection`)
-      // will create this newAbility entry in state.
-      if (!this.state.abilities.some(a => a.id === newAbility.id && a.source === newAbility.source && a.groupId === newAbility.groupId)) {
-        this.state.abilities.push(newAbility);
-      }
     }
+    
+    // Add the new ability if it's not already present by its unique identifier (id, source, groupId)
+    if (!this.state.abilities.some(a => a.id === newAbility.id && a.source === newAbility.source && a.groupId === newAbility.groupId)) {
+        this.state.abilities.push(newAbility);
+    }
+
     console.log('WizardStateManager: Current abilities state:', this.state.abilities);
   }
 
@@ -193,7 +197,7 @@ class WizardStateManager {
    * @param {Array<Object>} newSelections - The new array of selections for that ability.
    */
   updateAbilitySelections(abilityId, source, groupId, newSelections) {
-    const abilityIndex = this.state.abilities.findIndex(a => a.id === abilityId && a.source === source && a.groupId === groupId); // Use source and groupId for finding
+    const abilityIndex = this.state.abilities.findIndex(a => a.id === abilityId && a.source === source && a.groupId === groupId);
     if (abilityIndex !== -1) {
       this.state.abilities[abilityIndex].selections = newSelections;
       console.log(`WizardStateManager: Selections updated for ability ${abilityId} (Source: ${source}, Group: ${groupId}):`, newSelections);
@@ -203,25 +207,88 @@ class WizardStateManager {
   }
 
   /**
-   * Adds or updates a flaw in the state.
-   * @param {Object} newFlaw - The flaw object to add/update {id, source: string}.
-   * @param {boolean} isDestinyFlaw - True if this is a destiny-specific flaw (only one allowed).
+   * Removes an ability from the state.
+   * @param {string} abilityId - The ID of the ability to remove.
+   * @param {string} source - The source of the ability.
+   * @param {string} groupId - The ID of the group the ability belongs to.
    */
-  addOrUpdateFlaw(newFlaw, isDestinyFlaw) {
-    if (isDestinyFlaw) {
-      // Clear any existing destiny-specific flaws
-      this.state.flaws = this.state.flaws.filter(f => f.source !== 'destiny');
+  removeAbility(abilityId, source, groupId) {
+    const originalLength = this.state.abilities.length;
+    this.state.abilities = this.state.abilities.filter(a =>
+      !(a.id === abilityId && a.source === source && a.groupId === groupId)
+    );
+    if (this.state.abilities.length < originalLength) {
+      console.log(`WizardStateManager: Removed ability: ${abilityId} (Source: ${source}, Group: ${groupId})`);
+    } else {
+      console.warn(`WizardStateManager: Attempted to remove non-existent ability: ${abilityId} (Source: ${source}, Group: ${groupId})`);
     }
-    // Add the new flaw if it's not already there
-    // Ensure newFlaw has a 'source' property for filtering
-    if (!newFlaw.source) {
-        console.error('WizardStateManager: newFlaw must have a "source" property.', newFlaw);
-        return;
+    console.log('WizardStateManager: Current abilities state after removal:', this.state.abilities);
+  }
+
+  /**
+   * Adds or updates a flaw in the state, including its source, group ID, and selections.
+   * @param {Object} newFlaw - The flaw object to add/update {id, selections: [], source: string, groupId: string}.
+   */
+  addOrUpdateFlaw(newFlaw) {
+    console.log(`WizardStateManager: Adding/updating flaw: ${newFlaw.id} (Source: ${newFlaw.source || 'N/A'}, Group: ${newFlaw.groupId || 'N/A'})`);
+
+    if (!newFlaw.groupId || !newFlaw.source) {
+      console.error('WizardStateManager: newFlaw must have groupId and source properties.', newFlaw);
+      return;
     }
-    if (!this.state.flaws.some(f => f.id === newFlaw.id && f.source === newFlaw.source)) { // UPDATED: check f.source
+
+    const destinyData = this.getDestiny(this.state.destiny);
+    const groupDef = destinyData?.abilityGroups?.[newFlaw.groupId];
+    const maxChoices = groupDef?.maxChoices || 1; // Default to 1 if not specified
+
+    // For single-choice flaw groups (radio behavior), filter out existing flaw from the same group
+    if (maxChoices === 1) {
+      this.state.flaws = this.state.flaws.filter(flaw =>
+        !(flaw.source === newFlaw.source && flaw.groupId === newFlaw.groupId)
+      );
+    }
+
+    // Add the new flaw if it's not already present by its unique identifier (id, source, groupId)
+    if (!this.state.flaws.some(f => f.id === newFlaw.id && f.source === newFlaw.source && f.groupId === newFlaw.groupId)) {
       this.state.flaws.push(newFlaw);
     }
     console.log('WizardStateManager: Current flaws state:', this.state.flaws);
+  }
+
+  /**
+   * Updates selections for a specific flaw.
+   * @param {string} flawId - The ID of the flaw to update.
+   * @param {string} source - The source of the flaw (e.g., 'destiny').
+   * @param {string} groupId - The ID of the group the flaw belongs to.
+   * @param {Array<Object>} newSelections - The new array of selections for that flaw.
+   */
+  updateFlawSelections(flawId, source, groupId, newSelections) {
+    const flawIndex = this.state.flaws.findIndex(f => f.id === flawId && f.source === source && f.groupId === groupId);
+    if (flawIndex !== -1) {
+      this.state.flaws[flawIndex].selections = newSelections;
+      console.log(`WizardStateManager: Selections updated for flaw ${flawId} (Source: ${source}, Group: ${groupId}):`, newSelections);
+    } else {
+      console.warn(`WizardStateManager: Attempted to update selections for non-existent flaw: ${flawId} (Source: ${source}, Group: ${groupId})`);
+    }
+  }
+
+  /**
+   * Removes a flaw from the state.
+   * @param {string} flawId - The ID of the flaw to remove.
+   * @param {string} source - The source of the flaw.
+   * @param {string} groupId - The ID of the group the flaw belongs to.
+   */
+  removeFlaw(flawId, source, groupId) {
+    const originalLength = this.state.flaws.length;
+    this.state.flaws = this.state.flaws.filter(f =>
+      !(f.id === flawId && f.source === source && f.groupId === groupId)
+    );
+    if (this.state.flaws.length < originalLength) {
+      console.log(`WizardStateManager: Removed flaw: ${flawId} (Source: ${source}, Group: ${groupId})`);
+    } else {
+      console.warn(`WizardStateManager: Attempted to remove non-existent flaw: ${flawId} (Source: ${source}, Group: ${groupId})`);
+    }
+    console.log('WizardStateManager: Current flaws state after removal:', this.state.flaws);
   }
 }
 
