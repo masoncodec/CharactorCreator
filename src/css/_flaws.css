@@ -1,0 +1,152 @@
+/* Example CSS additions for flaws, assuming similar styling to abilities */
+.flaws-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+  }
+  
+  .flaw-card {
+    background-color: var(--card-bg); /* Use your theme variables */
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  .flaw-card.selected {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 10px var(--primary-color-light);
+    background-color: var(--selected-card-bg); /* A slightly lighter shade */
+  }
+  
+  .flaw-card:hover:not(.disabled-for-selection) {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  .flaw-card .flaw-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  
+  .flaw-card .flaw-header label {
+    display: flex;
+    align-items: center;
+    font-weight: bold;
+    font-size: 1.1em;
+    cursor: pointer;
+    flex-grow: 1; /* Allow label to take available space */
+  }
+  
+  .flaw-card .flaw-header input[type="checkbox"] {
+    margin-right: 10px;
+    /* Custom checkbox styling if desired */
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--text-color);
+    border-radius: 4px;
+    display: inline-block;
+    vertical-align: middle;
+    position: relative;
+    cursor: pointer;
+  }
+  
+  .flaw-card .flaw-header input[type="checkbox"]:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+  }
+  
+  .flaw-card .flaw-header input[type="checkbox"]:checked::after {
+    content: '✔';
+    color: white;
+    font-size: 14px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  
+  .flaw-card .flaw-name {
+    color: var(--heading-color);
+  }
+  
+  .flaw-card .flaw-description {
+    font-size: 0.9em;
+    color: var(--text-color-light);
+    margin-bottom: 10px;
+  }
+  
+  .flaw-card .flaw-types .flaw-tag {
+    background-color: #f44336; /* Red for flaws, adjust as needed */
+    color: white;
+    padding: 4px 8px;
+    border-radius: 5px;
+    font-size: 0.8em;
+    white-space: nowrap;
+  }
+  
+  .flaw-options-nested {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-color);
+  }
+  
+  .flaw-option-nested {
+    display: block;
+    margin-bottom: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+  }
+  
+  .flaw-option-nested input[type="checkbox"],
+  .flaw-option-nested input[type="radio"] {
+    margin-right: 8px;
+  }
+  
+  .flaw-option-nested input[disabled] + .option-visual,
+  .flaw-option-nested input[disabled] + .option-text-content {
+      opacity: 0.6;
+      cursor: not-allowed;
+  }
+  
+  /* Styles for the informer panel (similar to ability items) */
+  .flaws-info .selected-flaw-item {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  
+  .flaws-info .selected-flaw-item h4 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    color: var(--heading-color);
+  }
+  
+  .flaws-info .selected-flaw-item ul {
+    list-style: disc;
+    padding-left: 20px;
+    margin-top: 5px;
+  }
+  
+  .flaws-info .selected-flaw-item ul li {
+    font-size: 0.9em;
+    color: var(--text-color);
+  }
+  
+  /* Error highlight for the container */
+  .flaws-options.error-highlight {
+    box-shadow: 0 0 0 3px red, 0 0 10px red;
+    transition: box-shadow 0.3s ease-in-out;
+  }

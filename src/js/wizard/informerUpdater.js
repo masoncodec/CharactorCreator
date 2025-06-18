@@ -58,10 +58,11 @@ class InformerUpdater {
         } else {
           const destiny = this.stateManager.getDestiny(currentState.destiny);
           
-          // Render selected flaws
-          const selectedFlawsHtml = currentState.flaws.length > 0
-            ? currentState.flaws.map(flawState => {
-                const flawDef = this.stateManager.getAbilityOrFlawData(flawState.id, flawState.groupId);
+          // Render selected flaws (both destiny-sourced and independent)
+          const allSelectedFlaws = currentState.flaws;
+          const selectedFlawsHtml = allSelectedFlaws.length > 0
+            ? allSelectedFlaws.map(flawState => {
+                const flawDef = this.stateManager.getFlaw(flawState.id); // Use getFlaw for independent flaws
                 if (!flawDef) return '';
                 
                 const nestedOptionsHtml = flawState.selections && flawState.selections.length > 0
@@ -73,7 +74,7 @@ class InformerUpdater {
 
                 return `
                   <div class="selected-flaw-item">
-                    <h4>Flaw: ${flawDef.name}</h4>
+                    <h4>Flaw: ${flawDef.name} (${flawState.source === 'destiny' ? 'Destiny' : 'Independent'})</h4>
                     <p>${flawDef.description}</p>
                     ${nestedOptionsHtml}
                   </div>`;
@@ -142,11 +143,33 @@ class InformerUpdater {
         }
         break;
 
-      case 'flaws':
+      case 'flaws': // Updated case for 'flaws' page
+        const independentFlaws = currentState.flaws.filter(f => f.source === 'independent-flaw');
+        const selectedIndependentFlawsHtml = independentFlaws.length > 0
+          ? independentFlaws.map(flawState => {
+              const flawDef = this.stateManager.getFlaw(flawState.id);
+              if (!flawDef) return '';
+
+              const nestedOptionsHtml = flawState.selections && flawState.selections.length > 0
+                ? `<ul>${flawState.selections.map(sel => {
+                    const option = flawDef.options?.find(o => o.id === sel.id);
+                    return option ? `<li>${option.name}</li>` : '';
+                  }).join('')}</ul>`
+                : '';
+
+              return `
+                <div class="selected-flaw-item">
+                  <h4>${flawDef.name}</h4>
+                  <p>${flawDef.description}</p>
+                  ${nestedOptionsHtml}
+                </div>`;
+            }).join('')
+          : '<p>No independent flaws selected yet.</p>';
+
         htmlContent = `
-          <div class="flaw-info">
-            <h3>Flaws Selection</h3>
-            <p>Details about your selected flaws will appear here.</p>
+          <div class="flaws-info">
+            <h3>Your Selected Flaws</h3>
+            ${selectedIndependentFlawsHtml}
           </div>`;
         break;
 

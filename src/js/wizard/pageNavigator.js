@@ -157,9 +157,17 @@ class PageNavigator {
           }
         }
         break;
-      case 'flaws': // New case for 'flaw' page
-        // For the bare-bones version, we'll consider it complete to allow navigation
-        completed = true; 
+      case 'flaws': // Validation for 'flaws' page
+        const independentFlaws = currentState.flaws.filter(f => f.source === 'independent-flaw');
+        // Page is complete if all independently selected flaws with nested options have met their maxChoices
+        completed = independentFlaws.every(flawState => {
+          const flawDef = this.stateManager.getFlaw(flawState.id);
+          // If flawDef or flawDef.options is missing, or maxChoices is not defined, assume no nested options or they are not required.
+          if (!flawDef || !flawDef.options || flawDef.maxChoices === undefined || flawDef.maxChoices === null) {
+            return true;
+          }
+          return flawState.selections.length === flawDef.maxChoices;
+        });
         break;
       case 'info':
         completed = !!currentState.info.name?.trim();
@@ -306,9 +314,9 @@ class PageNavigator {
         element: '.dice-assignment-table',
         message: 'Please assign dice to all attributes.'
       },
-      flaws: {
-        element: '.flaw-options',
-        message: 'Please select your flaws to continue.' // Placeholder message
+      flaws: { // Updated error message for 'flaws' page
+        element: '.flaws-options', // Target the specific container for highlighting
+        message: 'Please complete all required nested flaw selections.'
       },
       info: {
         element: '#characterName',
