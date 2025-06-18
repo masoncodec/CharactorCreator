@@ -286,6 +286,35 @@
     transition: box-shadow 0.3s ease-in-out;
 }
 
+.flaw-card.disabled-by-other-source {
+    opacity: 0.6; /* Makes the card faded */
+    pointer-events: none; /* Prevents all mouse events */
+    cursor: not-allowed; /* Shows a "no" cursor */
+    background-color: var(--disabled-bg); /* A slightly darker/desaturated background */
+    border-color: var(--disabled-border); /* A lighter, more subtle border */
+    box-shadow: none; /* Remove any active shadows */
+}
+  
+  /* Ensure disabled inputs within such cards also look disabled */
+.flaw-card.disabled-by-other-source input[type="checkbox"],
+.flaw-card.disabled-by-other-source input[type="radio"] {
+    cursor: not-allowed;
+}
+  
+  /* For visual consistency, you might want to adjust colors for disabled text/elements */
+.flaw-card.disabled-by-other-source .flaw-name,
+.flaw-card.disabled-by-other-source .flaw-description,
+.flaw-card.disabled-by-other-source .flaw-types {
+    color: var(--disabled-text-color); /* Define this in your :root if you use CSS variables */
+}
+  
+  /* If you have specific visual styling for the custom checkboxes/radios, ensure they reflect the disabled state */
+.flaw-card.disabled-by-other-source input[type="checkbox"]::before,
+.flaw-card.disabled-by-other-source input[type="radio"]::before {
+      background-color: var(--disabled-control-bg);
+      border-color: var(--disabled-control-border);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .flaws-grid-container {
