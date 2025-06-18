@@ -142,6 +142,14 @@ class InformerUpdater {
         }
         break;
 
+      case 'flaws':
+        htmlContent = `
+          <div class="flaw-info">
+            <h3>Flaws Selection</h3>
+            <p>Details about your selected flaws will appear here.</p>
+          </div>`;
+        break;
+
       case 'info':
         htmlContent = `
           <div class="info-panel-content">

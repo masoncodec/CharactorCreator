@@ -16,6 +16,7 @@ import { InformerUpdater } from './informerUpdater.js';
 import { ModulePageHandler } from './modulePageHandler.js';
 import { DestinyPageHandler } from './destinyPageHandler.js';
 import { AttributesPageHandler } from './attributesPageHandler.js';
+import { FlawsPageHandler } from './flawsPageHandler.js'; // New import for FlawPageHandler
 import { InfoPageHandler } from './infoPageHandler.js';
 import { CharacterFinisher } from './characterFinisher.js';
 
@@ -32,7 +33,7 @@ class CharacterWizard {
     this.stateManager = new WizardStateManager(moduleSystemData, flawData, destinyData, abilityData);
 
     // Define the pages of the wizard in order
-    this.pages = ['module', 'destiny', 'attributes', 'info'];
+    this.pages = ['module', 'destiny', 'attributes', 'flaws', 'info'];
 
     // Initialize the navigation component
     this.pageNavigator = new PageNavigator(this.pages, this.stateManager, {
@@ -47,6 +48,7 @@ class CharacterWizard {
       module: new ModulePageHandler(this.stateManager, this.informerUpdater, this.pageNavigator),
       destiny: new DestinyPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator),
       attributes: new AttributesPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator, alerter),
+      flaws: new FlawsPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator, alerter),
       info: new InfoPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator)
     };
 

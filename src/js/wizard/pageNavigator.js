@@ -157,6 +157,10 @@ class PageNavigator {
           }
         }
         break;
+      case 'flaws': // New case for 'flaw' page
+        // For the bare-bones version, we'll consider it complete to allow navigation
+        completed = true; 
+        break;
       case 'info':
         completed = !!currentState.info.name?.trim();
         break;
@@ -301,6 +305,10 @@ class PageNavigator {
       attributes: {
         element: '.dice-assignment-table',
         message: 'Please assign dice to all attributes.'
+      },
+      flaws: {
+        element: '.flaw-options',
+        message: 'Please select your flaws to continue.' // Placeholder message
       },
       info: {
         element: '#characterName',
