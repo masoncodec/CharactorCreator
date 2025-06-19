@@ -43,18 +43,26 @@ class CharacterFinisher {
         errors.push("• Please select a Destiny.");
         console.log('  - Validation error: Destiny not selected.');
       } else {
-          // Validate ability groups and their selections (now includes flaws)
+          // Validate ability groups and their selections
           const destiny = this.stateManager.getDestiny(currentState.destiny);
           if (destiny && destiny.abilityGroups) {
             Object.entries(destiny.abilityGroups).forEach(([groupId, groupDef]) => {
                 const isFlawGroup = groupId === 'flaws';
-                const selectedItemsInGroup = isFlawGroup
-                    ? currentState.flaws.filter(f => f.groupId === groupId && f.source === 'destiny')
-                    : currentState.abilities.filter(a => a.groupId === groupId && a.source === 'destiny');
+                const isPerkGroup = groupId === 'perks'; // Check for perk group
+                
+                let selectedItemsInGroup;
+                if (isFlawGroup) {
+                    selectedItemsInGroup = currentState.flaws.filter(f => f.groupId === groupId && f.source === 'destiny');
+                } else if (isPerkGroup) {
+                    selectedItemsInGroup = currentState.perks.filter(p => p.groupId === groupId && p.source === 'destiny');
+                } else {
+                    selectedItemsInGroup = currentState.abilities.filter(a => a.groupId === groupId && a.source === 'destiny');
+                }
 
                 if (selectedItemsInGroup.length !== groupDef.maxChoices) {
-                    errors.push(`• For "${groupDef.name}" group, please select exactly ${groupDef.maxChoices} ${isFlawGroup ? 'flaw' : 'abilit'}${groupDef.maxChoices === 1 ? '' : 'ies'}.`);
-                    console.log(`  - Validation error: Incorrect number of ${isFlawGroup ? 'flaws' : 'abilities'} selected for group "${groupDef.name}".`);
+                    const itemTypeString = isFlawGroup ? 'flaw' : (isPerkGroup ? 'perk' : 'abilit');
+                    errors.push(`• For "${groupDef.name}" group, please select exactly ${groupDef.maxChoices} ${itemTypeString}${groupDef.maxChoices === 1 ? '' : 'ies'}.`);
+                    console.log(`  - Validation error: Incorrect number of ${itemTypeString}${groupDef.maxChoices === 1 ? '' : 'ies'} selected for group "${groupDef.name}".`);
                 }
 
                 // Validate nested options for each selected item in the group
@@ -69,8 +77,8 @@ class CharacterFinisher {
                 });
             });
           } else {
-              errors.push("• Destiny data or ability groups missing, cannot validate abilities/flaws.");
-              console.error("CharacterFinisher: Destiny data or ability groups are null when validating abilities/flaws.");
+              errors.push("• Destiny data or ability groups missing, cannot validate abilities/flaws/perks.");
+              console.error("CharacterFinisher: Destiny data or ability groups are null when validating abilities/flaws/perks.");
           }
       }
 
@@ -93,6 +101,14 @@ class CharacterFinisher {
       }
     }
 
+    // Validate Perk Points vs. Flaw Points
+    const totalFlawPoints = this.stateManager.getIndependentFlawTotalWeight();
+    const totalPerkPoints = this.stateManager.getIndependentPerkTotalWeight();
+    if (totalPerkPoints > totalFlawPoints) {
+      errors.push(`• Your total Perk Points (${totalPerkPoints}) exceed your total Flaw Points (${totalFlawPoints}). Please adjust your selections.`);
+      console.log('  - Validation error: Perk points exceed flaw points.');
+    }
+
     // Validate Info (name)
     if (!currentState.info.name?.trim()) {
       errors.push("• Please enter a Character Name.");
@@ -106,7 +122,7 @@ class CharacterFinisher {
   }
 
   /**
-   * Calculates the character's effects based on selected abilities and flaws.
+   * Calculates the character's effects based on selected abilities, flaws, and perks.
    * @returns {Object} An object representing the character's calculated state (e.g., health).
    * @private
    */
@@ -115,6 +131,7 @@ class CharacterFinisher {
     const destinyData = this.stateManager.getDestinyData();
     const abilityData = this.stateManager.getAbilityData();
     const flawData = this.stateManager.getFlawData();
+    const perkData = this.stateManager.getPerkData(); // Get perk data
 
     // Re-create the activeAbilityStates Set as expected by EffectHandler.processActiveAbilities
     const activeAbilityStates = new Set(
@@ -126,16 +143,19 @@ class CharacterFinisher {
     // Prepare character state for EffectHandler
     const characterStateForEffects = {
         abilities: currentState.abilities,
-        flaws: currentState.flaws, // Now contains groupId and selections
+        flaws: currentState.flaws,
+        perks: currentState.perks,
         destiny: currentState.destiny,
         health: { max: destinyData[currentState.destiny].health.value }
     };
 
     // Use EffectHandler to process active abilities, now correctly passing activeAbilityStates
+    // Assuming EffectHandler might eventually process perk effects too, if applicable
     this.EffectHandler.processActiveAbilities(
         characterStateForEffects,
         abilityData,
         flawData,
+        perkData,
         activeAbilityStates,
         'wizard'
     );
@@ -171,7 +191,8 @@ class CharacterFinisher {
     const character = {
       module: currentState.module,
       destiny: currentState.destiny,
-      flaws: currentState.flaws, // Store the entire flaws array with groupId and selections
+      flaws: currentState.flaws,
+      perks: currentState.perks,
       attributes: currentState.attributes,
       health: {
           current: characterEffects.calculatedHealth.currentMax,

@@ -81,6 +81,29 @@ class InformerUpdater {
               }).join('')
             : '<p>No flaws selected yet.</p>';
 
+          // Render selected perks
+          const allSelectedPerks = currentState.perks;
+          const selectedPerksHtml = allSelectedPerks.length > 0
+            ? allSelectedPerks.map(perkState => {
+                const perkDef = this.stateManager.getPerk(perkState.id);
+                if (!perkDef) return '';
+                
+                const nestedOptionsHtml = perkState.selections && perkState.selections.length > 0
+                  ? `<ul>${perkState.selections.map(sel => {
+                      const option = perkDef.options?.find(o => o.id === sel.id);
+                      return option ? `<li>${option.name}</li>` : '';
+                    }).join('')}</ul>`
+                  : '';
+
+                return `
+                  <div class="selected-perk-item">
+                    <h4>Perk: ${perkDef.name} (${perkState.source === 'destiny' ? 'Destiny' : 'Independent'})</h4>
+                    <p>${perkDef.description}</p>
+                    ${nestedOptionsHtml}
+                  </div>`;
+              }).join('')
+            : '<p>No perks selected yet.</p>';
+
           // Render selected abilities
           const selectedAbilitiesHtml = currentState.abilities.length > 0
             ? currentState.abilities.map(abilityState => {
@@ -114,6 +137,8 @@ class InformerUpdater {
               <div class="selected-items-summary">
                 <h4>Selected Flaws</h4>
                 ${selectedFlawsHtml}
+                <h4>Selected Perks</h4>
+                ${selectedPerksHtml}
                 <h4>Selected Abilities</h4>
                 ${selectedAbilitiesHtml}
               </div>
@@ -143,7 +168,7 @@ class InformerUpdater {
         }
         break;
 
-      case 'flaws':
+      case 'flaws-and-perks':
         const independentFlaws = currentState.flaws.filter(f => f.source === 'independent-flaw');
         const selectedIndependentFlawsHtml = independentFlaws.length > 0
           ? independentFlaws.map(flawState => {
@@ -158,7 +183,7 @@ class InformerUpdater {
                 : '';
 
               return `
-                <div class="selected-flaw-item">
+                <div class="selected-item-display-card">
                   <h4>${flawDef.name}</h4>
                   <p>${flawDef.description}</p>
                   ${nestedOptionsHtml}
@@ -166,16 +191,52 @@ class InformerUpdater {
             }).join('')
           : '<p>No independent flaws selected yet.</p>';
 
-        // Get total flaw points
+        const independentPerks = currentState.perks.filter(p => p.source === 'independent-perk'); // NEW
+        const selectedIndependentPerksHtml = independentPerks.length > 0
+          ? independentPerks.map(perkState => {
+              const perkDef = this.stateManager.getPerk(perkState.id);
+              if (!perkDef) return '';
+
+              const nestedOptionsHtml = perkState.selections && perkState.selections.length > 0
+                ? `<ul>${perkState.selections.map(sel => {
+                    const option = perkDef.options?.find(o => o.id === sel.id);
+                    return option ? `<li>${option.name}</li>` : '';
+                  }).join('')}</ul>`
+                : '';
+
+              return `
+                <div class="selected-item-display-card">
+                  <h4>${perkDef.name}</h4>
+                  <p>${perkDef.description}</p>
+                  ${nestedOptionsHtml}
+                </div>`;
+            }).join('')
+          : '<p>No independent perks selected yet.</p>';
+
         const totalFlawPoints = this.stateManager.getIndependentFlawTotalWeight();
+        const totalPerkPoints = this.stateManager.getIndependentPerkTotalWeight();
 
         htmlContent = `
-          <div class="flaws-info">
-            <h3>Your Selected Flaws</h3>
-            <div class="flaw-points-summary">
-                <strong>Total Flaw Points: ${totalFlawPoints}</strong>
+          <div class="flaws-and-perks-info">
+            <h3>Your Selections</h3>
+            <div class="points-summary-container">
+                <div class="flaw-points-summary">
+                    <strong>Total Flaw Points: ${totalFlawPoints}</strong>
+                </div>
+                <div class="perk-points-summary">
+                    <strong>Total Perk Points: ${totalPerkPoints} / ${totalFlawPoints}</strong>
+                </div>
             </div>
-            ${selectedIndependentFlawsHtml}
+            <div class="selected-items-columns">
+                <div class="selected-column">
+                    <h4>Selected Flaws</h4>
+                    ${selectedIndependentFlawsHtml}
+                </div>
+                <div class="selected-column">
+                    <h4>Selected Perks</h4>
+                    ${selectedIndependentPerksHtml}
+                </div>
+            </div>
           </div>`;
         break;
 

@@ -328,8 +328,9 @@ class DestinyPageHandler {
             newSelections.length >= parentItemDef.maxChoices) {
           inputElement.checked = false; // Revert checkbox state if over limit
           alerter.show(`You can only select up to ${parentItemDef.maxChoices} option(s) for ${parentItemDef.name}.`);
-          this._refreshAbilityOptionStates();
-          return;
+          // Calling _refreshAbilityOptionStates here is crucial to immediately update the UI
+          this._refreshAbilityOptionStates(); 
+          return; // IMPORTANT: Exit here as we've handled the limit and reverted the UI
         }
         newSelections.push({ id: optionId });
       } else {
@@ -346,6 +347,7 @@ class DestinyPageHandler {
     
     console.log(`_handleNestedOptionSelection: Selections updated for ${itemType} ${itemId}:`, newSelections);
     this.informerUpdater.update('destiny');
+    // Ensure this refresh happens AFTER state updates
     this._refreshAbilityOptionStates();
   }
 
@@ -767,12 +769,14 @@ class DestinyPageHandler {
       if (optionsContainer && itemDef && itemDef.options) {
         optionsContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(optionInput => {
           const optionId = optionInput.dataset.option;
+          // IMPORTANT: Check against the current state's selections for this specific parent item
           const isOptionSelected = parentItemState ? parentItemState.selections.some(s => s.id === optionId) : false;
 
           let shouldBeDisabled = false;
 
           if (!isParentItemCurrentlySelected) {
             shouldBeDisabled = true;
+            // If parent is not selected, its nested options should not be checked
             if (optionInput.checked) {
               optionInput.checked = false;
             }
@@ -782,7 +786,8 @@ class DestinyPageHandler {
 
             if (optionInput.type === 'radio') {
               shouldBeDisabled = false;
-            } else { // Nested Checkbox logic
+            } else { // Nested Checkbox logic (maxChoices >= 2)
+              // Disable if max choices are met AND this specific option is NOT already selected
               if (maxChoicesForOption !== undefined && maxChoicesForOption !== null &&
                   currentSelectionsCount >= maxChoicesForOption && !isOptionSelected) {
                 shouldBeDisabled = true;
@@ -791,13 +796,13 @@ class DestinyPageHandler {
               }
             }
           }
+          // Apply the determined disabled state
           optionInput.disabled = shouldBeDisabled;
-          // Ensure the input's checked state reflects the state, especially after potential reverts
-          // This is critical if the state was updated due to maxChoices exceeded or parent not selected.
+          // ALWAYS set the checked state based on the current state. This is the crucial part.
           optionInput.checked = isOptionSelected;
         });
       } else if (optionsContainer) {
-        console.debug(`_refreshAbilityOptionStates: Item ${itemId} has optionsContainer but no options in itemDef.`);
+        console.debug(`_refreshAbilityOptionStates: Item ${itemId} has optionsContainer but no options in itemDef, or vice versa.`);
       }
     });
     this.pageNavigator.updateNav();

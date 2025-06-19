@@ -8,15 +8,16 @@ class WizardStateManager {
    * @param {Object} flawData - Data for flaws.
    * @param {Object} destinyData - Data for destinies.
    * @param {Object} abilityData - Data for abilities.
+   * @param {Object} perkData - Data for perks.
    */
-  constructor(moduleSystemData, flawData, destinyData, abilityData) {
+  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData) {
     // Initialize the wizard's state. This state will be updated by various handlers.
     this.state = {
       module: null,
       moduleChanged: false, // Flag to indicate if the module has been changed, triggering resets
       destiny: null,
-      // Flaws now also support 'selections' for nested options, like abilities
       flaws: [], // Array of {id, selections: [], source: string, groupId: string}
+      perks: [], // Array of {id, selections: [], source: string, groupId: string}
       abilities: [], // Array of {id, selections: [], source: string, groupId: string}
       attributes: {},
       info: { name: '', bio: '' }
@@ -27,6 +28,7 @@ class WizardStateManager {
     this.flawData = flawData;
     this.destinyData = destinyData;
     this.abilityData = abilityData;
+    this.perkData = perkData;
 
     console.log('WizardStateManager: Initialized with game data.');
   }
@@ -57,6 +59,7 @@ class WizardStateManager {
           // Reset dependent state when the module changes
           this.state.destiny = null;
           this.state.flaws = []; // Reset flaws
+          this.state.perks = []; // Reset perks
           this.state.abilities = []; // Reset abilities
           this.state.attributes = {};
         } else {
@@ -128,6 +131,14 @@ class WizardStateManager {
     return this.flawData[flawId];
   }
 
+  getPerkData() {
+    return this.perkData;
+  }
+
+  getPerk(perkId) {
+    return this.perkData[perkId];
+  }
+
   getDestinyData() {
     return this.destinyData;
   }
@@ -141,17 +152,21 @@ class WizardStateManager {
   }
 
   /**
-   * Retrieves either an ability or a flaw definition based on its ID and optional group ID.
-   * This is used to generalize fetching details for both abilities and flaws.
-   * @param {string} itemId - The ID of the ability or flaw.
-   * @param {string} [groupId] - The ID of the group the item belongs to. Used to determine if it's a flaw.
-   * @returns {Object|null} The ability or flaw data, or null if not found.
+   * Retrieves either an ability, a flaw, or a perk definition based on its ID and optional group ID.
+   * This is used to generalize fetching details for abilities, flaws, and perks.
+   * @param {string} itemId - The ID of the ability, flaw, or perk.
+   * @param {string} [groupId] - The ID of the group the item belongs to (e.g., 'flaws', 'perks').
+   * @returns {Object|null} The item data, or null if not found.
    */
-  getAbilityOrFlawData(itemId, groupId) {
+  getAbilityOrFlawData(itemId, groupId) { // Renamed from getAbilityOrFlawData to reflect new use
     // If the groupId indicates a flaw group, try to get from flawData
     if (groupId === 'flaws' && this.flawData[itemId]) {
       // Return a copy and add a 'type' property to distinguish it
       return { ...this.flawData[itemId], type: 'flaw' };
+    }
+    // If the groupId indicates a perk group, try to get from perkData
+    if (groupId === 'perks' && this.perkData[itemId]) {
+      return { ...this.perkData[itemId], type: 'perk' };
     }
     // Otherwise, assume it's a regular ability
     if (this.abilityData[itemId]) {
@@ -159,7 +174,7 @@ class WizardStateManager {
       // If ability already has a type, keep it. Otherwise, default to 'ability'.
       return { ...this.abilityData[itemId], type: this.abilityData[itemId].type || 'ability' };
     }
-    console.warn(`WizardStateManager: Item with ID '${itemId}' (Group: '${groupId}') not found in abilityData or flawData.`);
+    console.warn(`WizardStateManager: Item with ID '${itemId}' (Group: '${groupId}') not found in abilityData, flawData, or perkData.`);
     return null;
   }
 
@@ -329,6 +344,87 @@ class WizardStateManager {
         totalWeight += flawDef.weight;
       } else {
         console.warn(`WizardStateManager: Flaw '${flawState.id}' (source: independent-flaw) is missing a 'weight' property or it's not a number. Not contributing to total.`);
+      }
+    });
+    return totalWeight;
+  }
+
+  /**
+   * Adds or updates a perk in the state, including its source, group ID, and selections.
+   * @param {Object} newPerk - The perk object to add/update {id, selections: [], source: string, groupId: string}.
+   */
+  addOrUpdatePerk(newPerk) {
+    console.log(`WizardStateManager: Adding/updating perk: ${newPerk.id} (Source: ${newPerk.source || 'N/A'}, Group: ${newPerk.groupId || 'N/A'})`);
+
+    const destinyData = this.getDestiny(this.state.destiny);
+    const groupDef = destinyData?.abilityGroups?.[newPerk.groupId]; // Assuming destiny might have 'perks' ability group
+    const maxChoices = groupDef?.maxChoices || 1;
+
+    if (maxChoices === 1 && newPerk.groupId) {
+      this.state.perks = this.state.perks.filter(perk =>
+        !(perk.source === newPerk.source && perk.groupId === newPerk.groupId)
+      );
+    }
+    
+    if (!this.state.perks.some(p => p.id === newPerk.id && p.source === newPerk.source && p.groupId === newPerk.groupId)) {
+      this.state.perks.push(newPerk);
+    }
+    console.log('WizardStateManager: Current perks state:', this.state.perks);
+    this.set('perks', this.state.perks);
+  }
+
+  /**
+   * Updates selections for a specific perk.
+   * @param {string} perkId - The ID of the perk to update.
+   * @param {string} source - The source of the perk.
+   * @param {string} groupId - The ID of the group the perk belongs to.
+   * @param {Array<Object>} newSelections - The new array of selections for that perk.
+   */
+  updatePerkSelections(perkId, source, groupId, newSelections) {
+    const perkIndex = this.state.perks.findIndex(p => p.id === perkId && p.source === source && p.groupId === groupId);
+    if (perkIndex !== -1) {
+      this.state.perks[perkIndex].selections = newSelections;
+      console.log(`WizardStateManager: Selections updated for perk ${perkId} (Source: ${source}, Group: ${groupId}):`, newSelections);
+      this.set('perks', this.state.perks);
+    } else {
+      console.warn(`WizardStateManager: Attempted to update selections for non-existent perk: ${perkId} (Source: ${source}, Group: ${groupId})`);
+    }
+  }
+
+  /**
+   * NEW: Removes a perk from the state.
+   * @param {string} perkId - The ID of the perk to remove.
+   * @param {string} source - The source of the perk.
+   * @param {string} groupId - The ID of the group the perk belongs to.
+   */
+  removePerk(perkId, source, groupId) {
+    const originalLength = this.state.perks.length;
+    this.state.perks = this.state.perks.filter(p =>
+      !(p.id === perkId && p.source === source && p.groupId === groupId)
+    );
+    if (this.state.perks.length < originalLength) {
+      console.log(`WizardStateManager: Removed perk: ${perkId} (Source: ${source}, Group: ${groupId})`);
+      this.set('perks', this.state.perks);
+    } else {
+      console.warn(`WizardStateManager: Attempted to remove non-existent perk: ${perkId} (Source: ${source}, Group: ${groupId})`);
+    }
+    console.log('WizardStateManager: Current perks state after removal:', this.state.perks);
+  }
+
+  /**
+   * Calculates the total weight (points) of all perks that have the source 'independent-perk'.
+   * @returns {number} The sum of weights for independent perks.
+   */
+  getIndependentPerkTotalWeight() {
+    let totalWeight = 0;
+    const independentPerks = this.state.perks.filter(p => p.source === 'independent-perk');
+
+    independentPerks.forEach(perkState => {
+      const perkDef = this.getPerk(perkState.id);
+      if (perkDef && typeof perkDef.weight === 'number') {
+        totalWeight += perkDef.weight;
+      } else {
+        console.warn(`WizardStateManager: Perk '${perkState.id}' (source: independent-perk) is missing a 'weight' property or it's not a number. Not contributing to total.`);
       }
     });
     return totalWeight;
