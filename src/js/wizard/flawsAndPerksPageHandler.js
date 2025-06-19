@@ -210,31 +210,60 @@ class FlawsAndPerksPageHandler { // Renamed class
    * @private
    */
   _handleNestedOptionChange(e) {
-    // Ensure the event target is an input with data-option (i.e., a nested option)
-    if (!e.target.matches('input[data-option]')) {
-      return;
+    const inputElement = e.target;
+    const optionId = inputElement.value;
+    // Assuming 'e.target.closest()' is used to find the parent card and extract item details
+    const cardElement = inputElement.closest('.selection-card');
+    if (!cardElement) {
+        console.warn('FlawsAndPerksPageHandler._handleNestedOptionChange: Could not find parent card for option.');
+        return;
     }
 
-    const optionInput = e.target;
-    const itemId = optionInput.dataset.item;
-    const optionId = optionInput.dataset.option;
-    const source = optionInput.dataset.source;
-    const itemType = optionInput.dataset.type; // 'flaw' or 'perk'
-    
-    // IMPORTANT: Check if the parent card is disabled by another source first
-    const card = optionInput.closest('.flaw-card, .perk-card');
-    if (card && card.classList.contains('disabled-by-other-source')) {
-      this.alerter.show(`'${itemId}' is already selected from another section and cannot be independently chosen.`, 'info');
-      e.preventDefault(); // Prevent default checkbox/radio toggle
-      optionInput.checked = false; // Ensure it stays unchecked
-      return;
+    const itemId = cardElement.dataset.itemId;
+    const itemSource = cardElement.dataset.source; // e.g., 'flaw', 'perk', 'independent-perk'
+    const itemType = cardElement.dataset.itemType; // e.g., 'flaw', 'perk' (add this dataset attribute to your HTML if not present)
+    const itemGroupId = cardElement.dataset.groupId; // Used for some items
+
+    // Retrieve the current state of the parent item (flaw or perk) from the state manager
+    let parentItemState;
+    if (itemType === 'flaw') {
+        parentItemState = this.stateManager.getFlaw(itemId, itemSource, itemGroupId);
+    } else if (itemType === 'perk') {
+        parentItemState = this.stateManager.getPerk(itemId, itemSource, itemGroupId);
+    } else {
+        // IMPORTANT: If it's not explicitly a 'flaw' or 'perk', or if its source is 'destiny',
+        // this handler should NOT process it. Log a warning and exit.
+        console.warn(`FlawsAndPerksPageHandler._handleNestedOptionChange: Attempted to process an item of unexpected type or source: ${itemType || 'unknown'} (Source: ${itemSource}). This handler only manages flaws and perks.`);
+        return; // EXIT EARLY if not a flaw or perk
     }
 
-    const isSelectedFromInput = optionInput.checked;
+    if (!parentItemState) {
+        console.warn(`FlawsAndPerksPageHandler._handleNestedOptionChange: Parent item '${itemId}' (source: ${itemSource}, type: ${itemType}) NOT FOUND IN STATE. Cannot update nested option.`);
+        return;
+    }
 
-    console.log(`_handleNestedOptionChange: Processing nested option ${optionId} for ${itemType} ${itemId}. Current input checked: ${isSelectedFromInput}`);
+    const isOptionSelected = parentItemState.selections.includes(optionId);
 
-    this._handleNestedOptionSelection(itemId, source, itemType, optionId, isSelectedFromInput, optionInput);
+    // Update the selections array based on the checkbox/radio state
+    if (inputElement.checked) {
+        if (!isOptionSelected) {
+            parentItemState.selections.push(optionId);
+        }
+    } else {
+        if (isOptionSelected) {
+            parentItemState.selections = parentItemState.selections.filter(s => s !== optionId);
+        }
+    }
+
+    // Now, update the state manager with the modified flaw/perk state
+    if (itemType === 'flaw') {
+        this.stateManager.addOrUpdateFlaw(parentItemState);
+    } else if (itemType === 'perk') {
+        this.stateManager.addOrUpdatePerk(parentItemState);
+    }
+
+    // After state update, refresh the UI
+    this._refreshItemOptionStates();
   }
 
   /**
