@@ -36,7 +36,14 @@
     "name": "Overconfidence",
     "description": "You underestimate threats",
     "weight": 10,
-    "effect": "Disadvantage on Perception vs danger"
+    "effect": "Disadvantage on Perception vs danger",
+    "maxChoices": 3,
+    "options": [
+      { "id": "fireball", "name": "Fireball", "description": "A burst of flame that deals fire damage." },
+      { "id": "shield", "name": "Shield", "description": "Create a magical barrier." },
+      { "id": "mage-hand", "name": "Mage Hand", "description": "A spectral, floating hand." },
+      { "id": "lightning-bolt", "name": "Lightning Bolt", "description": "A streak of lightning that deals lightning damage." }
+    ]
   },
   "arrogance": {
     "name": "Arrogance",

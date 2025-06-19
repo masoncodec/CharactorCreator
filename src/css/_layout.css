@@ -64,6 +64,10 @@
 /* Specific panel sizing */
 .selector-panel {
     flex: 2;
+    /* Make selector-panel a flex container for its children */
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Ensure it takes full height from its parent (.wizard-content) */
 }
 
 .informer-panel {

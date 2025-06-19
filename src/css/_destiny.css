@@ -2,8 +2,43 @@
 
 .page-destiny {
     /* Adjust as needed for spacing around the destiny selection */
-    margin-bottom: 1rem; 
+    margin-bottom: 1rem;
+    
+    /* Make the destiny page itself a flex container */
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Allow it to take up available vertical space within its flex parent (.selector-panel) */
+    min-height: 0; /* Important for flex items with overflow-y */
+    /* Removed overflow-y and scrollbar styling from here, moving it to .destiny-content-scroll-area */
 }
+
+.destiny-content-scroll-area { /* Styles for the new scrollable content area */
+    flex-grow: 1; /* Allow it to take up all remaining vertical space */
+    overflow-y: auto; /* Enable vertical scrolling for THIS container */
+    min-height: 0; /* Important for flex items with overflow-y */
+    padding-right: 0.5rem; /* Add some padding for the scrollbar */
+
+    /* Custom scrollbar styling (optional, and browser-specific) */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #FFD700 #252525; /* Thumb and Track color for Firefox */
+}
+
+/* Webkit (Chrome, Safari) scrollbar styling for destiny-content-scroll-area */
+.destiny-content-scroll-area::-webkit-scrollbar {
+    width: 8px;
+}
+
+.destiny-content-scroll-area::-webkit-scrollbar-track {
+    background: #252525; /* Track color */
+    border-radius: 10px;
+}
+
+.destiny-content-scroll-area::-webkit-scrollbar-thumb {
+    background-color: #FFD700; /* Thumb color */
+    border-radius: 10px;
+    border: 2px solid #252525; /* Padding around thumb */
+}
+
 
 /* Ensure the container is a flex container and allows wrapping */
 #destiny-options-container { /* Use the ID selector for highest specificity */
@@ -16,7 +51,7 @@
 
 /* Your destiny-option styles will now work as intended because the parent is a flex container */
 .destiny-option {
-    flex: 1 1 calc(.20% - 10px); /* For 2 items per row, or adjust as needed */
+    flex: 1 1 calc(50% - 5px); /* For 2 items per row, adjusted to account for gap */
     box-sizing: border-box;
     padding: 15px;
     background-color: #252525;
