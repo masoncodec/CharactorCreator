@@ -39,15 +39,15 @@
     padding-right: 2rem;
     gap: 2rem;
     flex-grow: 1; /* This makes it fill all available vertical space within wizard-container */
-    overflow: hidden; /* CHANGED: Hide any overflow to prevent its own scrollbar */
+    overflow: hidden; /* Hide any overflow to prevent its own scrollbar */
     box-sizing: border-box; /* Ensures padding doesn't add to element's total height */
 }
 
 .panel {
     background: #2D2D2D;
-    padding: 0 1.5rem 1.5rem 1.5rem; /* MODIFIED: Set top padding to 0 to move content up */
+    padding: 0 1.5rem 1.5rem 1.5rem; /* Set top padding to 0 to move content up */
     border-radius: 8px;
-    overflow: hidden; /* CHANGED: Hide overflow here as well. Its children (like .flaws-and-perks-container) will manage their own. */
+    overflow: hidden; /* Hide overflow here as well. Its children (like .flaws-and-perks-container) will manage their own. */
     flex-shrink: 1; /* Allow panels to shrink */
     min-height: 0; /* Important for flex items with overflow-y: auto */
     box-sizing: border-box; /* Ensure panel's padding is included in its height calculation */
@@ -69,7 +69,30 @@
 .informer-panel {
     flex: 1;
     max-width: 350px;
+    overflow-y: auto; /* Enable vertical scrolling for informer panel */
+    min-height: 0;   /* Ensure it can shrink and scroll */
+    
+    /* Custom scrollbar styling for informer panel */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #FFD700 #252525; /* Thumb and Track color for Firefox */
 }
+
+/* Webkit (Chrome, Safari) scrollbar styling for informer panel */
+.informer-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+.informer-panel::-webkit-scrollbar-track {
+    background: #252525; /* Track color */
+    border-radius: 10px;
+}
+
+.informer-panel::-webkit-scrollbar-thumb {
+    background-color: #FFD700; /* Thumb color */
+    border-radius: 10px;
+    border: 2px solid #252525; /* Padding around thumb */
+}
+
 
 /* Play Area Specific Layout */
 .play-area {
