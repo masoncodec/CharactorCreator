@@ -9,7 +9,53 @@
     gap: 2rem; /* Gap between the two columns */
     padding: 1rem 0;
     margin-top: 1.5rem;
+    height: 100%; /* Allow container to take full height of its parent */
 }
+
+/* Styles for the new column wrappers for flaws and perks */
+.flaw-column,
+.perk-column {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Allow it to fill the height of .flaws-and-perks-container */
+    min-height: 0; /* Important for flex items with scrolling content */
+    background: #1a1a1a; /* Dark background for columns */
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Styles for the new scrollable areas within each column */
+.flaws-scroll-area,
+.perks-scroll-area {
+    flex-grow: 1; /* Allow it to take up available vertical space */
+    overflow-y: auto; /* Enable vertical scrolling */
+    min-height: 0; /* Important for flex items with scrolling content */
+    padding-right: 0.5rem; /* Add some padding for the scrollbar */
+    /* Custom scrollbar styling (optional, and browser-specific) */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #FFD700 #252525; /* Thumb and Track color for Firefox */
+}
+
+/* Webkit (Chrome, Safari) scrollbar styling */
+.flaws-scroll-area::-webkit-scrollbar,
+.perks-scroll-area::-webkit-scrollbar {
+    width: 8px;
+}
+
+.flaws-scroll-area::-webkit-scrollbar-track,
+.perks-scroll-area::-webkit-scrollbar-track {
+    background: #252525; /* Track color */
+    border-radius: 10px;
+}
+
+.flaws-scroll-area::-webkit-scrollbar-thumb,
+.perks-scroll-area::-webkit-scrollbar-thumb {
+    background-color: #FFD700; /* Thumb color */
+    border-radius: 10px;
+    border: 2px solid #252525; /* Padding around thumb */
+}
+
 
 /* Common styles for both flaws and perks grid containers */
 .flaws-grid-container,
@@ -18,7 +64,7 @@
     /* Two columns within each section, minimum card width 150px */
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 1rem; /* Smaller gap between cards in the inner grid */
-    padding: 0.5rem 0;
+    padding: 0; /* Removed padding here as it's now on .flaws-scroll-area */
 }
 
 /* Common styles for both flaw and perk cards */
@@ -34,7 +80,6 @@
     height: 100%;
     transition: all 0.2s ease-in-out;
     cursor: pointer;
-    /* Removed flex-grow/shrink as grid handles sizing */
 }
 
 .flaw-card:hover:not(.selected):not(.disabled-for-selection),
@@ -57,7 +102,6 @@
     background-color: #4CAF50; /* Green accent for perks */
     box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
 }
-
 
 /* Disabled state for the main item card selection */
 .flaw-card.disabled-for-selection,
@@ -308,7 +352,6 @@
 
 /* Disabled text for the label's content (span) common */
 .flaw-option-nested input[type="checkbox"]:disabled ~ .option-text-content,
-.flaw-option-nested input[type="radio"]:disabled ~ .option-text-content,
 .perk-option-nested input[type="checkbox"]:disabled ~ .option-text-content,
 .perk-option-nested input[type="radio"]:disabled ~ .option-text-content {
     color: #777;

@@ -265,7 +265,6 @@ class FlawsAndPerksPageHandler { // Renamed class
     const isOptionCurrentlyInState = parentItemState.selections.some(s => s.id === optionId);
 
     if (inputElement.type === 'radio') {
-      console.log(`_handleNestedOptionSelection: Handling radio button for ${itemType} ${itemId}, option ${optionId}.`);
       newSelections = [{ id: optionId }];
     } else { // Checkbox
       if (isOptionCurrentlyInState && !isSelectedFromInput) {
@@ -365,23 +364,21 @@ class FlawsAndPerksPageHandler { // Renamed class
    * @private
    */
   _renderItems() {
-    const flawsOptionsContainer = this.selectorPanel.querySelector('.flaws-options');
-    const perksOptionsContainer = this.selectorPanel.querySelector('.perks-options');
-    if (!flawsOptionsContainer || !perksOptionsContainer) {
-      console.error('FlawsAndPerksPageHandler: .flaws-options or .perks-options container not found.');
+    // Query the *actual* grid containers where cards are appended
+    const flawsGridContainer = this.selectorPanel.querySelector('.flaws-grid-container');
+    const perksGridContainer = this.selectorPanel.querySelector('.perks-grid-container');
+    if (!flawsGridContainer || !perksGridContainer) {
+      console.error('FlawsAndPerksPageHandler: .flaws-grid-container or .perks-grid-container not found.');
       return;
     }
 
-    flawsOptionsContainer.innerHTML = '<h3>Choose Your Flaws</h3><p>Select any flaws you wish to add to your character:</p>';
-    perksOptionsContainer.innerHTML = '<h3>Choose Your Perks</h3><p>Select perks up to your total flaw points:</p>';
+    flawsGridContainer.innerHTML = ''; // Clear previous options
+    perksGridContainer.innerHTML = ''; // Clear previous options
 
     const allFlawData = this.stateManager.getFlawData();
     const allPerkData = this.stateManager.getPerkData(); // NEW: Get perk data
     const currentState = this.stateManager.getState();
     
-    const flawsGridContainer = document.createElement('div');
-    flawsGridContainer.className = 'flaws-grid-container';
-
     // Render Flaws
     Object.entries(allFlawData).forEach(([flawId, flaw]) => {
       // Check if this flaw (by ID) is already in the state from a *different* source
@@ -421,13 +418,9 @@ class FlawsAndPerksPageHandler { // Renamed class
         </div>
       `;
     });
-    flawsOptionsContainer.appendChild(flawsGridContainer);
     console.log('FlawsAndPerksPageHandler: Flaw options rendered.');
 
     // Render Perks (NEW)
-    const perksGridContainer = document.createElement('div');
-    perksGridContainer.className = 'perks-grid-container';
-
     Object.entries(allPerkData).forEach(([perkId, perk]) => {
         const isSelectedFromOtherSource = currentState.perks.some(p => p.id === perkId && p.source !== 'independent-perk');
         const isIndependentlySelected = currentState.perks.some(p => p.id === perkId && p.source === 'independent-perk');
@@ -467,7 +460,6 @@ class FlawsAndPerksPageHandler { // Renamed class
             </div>
         `;
     });
-    perksOptionsContainer.appendChild(perksGridContainer);
     console.log('FlawsAndPerksPageHandler: Perk options rendered.');
   }
 
@@ -540,8 +532,7 @@ class FlawsAndPerksPageHandler { // Renamed class
                         ${disabledAttribute}
                     >
                     <span class="option-visual"></span>
-                    <span class="option-text-content">${option.name}: ${this._renderDescription(option)}</span>
-                </label>`;
+                    <span class="option-text-content">${option.name}: ${this._renderDescription(option)}</span> </label>`;
           }).join('')}
       </div>
       `;
@@ -728,7 +719,7 @@ class FlawsAndPerksPageHandler { // Renamed class
   }
 
   /**
-   * Cleans up event listeners when the page is unloaded (optional, for robustness).
+   * Cleans up event listeners when the page is unloaded (optional, for robustness).\
    */
   cleanup() {
     console.log('FlawsAndPerksPageHandler.cleanup: Cleaning up flaws and perks page resources.');
