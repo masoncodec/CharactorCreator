@@ -1,21 +1,22 @@
 // effectHandler.js
 // This module centralizes the logic for processing and applying character effects
-// derived from abilities and flaws.
+// derived from abilities, flaws, and perks.
 
 export const EffectHandler = {
     // Stores currently active effects that influence character stats or state
     activeEffects: [], // This will be a list of processed effects, not just raw ability effects
 
     /**
-     * Processes active abilities and flaws to compile their effects.
+     * Processes active abilities, flaws, and perks to compile their effects.
      * This function should be called whenever character state might change (e.g., ability toggle, character load).
-     * @param {object} character - The character object containing abilities and flaws.
+     * @param {object} character - The character object containing abilities, flaws, and perks.
      * @param {object} abilityData - A map of all ability definitions by ID.
      * @param {object} flawData - A map of all flaw definitions by ID.
+     * @param {object} perkData - A map of all perk definitions by ID. // ADDED: perkData parameter
      * @param {Set<string>} activeAbilityStates - A Set of IDs of currently toggled active abilities.
      * @param {string} context - The context in which effects are being processed ('wizard' or 'play').
      */
-    processActiveAbilities: function(character, abilityData, flawData, activeAbilityStates, context) {
+    processActiveAbilities: function(character, abilityData, flawData, perkData, activeAbilityStates, context) { // ADDED perkData
         this.activeEffects = []; // Clear previous active effects
 
         if (!character) return;
@@ -33,9 +34,9 @@ export const EffectHandler = {
                             // Store the raw effect data along with context
                             this.activeEffects.push({
                                 ...effect,
-                                abilityName: abilityDef.name,
-                                abilityId: abilityState.id, // Include ability ID for cost deduction
-                                abilityType: abilityDef.type,
+                                itemName: abilityDef.name, // Renamed for consistency across sources
+                                itemId: abilityState.id,
+                                itemType: abilityDef.type, // 'active' or 'passive'
                                 sourceType: "ability" // Indicate source is an ability
                             });
                         });
@@ -44,7 +45,7 @@ export const EffectHandler = {
             });
         }
 
-        // Process Flaws (treated as virtual passive abilities for effect handling)
+        // Process Flaws
         if (character.flaws && flawData) {
             character.flaws.forEach(flawState => {
                 const flawDef = flawData[flawState.id];
@@ -52,15 +53,34 @@ export const EffectHandler = {
                     flawDef.effect.forEach(effect => {
                         this.activeEffects.push({
                             ...effect,
-                            abilityName: flawDef.name, // Use flaw name for context
-                            abilityId: flawState.id, // Include flaw ID
-                            abilityType: "passive", // Treat functionally as passive for effect processing
+                            itemName: flawDef.name, // Use flaw name for context
+                            itemId: flawState.id, // Include flaw ID
+                            itemType: "passive", // Treat functionally as passive for effect processing
                             sourceType: "flaw" // Indicate source is a flaw
                         });
                     });
                 }
             });
         }
+
+        // Process Perks // ADDED: New section for Perks
+        if (character.perks && perkData) {
+            character.perks.forEach(perkState => {
+                const perkDef = perkData[perkState.id];
+                if (perkDef && perkDef.effect) {
+                    perkDef.effect.forEach(effect => {
+                        this.activeEffects.push({
+                            ...effect,
+                            itemName: perkDef.name, // Use perk name for context
+                            itemId: perkState.id, // Include perk ID
+                            itemType: "passive", // Treat functionally as passive for effect processing
+                            sourceType: "perk" // Indicate source is a perk
+                        });
+                    });
+                }
+            });
+        }
+
         console.log("EffectHandler: Active Effects Processed for context:", context, this.activeEffects);
     },
 
@@ -136,12 +156,17 @@ export const EffectHandler = {
                     modifiedCharacter.activeRollEffects[effect.attribute].push(effect);
                     break;
                 case "max_health_mod":
-                    // Apply max_health_mod selectively based on context and ability type
-                    if (context === 'wizard' && effect.abilityType === 'passive') {
+                    // Apply max_health_mod based on itemType and context
+                    // If source is a flaw or perk, it's always considered 'passive' for this effect,
+                    // applying in 'wizard' context as per your requirement.
+                    // Existing abilities still use their specific type (active/passive).
+                    const isPassiveEffect = effect.itemType === 'passive' || effect.sourceType === 'flaw' || effect.sourceType === 'perk';
+
+                    if (context === 'wizard' && isPassiveEffect) {
                         if (modifiedCharacter.calculatedHealth) {
                             modifiedCharacter.calculatedHealth.currentMax += effect.value;
                         }
-                    } else if (context === 'play' && effect.abilityType === 'active') {
+                    } else if (context === 'play' && effect.itemType === 'active') { // Only active abilities apply in 'play' context here
                         if (modifiedCharacter.calculatedHealth) {
                             modifiedCharacter.calculatedHealth.currentMax += effect.value;
                         }

@@ -4,9 +4,22 @@
     "name": "Keen Eyes",
     "description": "You gain a +1 bonus to all Perception rolls.",
     "weight": 2,
-    "type": "passive",
+    "type": "perk",
     "tags": [
       { "display": "Perk", "icon": "✨", "color": "#4CAF50" }
+    ],
+    "effect": [
+      {
+        "type": "modifier",
+        "name": "Modifier",
+        "attribute": "sturdy",
+        "modifier": 2
+      },
+      {
+        "type": "max_health_mod",
+        "name": "Health",
+        "value": 1
+      }
     ]
   },
   "fast-learner": {
@@ -14,7 +27,7 @@
     "name": "Fast Learner",
     "description": "When you gain experience, you gain an additional 10% (rounded down).",
     "weight": 3,
-    "type": "passive",
+    "type": "perk",
     "tags": [
       { "display": "Perk", "icon": "📚", "color": "#2196F3" }
     ]
@@ -24,7 +37,7 @@
     "name": "Lucky Break",
     "description": "Once per session, you can reroll one failed skill check. Must take the second result.",
     "weight": 5,
-    "type": "active",
+    "type": "perk",
     "tags": [
       { "display": "Perk", "icon": "🍀", "color": "#FFC107" }
     ]
@@ -34,7 +47,7 @@
     "name": "Well Connected",
     "description": "You have a network of contacts. Choose one type of contact:",
     "weight": 4,
-    "type": "utility",
+    "type": "perk",
     "tags": [
       { "display": "Perk", "icon": "🤝", "color": "#9C27B0" }
     ],
@@ -65,7 +78,7 @@
     "name": "Iron Stomach",
     "description": "You are immune to common foodborne illnesses.",
     "weight": 1,
-    "type": "passive",
+    "type": "perk",
     "tags": [
       { "display": "Perk", "icon": "🍔", "color": "#795548" }
     ]
@@ -75,7 +88,7 @@
     "name": "Adaptive Mind",
     "description": "You can reassign 1 point from any attribute to another once per long rest.",
     "weight": 3,
-    "type": "active",
+    "type": "perk",
     "tags": [
       { "display": "Perk", "icon": "🧠", "color": "#00BCD4" }
     ]

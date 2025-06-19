@@ -30,13 +30,7 @@
         "attribute": "charm",
         "modifier": -1
       }
-    ]
-  },
-  "overconfidence": {
-    "name": "Overconfidence",
-    "description": "You underestimate threats",
-    "weight": 10,
-    "effect": "Disadvantage on Perception vs danger",
+    ],
     "maxChoices": 3,
     "options": [
       { "id": "fireball", "name": "Fireball", "description": "A burst of flame that deals fire damage." },
@@ -44,6 +38,12 @@
       { "id": "mage-hand", "name": "Mage Hand", "description": "A spectral, floating hand." },
       { "id": "lightning-bolt", "name": "Lightning Bolt", "description": "A streak of lightning that deals lightning damage." }
     ]
+  },
+  "overconfidence": {
+    "name": "Overconfidence",
+    "description": "You underestimate threats",
+    "weight": 10,
+    "effect": "Disadvantage on Perception vs danger"
   },
   "arrogance": {
     "name": "Arrogance",
