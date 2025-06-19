@@ -211,30 +211,39 @@ class FlawsAndPerksPageHandler { // Renamed class
    */
   _handleNestedOptionChange(e) {
     const inputElement = e.target;
-    const optionId = inputElement.value;
-    // Assuming 'e.target.closest()' is used to find the parent card and extract item details
+
+    // First, verify that the changed input is indeed part of a Flaw or Perk card.
+    // Assuming your Flaw/Perk cards have a distinct class like 'flaw-perk-card'
+    // or that you can identify them by a specific data attribute, e.g., data-item-type="flaw" or "perk"
     const cardElement = inputElement.closest('.selection-card');
-    if (!cardElement) {
-        console.warn('FlawsAndPerksPageHandler._handleNestedOptionChange: Could not find parent card for option.');
-        return;
+
+    // If no parent card with '.selection-card' is found, OR
+    // if the found card is not specifically a 'flaw' or 'perk' card, exit early.
+    // Adjust 'data-item-type' check based on your actual HTML structure.
+    if (!cardElement || (cardElement.dataset.itemType !== 'flaw' && cardElement.dataset.itemType !== 'perk')) {
+        // Log a more specific debug message rather than a warning if it's expected behavior
+        console.debug('FlawsAndPerksPageHandler._handleNestedOptionChange: Event not from a Flaw/Perk card, ignoring.');
+        return; // Ignore events not originating from a flaw or perk card
     }
 
-    const itemId = cardElement.dataset.itemId;
-    const itemSource = cardElement.dataset.source; // e.g., 'flaw', 'perk', 'independent-perk'
-    const itemType = cardElement.dataset.itemType; // e.g., 'flaw', 'perk' (add this dataset attribute to your HTML if not present)
-    const itemGroupId = cardElement.dataset.groupId; // Used for some items
+    const optionId = inputElement.value;
 
-    // Retrieve the current state of the parent item (flaw or perk) from the state manager
+    // The rest of your existing logic for handling flaws and perks:
+    // This part should be similar to the previous fix you implemented.
+    const itemId = cardElement.dataset.itemId;
+    const itemSource = cardElement.dataset.source;
+    const itemType = cardElement.dataset.itemType; // This should now always be 'flaw' or 'perk' due to the check above
+    const itemGroupId = cardElement.dataset.groupId;
+
     let parentItemState;
     if (itemType === 'flaw') {
         parentItemState = this.stateManager.getFlaw(itemId, itemSource, itemGroupId);
     } else if (itemType === 'perk') {
         parentItemState = this.stateManager.getPerk(itemId, itemSource, itemGroupId);
     } else {
-        // IMPORTANT: If it's not explicitly a 'flaw' or 'perk', or if its source is 'destiny',
-        // this handler should NOT process it. Log a warning and exit.
-        console.warn(`FlawsAndPerksPageHandler._handleNestedOptionChange: Attempted to process an item of unexpected type or source: ${itemType || 'unknown'} (Source: ${itemSource}). This handler only manages flaws and perks.`);
-        return; // EXIT EARLY if not a flaw or perk
+        // This 'else' block should ideally not be reached if the initial check is robust.
+        console.error(`FlawsAndPerksPageHandler._handleNestedOptionChange: Logic error: Reached unexpected itemType: ${itemType}`);
+        return;
     }
 
     if (!parentItemState) {
@@ -244,7 +253,6 @@ class FlawsAndPerksPageHandler { // Renamed class
 
     const isOptionSelected = parentItemState.selections.includes(optionId);
 
-    // Update the selections array based on the checkbox/radio state
     if (inputElement.checked) {
         if (!isOptionSelected) {
             parentItemState.selections.push(optionId);
@@ -255,14 +263,12 @@ class FlawsAndPerksPageHandler { // Renamed class
         }
     }
 
-    // Now, update the state manager with the modified flaw/perk state
     if (itemType === 'flaw') {
         this.stateManager.addOrUpdateFlaw(parentItemState);
     } else if (itemType === 'perk') {
         this.stateManager.addOrUpdatePerk(parentItemState);
     }
 
-    // After state update, refresh the UI
     this._refreshItemOptionStates();
   }
 
