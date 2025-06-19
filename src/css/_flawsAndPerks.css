@@ -7,8 +7,8 @@
     /* Two columns: each takes roughly half, with min-width for content */
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
     gap: 2rem; /* Gap between the two columns */
-    padding: 1rem 0;
-    margin-top: 1.5rem;
+    padding: 0; /* MODIFIED: Set padding to 0 */
+    margin-top: 0; /* MODIFIED: Set margin-top to 0 */
     height: 100%; /* Allow container to take full height of its parent */
 }
 
@@ -21,7 +21,7 @@
     min-height: 0; /* Important for flex items with scrolling content */
     background: #1a1a1a; /* Dark background for columns */
     border-radius: 8px;
-    padding: 1.5rem;
+    padding: 0 1.5rem 1.5rem 1.5rem; /* MODIFIED: Set top padding to 0 */
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
@@ -80,6 +80,7 @@
     height: 100%;
     transition: all 0.2s ease-in-out;
     cursor: pointer;
+    /* Removed flex-grow/shrink as grid handles sizing */
 }
 
 .flaw-card:hover:not(.selected):not(.disabled-for-selection),
@@ -102,6 +103,7 @@
     background-color: #4CAF50; /* Green accent for perks */
     box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
 }
+
 
 /* Disabled state for the main item card selection */
 .flaw-card.disabled-for-selection,
@@ -352,6 +354,7 @@
 
 /* Disabled text for the label's content (span) common */
 .flaw-option-nested input[type="checkbox"]:disabled ~ .option-text-content,
+.flaw-option-nested input[type="radio"]:disabled ~ .option-text-content,
 .perk-option-nested input[type="checkbox"]:disabled ~ .option-text-content,
 .perk-option-nested input[type="radio"]:disabled ~ .option-text-content {
     color: #777;
