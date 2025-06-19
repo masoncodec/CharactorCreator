@@ -66,6 +66,14 @@ class WizardStateManager {
         this.state[key] = value;
       }
       console.log(`WizardStateManager: State updated - ${key}:`, this.state[key]);
+      // Explicitly dispatch event for setState, as this method is called externally
+      document.dispatchEvent(new CustomEvent('wizard:stateChange', {
+        detail: {
+          key: key,
+          value: this.state[key],
+          newState: this.getState()
+        }
+      }));
     } else {
       console.warn(`WizardStateManager: Attempted to set unknown state key: ${key}`);
     }
@@ -89,6 +97,14 @@ class WizardStateManager {
       if (this.state.hasOwnProperty(key)) {
           this.state[key] = value;
           console.log(`WizardStateManager: Set state property '${key}' to:`, value);
+          // Explicitly dispatch event for set, to ensure consistent updates
+          document.dispatchEvent(new CustomEvent('wizard:stateChange', {
+            detail: {
+              key: key,
+              value: this.state[key],
+              newState: this.getState()
+            }
+          }));
       } else {
           console.warn(`WizardStateManager: Attempted to set non-existent state property: '${key}'`);
       }
@@ -187,6 +203,8 @@ class WizardStateManager {
     }
 
     console.log('WizardStateManager: Current abilities state:', this.state.abilities);
+    // Explicitly call set to dispatch the state change event
+    this.set('abilities', this.state.abilities);
   }
 
   /**
@@ -201,6 +219,8 @@ class WizardStateManager {
     if (abilityIndex !== -1) {
       this.state.abilities[abilityIndex].selections = newSelections;
       console.log(`WizardStateManager: Selections updated for ability ${abilityId} (Source: ${source}, Group: ${groupId}):`, newSelections);
+      // Explicitly call set to dispatch the state change event
+      this.set('abilities', this.state.abilities);
     } else {
       console.warn(`WizardStateManager: Attempted to update selections for non-existent ability: ${abilityId} (Source: ${source}, Group: ${groupId})`);
     }
@@ -219,6 +239,8 @@ class WizardStateManager {
     );
     if (this.state.abilities.length < originalLength) {
       console.log(`WizardStateManager: Removed ability: ${abilityId} (Source: ${source}, Group: ${groupId})`);
+      // Explicitly call set to dispatch the state change event
+      this.set('abilities', this.state.abilities);
     } else {
       console.warn(`WizardStateManager: Attempted to remove non-existent ability: ${abilityId} (Source: ${source}, Group: ${groupId})`);
     }
@@ -232,27 +254,25 @@ class WizardStateManager {
   addOrUpdateFlaw(newFlaw) {
     console.log(`WizardStateManager: Adding/updating flaw: ${newFlaw.id} (Source: ${newFlaw.source || 'N/A'}, Group: ${newFlaw.groupId || 'N/A'})`);
 
-    if (!newFlaw.groupId || !newFlaw.source) {
-      console.error('WizardStateManager: newFlaw must have groupId and source properties.', newFlaw);
-      return;
-    }
-
     const destinyData = this.getDestiny(this.state.destiny);
     const groupDef = destinyData?.abilityGroups?.[newFlaw.groupId];
     const maxChoices = groupDef?.maxChoices || 1; // Default to 1 if not specified
 
     // For single-choice flaw groups (radio behavior), filter out existing flaw from the same group
-    if (maxChoices === 1) {
+    if (maxChoices === 1 && newFlaw.groupId) { // Only apply this logic if it's a grouped flaw
       this.state.flaws = this.state.flaws.filter(flaw =>
         !(flaw.source === newFlaw.source && flaw.groupId === newFlaw.groupId)
       );
     }
 
     // Add the new flaw if it's not already present by its unique identifier (id, source, groupId)
+    // Note: For independent flaws, groupId will be null, so we filter by id and source
     if (!this.state.flaws.some(f => f.id === newFlaw.id && f.source === newFlaw.source && f.groupId === newFlaw.groupId)) {
       this.state.flaws.push(newFlaw);
     }
     console.log('WizardStateManager: Current flaws state:', this.state.flaws);
+    // Explicitly call set to dispatch the state change event
+    this.set('flaws', this.state.flaws);
   }
 
   /**
@@ -267,6 +287,8 @@ class WizardStateManager {
     if (flawIndex !== -1) {
       this.state.flaws[flawIndex].selections = newSelections;
       console.log(`WizardStateManager: Selections updated for flaw ${flawId} (Source: ${source}, Group: ${groupId}):`, newSelections);
+      // Explicitly call set to dispatch the state change event
+      this.set('flaws', this.state.flaws);
     } else {
       console.warn(`WizardStateManager: Attempted to update selections for non-existent flaw: ${flawId} (Source: ${source}, Group: ${groupId})`);
     }
@@ -285,10 +307,31 @@ class WizardStateManager {
     );
     if (this.state.flaws.length < originalLength) {
       console.log(`WizardStateManager: Removed flaw: ${flawId} (Source: ${source}, Group: ${groupId})`);
+      // Explicitly call set to dispatch the state change event
+      this.set('flaws', this.state.flaws);
     } else {
       console.warn(`WizardStateManager: Attempted to remove non-existent flaw: ${flawId} (Source: ${source}, Group: ${groupId})`);
     }
     console.log('WizardStateManager: Current flaws state after removal:', this.state.flaws);
+  }
+
+  /**
+   * Calculates the total weight (points) of all flaws that have the source 'independent-flaw'.
+   * @returns {number} The sum of weights for independent flaws.
+   */
+  getIndependentFlawTotalWeight() {
+    let totalWeight = 0;
+    const independentFlaws = this.state.flaws.filter(f => f.source === 'independent-flaw');
+
+    independentFlaws.forEach(flawState => {
+      const flawDef = this.getFlaw(flawState.id);
+      if (flawDef && typeof flawDef.weight === 'number') {
+        totalWeight += flawDef.weight;
+      } else {
+        console.warn(`WizardStateManager: Flaw '${flawState.id}' (source: independent-flaw) is missing a 'weight' property or it's not a number. Not contributing to total.`);
+      }
+    });
+    return totalWeight;
   }
 }
 

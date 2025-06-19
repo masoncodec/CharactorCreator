@@ -3,6 +3,7 @@
     "type": "flaw",
     "name": "Frail",
     "description": "Your body is weaker than others",
+    "weight": 10,
     "effect": [
       {
         "type": "modifier",
@@ -21,6 +22,7 @@
     "type": "flaw",
     "name": "Stranger",
     "description": "You are a social outcast",
+    "weight": 10,
     "effect": [
       {
         "type": "die_num",
@@ -33,81 +35,97 @@
   "overconfidence": {
     "name": "Overconfidence",
     "description": "You underestimate threats",
+    "weight": 10,
     "effect": "Disadvantage on Perception vs danger"
   },
   "arrogance": {
     "name": "Arrogance",
     "description": "You believe you are superior to others",
+    "weight": 10,
     "effect": "Disadvantage on Charisma (Persuasion) checks with authority figures"
   },
   "code-of-honor": {
     "name": "Code of Honor",
     "description": "You refuse to fight dirty",
+    "weight": 10,
     "effect": "Cannot gain advantage from stealth attacks"
   },
   "naive-idealism": {
     "name": "Naive Idealism",
     "description": "You always expect the best from people",
+    "weight": 10,
     "effect": "Disadvantage on Wisdom (Insight) checks to detect deception"
   },
   "greed": {
     "name": "Greed",
     "description": "You can't resist valuable loot",
+    "weight": 10,
     "effect": "Disadvantage on resisting theft or bribery"
   },
   "recklessness": {
     "name": "Recklessness",
     "description": "You often act without thinking",
+    "weight": 10,
     "effect": "Disadvantage on Dexterity (Acrobatics) checks in dangerous situations"
   },
   "dogmatic": {
     "name": "Dogmatic",
     "description": "You strictly follow doctrine",
+    "weight": 10,
     "effect": "Cannot lie or deceive, and must always attempt to convert non-believers"
   },
   "zealotry": {
     "name": "Zealotry",
     "description": "Your faith is unshakeable, but blinding",
+    "weight": 10,
     "effect": "Cannot be convinced by non-religious arguments, and may become hostile towards opposing faiths"
   },
   "perfectionist": {
     "name": "Perfectionist",
     "description": "You obsess over mistakes",
+    "weight": 10,
     "effect": "Disadvantage on recovery checks after a failed performance"
   },
   "stage-fright": {
     "name": "Stage Fright",
     "description": "You struggle under pressure",
+    "weight": 10,
     "effect": "Disadvantage on Performance checks when alone on stage"
   },
   "ego": {
     "name": "Ego",
     "description": "You crave the spotlight",
+    "weight": 10,
     "effect": "Disadvantage on group performance checks, unless you are the primary focus"
   },
   "rivalry": {
     "name": "Rivalry",
     "description": "You see everyone as competition",
+    "weight": 10,
     "effect": "Cannot assist allies on Performance checks, and may challenge others unnecessarily"
   },
   "vulnerable": {
     "name": "Vulnerable",
     "description": "You take criticism hard",
+    "weight": 10,
     "effect": "Disadvantage on Fame checks after a failed performance"
   },
   "melodrama": {
     "name": "Melodrama",
     "description": "You exaggerate emotions for effect",
+    "weight": 10,
     "effect": "Disadvantage on Charisma (Deception) checks, as your intentions are often too obvious"
   },
   "impulsive": {
     "name": "Impulsive",
     "description": "You rush into things",
+    "weight": 10,
     "effect": "Disadvantage on patience or timing checks"
   },
   "distraction": {
     "name": "Distraction",
     "description": "You lose focus easily",
+    "weight": 10,
     "effect": "Disadvantage on concentration checks during lengthy performances"
   }
 }

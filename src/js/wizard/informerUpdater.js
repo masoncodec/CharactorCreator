@@ -62,7 +62,7 @@ class InformerUpdater {
           const allSelectedFlaws = currentState.flaws;
           const selectedFlawsHtml = allSelectedFlaws.length > 0
             ? allSelectedFlaws.map(flawState => {
-                const flawDef = this.stateManager.getFlaw(flawState.id); // Use getFlaw for independent flaws
+                const flawDef = this.stateManager.getFlaw(flawState.id);
                 if (!flawDef) return '';
                 
                 const nestedOptionsHtml = flawState.selections && flawState.selections.length > 0
@@ -143,7 +143,7 @@ class InformerUpdater {
         }
         break;
 
-      case 'flaws': // Updated case for 'flaws' page
+      case 'flaws':
         const independentFlaws = currentState.flaws.filter(f => f.source === 'independent-flaw');
         const selectedIndependentFlawsHtml = independentFlaws.length > 0
           ? independentFlaws.map(flawState => {
@@ -166,9 +166,15 @@ class InformerUpdater {
             }).join('')
           : '<p>No independent flaws selected yet.</p>';
 
+        // Get total flaw points
+        const totalFlawPoints = this.stateManager.getIndependentFlawTotalWeight();
+
         htmlContent = `
           <div class="flaws-info">
             <h3>Your Selected Flaws</h3>
+            <div class="flaw-points-summary">
+                <strong>Total Flaw Points: ${totalFlawPoints}</strong>
+            </div>
             ${selectedIndependentFlawsHtml}
           </div>`;
         break;

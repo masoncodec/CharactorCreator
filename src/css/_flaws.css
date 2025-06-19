@@ -315,6 +315,18 @@
       border-color: var(--disabled-control-border);
 }
 
+.flaw-points-summary {
+    font-size: 1.2em; /* Make it stand out */
+    font-weight: bold;
+    color: var(--heading-color); /* Or a specific color for points */
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: var(--card-bg); /* Or a slightly different background */
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .flaws-grid-container {

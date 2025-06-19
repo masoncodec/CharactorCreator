@@ -3,7 +3,7 @@
 
 import { alerter } from '../alerter.js'; // Assuming alerter.js is available
 
-class FlawsPageHandler {
+class FlawsPageHandler { // Class name is FlawsPageHandler
   /**
    * @param {WizardStateManager} stateManager - The instance of the WizardStateManager.
    * @param {InformerUpdater} informerUpdater - The instance of the InformerUpdater.
@@ -157,12 +157,12 @@ class FlawsPageHandler {
 
     if (intendedSelectionState && !isCurrentlyInIndependentState) { // Selecting
       console.log(`_processParentFlawSelection: Adding flaw ${flawId} to independent selections.`);
-      independentFlaws.push({ id: flawId, selections: [], source: source, groupId: null });
+      this.stateManager.addOrUpdateFlaw({ id: flawId, selections: [], source: source, groupId: null }); // Use stateManager's add method
       flawCard.classList.add('selected');
       inputElement.checked = true;
     } else if (!intendedSelectionState && isCurrentlyInIndependentState) { // Deselecting
       console.log(`_processParentFlawSelection: Removing flaw ${flawId} from independent selections.`);
-      independentFlaws = independentFlaws.filter(f => f.id !== flawId);
+      this.stateManager.removeFlaw(flawId, source, null); // Use stateManager's remove method
       flawCard.classList.remove('selected');
       inputElement.checked = false;
     } else {
@@ -170,10 +170,8 @@ class FlawsPageHandler {
       inputElement.checked = isCurrentlyInIndependentState;
     }
 
-    const finalFlawsState = [...otherFlaws, ...independentFlaws];
-    this.stateManager.set('flaws', finalFlawsState);
-    console.log(`_processParentFlawSelection: Final state after update (full flaws array):`, this.stateManager.get('flaws'));
-    console.log(`_processParentFlawSelection: Flaw state updated for ${flawId}.`);
+    // The set('flaws', ...) is now handled by addOrUpdateFlaw/removeFlaw in stateManager.
+    // So we just trigger UI updates directly after the state manager call.
     this.informerUpdater.update('flaws');
     this.pageNavigator.updateNav();
     this._refreshFlawOptionStates(); // Update UI for other cards as well
@@ -250,7 +248,7 @@ class FlawsPageHandler {
         if (parentFlawDef.maxChoices !== undefined && parentFlawDef.maxChoices !== null &&
             newSelections.length >= parentFlawDef.maxChoices) {
           inputElement.checked = false;
-          alerter.show(`You can only select up to ${parentFlawDef.maxChoices} option(s) for ${parentFlawDef.name}.`);
+          this.alerter.show(`You can only select up to ${parentFlawDef.maxChoices} option(s) for ${parentFlawDef.name}.`);
           this._refreshFlawOptionStates();
           return;
         }
@@ -483,8 +481,7 @@ class FlawsPageHandler {
         // IMPORTANT: If this flaw was previously independently selected, remove it from the state
         if (isIndependentlySelected) {
           console.log(`_refreshFlawOptionStates: Removing independently selected flaw ${flawId} due to other source selection.`);
-          const updatedFlaws = allFlawsInState.filter(f => !(f.id === flawId && f.source === currentCardSource));
-          this.stateManager.set('flaws', updatedFlaws); // Update state to remove the duplicate
+          this.stateManager.removeFlaw(flawId, currentCardSource, null); // Use stateManager's remove method
         }
 
       } else {
