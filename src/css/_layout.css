@@ -7,16 +7,26 @@
     box-sizing: border-box; /* Ensure padding/border don't add to height */
 }
 
-/* Add this new style for header-controls */
+/* Updated header-controls */
 .header-controls {
     display: flex;
     align-items: center; /* Vertically align items */
-    gap: 1rem; /* Space between the home link and the heading */
+    padding: 1rem 2rem 1rem; /* Add top and side padding */
+    /* Removed justify-content and gap from here as .wizard-nav will handle child spacing */
+    background: #2D2D2D;
+}
+
+.home-link {
+    flex-shrink: 0; /* Prevent the home link from shrinking */
+    white-space: nowrap; /* Prevent text wrapping for the home link */
+    /* Removed margin-right as spacing is now handled by .wizard-nav */
 }
 
 .header-controls h2 {
-    margin: 0; /* Remove default margin from h2 inside this container */
-    /* margin-bottom: .75rem; */
+    margin: 0; /* Remove default margin from h2 */
+    flex-grow: 0; /* Prevent h2 from growing and consuming all space */
+    flex-shrink: 0; /* Prevent h2 from shrinking */
+    white-space: nowrap; /* Prevent text wrapping for h2 */
 }
 
 .wizard-container {

@@ -89,7 +89,6 @@
     text-decoration: none;
     font-weight: bold;
     font-size: 1rem;
-    margin-bottom: 1rem; /* Space below the link */
     display: inline-block; /* Allows margin and padding */
     padding: 0.5rem 1rem;
     border-radius: 4px;
