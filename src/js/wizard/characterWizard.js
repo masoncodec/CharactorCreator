@@ -59,6 +59,9 @@ class CharacterWizard {
     // Attach global database reference
     this.db = db;
 
+    // Add a property to keep track of the currently active handler
+    this.activePageHandler = null; // NEW
+
     console.log('CharacterWizard: Initializing main wizard application.');
     this.init();
 
@@ -90,6 +93,12 @@ class CharacterWizard {
     const informerPanel = document.getElementById('informerPanel');
 
     try {
+      // NEW: Clean up the previous page's handler before loading new content
+      if (this.activePageHandler && typeof this.activePageHandler.cleanup === 'function') {
+        console.log(`CharacterWizard.loadPage: Cleaning up previous handler for page: ${this.activePageHandler.constructor.name}`);
+        this.activePageHandler.cleanup();
+      }
+
       // Fetch and set selector content
       const selectorHtml = await fetch(`partials/${page}-selector.html`).then(r => r.text());
       selectorPanel.innerHTML = selectorHtml;
@@ -105,8 +114,10 @@ class CharacterWizard {
       if (handler) {
         // Pass the container elements so handlers don't need to query them
         handler.setupPage(selectorPanel, informerPanel);
+        this.activePageHandler = handler; // NEW: Set the new handler as active
       } else {
         console.warn(`CharacterWizard.loadPage: No handler found for page: ${page}`);
+        this.activePageHandler = null; // NEW: No active handler if none found
       }
 
     } catch (error) {

@@ -201,6 +201,21 @@ class DestinyPageHandler {
 
     const itemCard = inputElement.closest('.ability-card'); // Still uses .ability-card class
 
+    // Handle same ID, different source for flaws
+    if (itemType === 'flaw' && intendedSelectionState) {
+        let currentFlaws = this.stateManager.get('flaws');
+        const conflictingFlaws = currentFlaws.filter(f => f.id === itemId && f.source !== source);
+
+        if (conflictingFlaws.length > 0) {
+            console.log(`_processParentItemSelection: Conflict detected for flaw "${itemId}". Removing existing flaws with the same ID but different sources.`, conflictingFlaws);
+            // Remove all conflicting flaws before adding the new one.
+            currentFlaws = currentFlaws.filter(f => !(f.id === itemId && f.source !== source));
+            this.stateManager.set('flaws', currentFlaws);
+            // Update currentItems local variable to reflect the state change for flaws
+            currentItems = currentFlaws;
+        }
+    }
+
     if (maxChoices === 1) { // Radio button behavior for the group
       if (intendedSelectionState) {
         // Filter out any existing selections from this group (for this source and group ID)
@@ -261,7 +276,7 @@ class DestinyPageHandler {
         itemCard.classList.remove('selected');
         inputElement.checked = false;
       } else {
-          console.log(`_processParentItemSelection: Click on ${itemId} resulted in no state change (current: ${isCurrentlyInIndependentState}, intended: ${intendedSelectionState}).`);
+          console.log(`_processParentItemSelection: Click on ${itemId} resulted in no state change (current: ${isCurrentlyInState}, intended: ${intendedSelectionState}).`);
       }
     }
 
@@ -541,16 +556,14 @@ class DestinyPageHandler {
                    data-group-id="${groupId}"
                    data-max-choices="${groupDef.maxChoices}"
                    data-source="destiny"
-                   data-type="${itemDataType}"> <!-- New data-type attribute -->
-                  <div class="ability-header">
+                   data-type="${itemDataType}"> <div class="ability-header">
                       <label>
                           <input type="${inputType}" ${inputName}
                               ${isSelected ? 'checked' : ''}
                               data-item="${itemId}"
                               data-group="${groupId}"
                               data-source="destiny"
-                              data-type="${itemDataType}"> <!-- New data-type attribute on input -->
-                          <span class="ability-name">${item.name}</span>
+                              data-type="${itemDataType}"> <span class="ability-name">${item.name}</span>
                       </label>
                       <div class="ability-types">
                           <span class="type-tag ${itemTypeClass}">${this._getTypeIcon(item.type)} ${item.type}</span>
