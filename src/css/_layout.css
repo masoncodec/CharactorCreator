@@ -72,7 +72,7 @@
 
 .informer-panel {
     flex: 1;
-    max-width: 350px;
+    max-width: 175px;
     overflow-y: auto; /* Enable vertical scrolling for informer panel */
     min-height: 0;   /* Ensure it can shrink and scroll */
     
