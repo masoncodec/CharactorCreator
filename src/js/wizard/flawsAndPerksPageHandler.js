@@ -608,7 +608,7 @@ class FlawsAndPerksPageHandler { // Renamed class
                         ${disabledAttribute}
                     >
                     <span class="option-visual"></span>
-                    <span class="option-text-content">${option.name}: ${this._renderDescription(option)}</span> </label>`;
+                    <span class="option-text-content">${option.name}</span> </label>`;
           }).join('')}
       </div>
       `;
