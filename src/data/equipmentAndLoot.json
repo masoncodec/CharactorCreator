@@ -1,0 +1,191 @@
+{
+  "example-longsword": {
+    "id": "example-longsword",
+    "type": "equipment",
+    "category": "weapon",
+    "name": "Longsword",
+    "description": "A classic, well-balanced sword, good for both offense and defense.",
+    "rarity": "common",
+    "weight": 4,
+    "attacks": [
+      {
+        "id": "longsword-slash",
+        "name": "Slash",
+        "damage_type": "slashing",
+        "damage_dice": "1d8 + STR",
+        "range": "melee",
+        "cost": { "stamina": 5 },
+        "properties": ["versatile (1d10)"],
+        "effect": [
+          {
+            "type": "damage",
+            "attribute": "strength",
+            "modifier": 1
+          }
+        ]
+      },
+      {
+        "id": "longsword-thrust",
+        "name": "Thrust",
+        "damage_type": "piercing",
+        "damage_dice": "1d6 + DEX",
+        "range": "melee",
+        "cost": { "stamina": 3 },
+        "properties": ["finesse"],
+        "effect": []
+      }
+    ],
+    "effects": [
+      {
+        "type": "modifier",
+        "name": "Bonus to Attack",
+        "attribute": "attack_roll",
+        "modifier": 1
+      }
+    ]
+  },
+  "example-leather-armor": {
+    "id": "example-leather-armor",
+    "type": "equipment",
+    "category": "armor",
+    "name": "Leather Armor",
+    "description": "Light and flexible armor, offering decent protection without hindering movement.",
+    "rarity": "common",
+    "weight": 10,
+    "defense": [
+      {
+        "id": "leather-ac-bonus",
+        "name": "Base Armor Class",
+        "defense_type": "armor_class",
+        "value": 11,
+        "properties": ["dex_bonus_max_2"],
+        "effect": []
+      },
+      {
+        "id": "leather-slash-resist",
+        "name": "Slashing Resistance (Minor)",
+        "defense_type": "resistance",
+        "resistance_type": "slashing",
+        "value": "minor",
+        "effect": [
+          {
+            "type": "damage_reduction",
+            "damage_type": "slashing",
+            "modifier": 2
+          }
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "modifier",
+        "name": "Stealth Advantage",
+        "attribute": "stealth_check",
+        "modifier": "advantage"
+      }
+    ]
+  },
+  "example-healing-potion": {
+    "id": "example-healing-potion",
+    "type": "loot",
+    "name": "Potion of Minor Healing",
+    "description": "A small vial filled with a shimmering red liquid, capable of mending minor wounds.",
+    "rarity": "common",
+    "weight": 0.5,
+    "value": 25,
+    "stackable": true,
+    "effects": [
+      {
+        "type": "healing",
+        "value": "2d4 + 2",
+        "resource_restored": "hit_points"
+      }
+    ]
+  },
+  "example-gold-coin": {
+    "id": "example-gold-coin",
+    "type": "loot",
+    "name": "Gold Coin",
+    "description": "A standard unit of currency.",
+    "rarity": "common",
+    "weight": 0.02,
+    "value": 1,
+    "stackable": true,
+    "effects": []
+  },
+  "example-iron-ore": {
+    "id": "example-iron-ore",
+    "type": "loot",
+    "name": "Iron Ore",
+    "description": "Raw iron suitable for crafting.",
+    "rarity": "uncommon",
+    "weight": 2,
+    "value": 10,
+    "stackable": true,
+    "effects": []
+  },
+  "example-ring-of-protection": {
+    "id": "example-ring-of-protection",
+    "type": "equipment",
+    "category": "accessory",
+    "name": "Ring of Protection",
+    "description": "A simple silver ring that subtly deflects harm.",
+    "rarity": "rare",
+    "weight": 0.1,
+    "effects": [
+      {
+        "type": "modifier",
+        "name": "AC Bonus",
+        "attribute": "armor_class",
+        "modifier": 1
+      },
+      {
+        "type": "modifier",
+        "name": "Saving Throw Bonus",
+        "attribute": "saving_throws",
+        "modifier": 1
+      }
+    ]
+  },
+  "example-greatshield": {
+    "id": "example-greatshield",
+    "type": "equipment",
+    "category": "shield",
+    "name": "Greatshield",
+    "description": "A massive shield capable of withstanding heavy blows.",
+    "rarity": "uncommon",
+    "weight": 15,
+    "defense": [
+      {
+        "id": "greatshield-ac-bonus",
+        "name": "Shield Block",
+        "defense_type": "armor_class",
+        "value": 2,
+        "effect": []
+      },
+      {
+        "id": "greatshield-pushback",
+        "name": "Shield Bash (Defensive)",
+        "defense_type": "effect",
+        "effect_description": "As a reaction, push back an attacker 5ft on a successful block. Usable once per turn.",
+        "cost": { "stamina": 5 },
+        "usage": "once-per-turn",
+        "effect": [
+          {
+            "type": "push",
+            "distance": 5
+          }
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "modifier",
+        "name": "Resistance to Force",
+        "attribute": "damage_resistance",
+        "modifier": "force",
+        "value": "minor"
+      }
+    ]
+  }
+}

@@ -9,8 +9,9 @@ class WizardStateManager {
    * @param {Object} destinyData - Data for destinies.
    * @param {Object} abilityData - Data for abilities.
    * @param {Object} perkData - Data for perks.
+   * @param {Object} equipmentAndLootData - Data for equipment and loot. // NEW
    */
-  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData) {
+  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData) { // UPDATED
     // Initialize the wizard's state. This state will be updated by various handlers.
     this.state = {
       module: null,
@@ -20,6 +21,7 @@ class WizardStateManager {
       perks: [], // Array of {id, selections: [], source: string, groupId: string}
       abilities: [], // Array of {id, selections: [], source: string, groupId: string}
       attributes: {},
+      inventory: [], // Array of {id, quantity: number, equipped: boolean, selections: []}
       info: { name: '', bio: '' }
     };
 
@@ -29,6 +31,7 @@ class WizardStateManager {
     this.destinyData = destinyData;
     this.abilityData = abilityData;
     this.perkData = perkData;
+    this.equipmentAndLootData = equipmentAndLootData;
 
     console.log('WizardStateManager: Initialized with game data.');
   }
@@ -62,6 +65,7 @@ class WizardStateManager {
           this.state.perks = []; // Reset perks
           this.state.abilities = []; // Reset abilities
           this.state.attributes = {};
+          this.state.inventory = []; // Reset inventory
         } else {
           console.log(`WizardStateManager: Module re-selected: ${value}. No change.`);
         }
@@ -149,6 +153,23 @@ class WizardStateManager {
 
   getAbilityData() {
     return this.abilityData;
+  }
+
+  /**
+   * Retrieves all equipment and loot data.
+   * @returns {Object} The complete equipment and loot data.
+   */
+  getEquipmentAndLootData() {
+    return this.equipmentAndLootData;
+  }
+
+  /**
+   * Retrieves a specific equipment or loot item by its ID.
+   * @param {string} itemId - The ID of the item.
+   * @returns {Object|null} The item data, or null if not found.
+   */
+  getInventoryItemDefinition(itemId) {
+    return this.equipmentAndLootData[itemId] || null;
   }
 
   /**
@@ -462,6 +483,64 @@ class WizardStateManager {
       }
     });
     return totalWeight;
+  }
+
+  /**
+   * NEW: Adds or updates an item in the character's inventory.
+   * If the item is already in inventory, its quantity is updated.
+   * If not, it's added. Selections are for items with nested options.
+   * @param {Object} newItem - The item object to add/update {id: string, quantity: number, equipped: boolean, selections: []}.
+   */
+  addOrUpdateInventoryItem(newItem) {
+    console.log(`WizardStateManager: Adding/updating inventory item: ${newItem.id}, Quantity: ${newItem.quantity || 1}, Equipped: ${newItem.equipped || false}`);
+
+    const existingItemIndex = this.state.inventory.findIndex(item => item.id === newItem.id);
+
+    if (existingItemIndex !== -1) {
+      // Update existing item
+      const currentItem = this.state.inventory[existingItemIndex];
+      // If quantity is provided, update it. Otherwise, assume 1 (e.g., for equipping)
+      currentItem.quantity = (newItem.quantity !== undefined) ? newItem.quantity : (currentItem.quantity || 0) + 1;
+      currentItem.equipped = (newItem.equipped !== undefined) ? newItem.equipped : currentItem.equipped;
+      currentItem.selections = newItem.selections || currentItem.selections; // Update selections if provided
+      console.log(`WizardStateManager: Updated existing inventory item: ${newItem.id}, New Quantity: ${currentItem.quantity}`);
+    } else {
+      // Add new item
+      this.state.inventory.push({
+        id: newItem.id,
+        quantity: newItem.quantity || 1, // Default quantity to 1 if not specified
+        equipped: newItem.equipped || false, // Default equipped to false
+        selections: newItem.selections || [] // Default selections to empty array
+      });
+      console.log(`WizardStateManager: Added new inventory item: ${newItem.id}`);
+    }
+    this.set('inventory', this.state.inventory); // Trigger state change event
+  }
+
+  /**
+   * NEW: Removes an item from the character's inventory by ID.
+   * @param {string} itemId - The ID of the item to remove.
+   * @param {number} [quantityToRemove=1] - The number of items to remove. If quantity results in 0 or less, item is removed.
+   */
+  removeInventoryItem(itemId, quantityToRemove = 1) {
+    const originalLength = this.state.inventory.length;
+    const itemIndex = this.state.inventory.findIndex(item => item.id === itemId);
+
+    if (itemIndex !== -1) {
+      const currentItem = this.state.inventory[itemIndex];
+      currentItem.quantity -= quantityToRemove;
+
+      if (currentItem.quantity <= 0) {
+        this.state.inventory.splice(itemIndex, 1); // Remove item if quantity is zero or less
+        console.log(`WizardStateManager: Fully removed inventory item: ${itemId}`);
+      } else {
+        console.log(`WizardStateManager: Reduced quantity for inventory item: ${itemId}, New Quantity: ${currentItem.quantity}`);
+      }
+      this.set('inventory', this.state.inventory); // Trigger state change event
+    } else {
+      console.warn(`WizardStateManager: Attempted to remove non-existent inventory item: ${itemId}`);
+    }
+    console.log('WizardStateManager: Current inventory state after removal:', this.state.inventory);
   }
 }
 

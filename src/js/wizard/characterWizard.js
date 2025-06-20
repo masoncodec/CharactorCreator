@@ -17,6 +17,7 @@ import { ModulePageHandler } from './modulePageHandler.js';
 import { DestinyPageHandler } from './destinyPageHandler.js';
 import { AttributesPageHandler } from './attributesPageHandler.js';
 import { FlawsAndPerksPageHandler } from './flawsAndPerksPageHandler.js';
+import { EquipmentAndLootPageHandler } from './equipmentAndLootPageHandler.js'; // NEW
 import { InfoPageHandler } from './infoPageHandler.js';
 import { CharacterFinisher } from './characterFinisher.js';
 
@@ -27,14 +28,17 @@ class CharacterWizard {
    * @param {Object} destinyData - Loaded data for destinies.
    * @param {Object} abilityData - Loaded data for abilities.
    * @param {Object} perkData - Loaded data for perks.
+   * @param {Object} equipmentAndLootData - Loaded data for equipment and loot. // NEW
    * @param {Object} db - The database instance for saving characters.
    */
-  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData, db) {
+  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData, db) { // UPDATED
     // Initialize the central state manager
-    this.stateManager = new WizardStateManager(moduleSystemData, flawData, destinyData, abilityData, perkData);
+    // Pass equipmentAndLootData to state manager
+    this.stateManager = new WizardStateManager(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData); // UPDATED
 
     // Define the pages of the wizard in order
-    this.pages = ['module', 'destiny', 'attributes', 'flaws-and-perks', 'info'];
+    // Added 'equipment-and-loot' before 'info'
+    this.pages = ['module', 'destiny', 'attributes', 'flaws-and-perks', 'equipment-and-loot', 'info']; // UPDATED
 
     // Initialize the navigation component
     this.pageNavigator = new PageNavigator(this.pages, this.stateManager, {
@@ -50,6 +54,7 @@ class CharacterWizard {
       destiny: new DestinyPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator),
       attributes: new AttributesPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator, alerter),
       'flaws-and-perks': new FlawsAndPerksPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator, alerter),
+      'equipment-and-loot': new EquipmentAndLootPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator, alerter), // NEW
       info: new InfoPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator)
     };
 
@@ -148,6 +153,14 @@ class CharacterWizard {
     const flawData = this.stateManager.getFlawData();
     const abilityData = this.stateManager.getAbilityData();
     const perkData = this.stateManager.getPerkData();
+    const equipmentAndLootData = this.stateManager.getEquipmentAndLootData(); // NEW: Get equipment and loot data
+
+    // Basic check for equipment and loot data
+    if (!equipmentAndLootData || Object.keys(equipmentAndLootData).length === 0) {
+      console.warn('CharacterWizard.validateLoadedData: equipmentAndLootData is empty or missing. Ensure data/equipmentAndLoot.json is populated.');
+    } else {
+      console.log(`CharacterWizard.validateLoadedData: Loaded ${Object.keys(equipmentAndLootData).length} equipment/loot items.`);
+    }
 
     Object.keys(moduleSystem).forEach(moduleId => {
       const destiniesForModule = moduleSystem[moduleId].destinies || [];
@@ -219,11 +232,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
       // Load all game data using the new dataLoader module
-      const { moduleSystemData, flawData, destinyData, abilityData, perkData } = await loadGameData();
+      // Destructure new equipmentAndLootData from the loadGameData return
+      const { moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData } = await loadGameData(); // UPDATED
       console.log('CharacterWizard: All game data loaded. Initializing CharacterWizard.');
       
       // Initialize CharacterWizard with all loaded data and the database instance
-      new CharacterWizard(moduleSystemData, flawData, destinyData, abilityData, perkData, db);
+      // Pass equipmentAndLootData to the CharacterWizard constructor
+      new CharacterWizard(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData, db); // UPDATED
 
   } catch (error) {
       console.error('CharacterWizard: Error loading game data:', error);

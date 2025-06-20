@@ -115,6 +115,8 @@ class CharacterFinisher {
       console.log('  - Validation error: Character name is empty.');
     }
 
+    // No validation for inventory currently as per user's request.
+
     return {
       isValid: errors.length === 0,
       message: errors.join("\n")
@@ -132,6 +134,7 @@ class CharacterFinisher {
     const abilityData = this.stateManager.getAbilityData();
     const flawData = this.stateManager.getFlawData();
     const perkData = this.stateManager.getPerkData(); // Get perk data
+    // equipmentAndLootData will not be processed for effects here yet, as it's a stretch goal.
 
     // Re-create the activeAbilityStates Set as expected by EffectHandler.processActiveAbilities
     const activeAbilityStates = new Set(
@@ -199,7 +202,7 @@ class CharacterFinisher {
           max: characterEffects.calculatedHealth.currentMax,
           temporary: 0
       },
-      inventory: [], // Assuming empty for now
+      inventory: currentState.inventory, // UPDATED: Pull inventory directly from state
       abilities: currentState.abilities,
       createdAt: new Date().toISOString(),
       info: currentState.info

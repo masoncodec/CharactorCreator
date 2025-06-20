@@ -1,10 +1,10 @@
 // dataLoader.js
 // This module centralizes all asynchronous data loading operations for the game,
-// ensuring that abilities, flaws, modules, and destinies are loaded once and made available.
+// ensuring that abilities, flaws, modules, destinies, and now equipment and loot are loaded once and made available.
 
 /**
  * Loads all necessary game data from JSON files.
- * @returns {Promise<{moduleSystemData: object, flawData: object, destinyData: object, abilityData: object, perkData: object}>}
+ * @returns {Promise<{moduleSystemData: object, flawData: object, destinyData: object, abilityData: object, perkData: object, equipmentAndLootData: object}>}
  * A promise that resolves with an object containing all loaded data.
  */
 export async function loadGameData() {
@@ -15,6 +15,7 @@ export async function loadGameData() {
     let flawData = null;
     let abilityData = null;
     let perkData = null;
+    let equipmentAndLootData = null; // New variable for equipment and loot data
     let moduleList = null;
 
     try {
@@ -39,14 +40,21 @@ export async function loadGameData() {
         perkData = await perkResponse.json();
         console.log('dataLoader: perks.json loaded successfully.');
 
-        // 4. Load module_list.json
+        // 4. Load equipmentAndLoot.json (NEW)
+        console.log('dataLoader: Fetching equipmentAndLoot.json...');
+        const equipmentAndLootResponse = await fetch('data/equipmentAndLoot.json');
+        if (!equipmentAndLootResponse.ok) throw new Error(`HTTP error! status: ${equipmentAndLootResponse.status} for equipmentAndLoot.json`);
+        equipmentAndLootData = await equipmentAndLootResponse.json();
+        console.log('dataLoader: equipmentAndLoot.json loaded successfully.');
+
+        // 5. Load module_list.json
         console.log('dataLoader: Fetching data/module_list.json...');
         const moduleListResponse = await fetch('data/module_list.json');
         if (!moduleListResponse.ok) throw new Error(`HTTP error! status: ${moduleListResponse.status} for module_list.json`);
         moduleList = await moduleListResponse.json();
         console.log('dataLoader: module_list.json loaded successfully.');
 
-        // 5. Discover and Load all Module and Destiny data dynamically
+        // 6. Discover and Load all Module and Destiny data dynamically
         console.log('dataLoader: Fetching all module and destiny data...');
         const allFetches = [];
 
@@ -76,7 +84,7 @@ export async function loadGameData() {
         await Promise.all(allFetches);
         console.log('dataLoader: All module and destiny data loaded successfully.');
 
-        return { moduleSystemData, flawData, destinyData, abilityData, perkData };
+        return { moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData };
     } catch (error) {
         console.error('dataLoader: Error loading data:', error);
         throw error; // Re-throw to allow calling code to handle

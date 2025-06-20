@@ -186,6 +186,10 @@ class PageNavigator {
 
         completed = flawsCompleted && perksCompleted && pointsBalanceValid; // All conditions must be met
         break;
+      case 'equipment-and-loot': // NEW: Add completion logic for equipment and loot page
+        // For now, no specific validation needed, so it's always "completed" if accessible
+        completed = true;
+        break;
       case 'info':
         completed = !!currentState.info.name?.trim();
         break;
@@ -337,6 +341,10 @@ class PageNavigator {
       'flaws-and-perks': { // Updated page name
         element: '.flaws-and-perks-container', // Target the main container for highlighting
         message: 'Please complete all required nested flaw and perk selections, and ensure your perk points do not exceed your flaw points.'
+      },
+      'equipment-and-loot': { // NEW: Error message for equipment and loot page (if needed later)
+        element: '#equipment-loot-container', // Placeholder element selector
+        message: 'Please review your equipment and loot selections.'
       },
       info: {
         element: '#characterName',
