@@ -12,9 +12,10 @@ import { alerter } from './alerter.js';
 // If an attribute has fewer, empty columns will be created to maintain grid structure.
 const MAX_MODIFIER_COLUMNS = 5; // User-defined maximum number of modifiers
 
-// Global variable to hold ability data and flaw data (now populated by dataLoader)
+// Global variable to hold ability data, flaw data, and perk data (now populated by dataLoader)
 let abilityData = {};
 let flawData = {};
+let perkData = {};
 
 // Global variable to hold the state of active toggleable abilities
 // Resets on page refresh as requested.
@@ -33,9 +34,9 @@ function processAndRenderCharacter(character) {
         return;
     }
 
-    // Step 1: Process all active abilities and flaws to populate EffectHandler.activeEffects
-    // Pass 'play' context here
-    EffectHandler.processActiveAbilities(character, abilityData, flawData, activeAbilityStates, 'play');
+    // Step 1: Process all active abilities, flaws, and perks to populate EffectHandler.activeEffects
+    // Pass 'play' context here, including perkData
+    EffectHandler.processActiveAbilities(character, abilityData, flawData, perkData, activeAbilityStates, 'play'); // MODIFIED: Added perkData
 
     // Step 2: Apply all active effects to a cloned version of the character data
     // Pass 'play' context here
@@ -64,7 +65,7 @@ function processAndRenderCharacter(character) {
             for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
                 const mod = initialModifiers[i];
                 if (mod) {
-                    modifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
+                    modifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`; // MODIFIED: data-ability-name to data-item-name
                 } else {
                     modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
                 }
@@ -90,7 +91,7 @@ function processAndRenderCharacter(character) {
         for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
             const mod = initialLuckModifiers[i];
             if (mod) {
-                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-ability-name="${mod.abilityName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
+                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`; // MODIFIED: data-ability-name to data-item-name
             } else {
                 luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
             }
@@ -121,6 +122,7 @@ function processAndRenderCharacter(character) {
         ${renderLanguages(effectedCharacter)}
         ${renderStatuses(effectedCharacter)}
         ${renderFlaws(effectedCharacter)}
+        ${renderPerks(effectedCharacter)}
 
         ${effectedCharacter.inventory && effectedCharacter.inventory.length > 0 ? `
         <div class="character-inventory">
@@ -184,7 +186,7 @@ function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResul
         modSpan.classList.add('modifier-display');
         modSpan.textContent = (mod.modifier > 0 ? '+' : '') + mod.modifier;
         modSpan.style.color = mod.modifier > 0 ? '#03AC13' : '#FF0000';
-        modSpan.dataset.abilityName = mod.abilityName;
+        modSpan.dataset.itemName = mod.itemName; // MODIFIED: data-ability-name to data-item-name
         modSpan.dataset.sourceType = mod.sourceType;
 
         lastInsertedElement.insertAdjacentElement('afterend', modSpan);
@@ -223,6 +225,7 @@ function attachAttributeRollListeners() {
             let baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
 
             // Cost Deduction Logic - only abilities can have costs
+            // Now checks for 'ability' sourceType specifically
             const relevantActiveEffects = EffectHandler.activeEffects.filter(effect =>
                 effect.attribute && effect.attribute.toLowerCase() === attributeName && effect.cost && effect.sourceType === "ability"
             );
@@ -571,10 +574,61 @@ function renderFlaws(character) {
                         console.warn(`Flaw definition not found for ID: ${flawState.id}`);
                         return `<li>Unknown Flaw (ID: ${flawState.id})</li>`;
                     }
+                    // Include nested selections if any
+                    let optionsHtml = '';
+                    if (flawDef.options && flawState.selections && flawState.selections.length > 0) {
+                        const selectedOptionNames = flawState.selections.map(selection => {
+                            const option = flawDef.options.find(opt => opt.id === selection.id);
+                            return option ? option.name : selection.id;
+                        }).join(', ');
+                        optionsHtml = `<p class="flaw-selections">Selections: ${selectedOptionNames}</p>`;
+                    }
                     return `
                         <li class="flaw-item">
                             <strong>${flawDef.name}</strong>
                             <p>${flawDef.description}</p>
+                            ${optionsHtml}
+                        </li>
+                    `;
+                }).join('')}
+            </ul>
+        </div>
+    `;
+}
+
+/**
+ * Renders the character's perks.
+ * @param {object} character - The character object with perks.
+ * @returns {string} HTML string for perks section.
+ */
+function renderPerks(character) { // ADDED: New function to render perks
+    if (!character.perks || character.perks.length === 0) {
+        return '';
+    }
+    return `
+        <div class="character-perks">
+            <h4>Perks</h4>
+            <ul>
+                ${character.perks.map(perkState => {
+                    const perkDef = perkData[perkState.id];
+                    if (!perkDef) {
+                        console.warn(`Perk definition not found for ID: ${perkState.id}`);
+                        return `<li>Unknown Perk (ID: ${perkState.id})</li>`;
+                    }
+                    // Include nested selections if any
+                    let optionsHtml = '';
+                    if (perkDef.options && perkState.selections && perkState.selections.length > 0) {
+                        const selectedOptionNames = perkState.selections.map(selection => {
+                            const option = perkDef.options.find(opt => opt.id === selection.id);
+                            return option ? option.name : selection.id;
+                        }).join(', ');
+                        optionsHtml = `<p class="perk-selections">Selections: ${selectedOptionNames}</p>`;
+                    }
+                    return `
+                        <li class="perk-item">
+                            <strong>${perkDef.name}</strong>
+                            <p>${perkDef.description}</p>
+                            ${optionsHtml}
                         </li>
                     `;
                 }).join('')}
@@ -596,13 +650,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             let targetModSpan = event.target.closest('.modifier-display');
 
             if (targetModSpan && !targetModSpan.classList.contains('empty-modifier-cell')) {
+                // Remove any existing tooltips to prevent duplicates
                 targetModSpan.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove());
 
                 const tooltip = document.createElement('div');
                 tooltip.classList.add('modifier-tooltip');
-                const abilityName = targetModSpan.dataset.abilityName;
+                const itemName = targetModSpan.dataset.itemName; // MODIFIED: data-ability-name to data-item-name
                 const sourceType = targetModSpan.dataset.sourceType;
-                tooltip.textContent = `${abilityName} (Source: ${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)})`;
+                tooltip.textContent = `${itemName} (Source: ${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)})`;
 
                 targetModSpan.appendChild(tooltip);
 
@@ -620,6 +675,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const loadedData = await loadGameData();
         abilityData = loadedData.abilityData;
         flawData = loadedData.flawData;
+        perkData = loadedData.perkData; // ADDED: Assign loaded perkData
         console.log('play.js: All game data loaded successfully.');
 
         // Fetch and render the active character

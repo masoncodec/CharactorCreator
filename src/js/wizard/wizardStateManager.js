@@ -8,15 +8,16 @@ class WizardStateManager {
    * @param {Object} flawData - Data for flaws.
    * @param {Object} destinyData - Data for destinies.
    * @param {Object} abilityData - Data for abilities.
+   * @param {Object} perkData - Data for perks.
    */
-  constructor(moduleSystemData, flawData, destinyData, abilityData) {
+  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData) {
     // Initialize the wizard's state. This state will be updated by various handlers.
     this.state = {
       module: null,
       moduleChanged: false, // Flag to indicate if the module has been changed, triggering resets
       destiny: null,
-      // Flaws now also support 'selections' for nested options, like abilities
       flaws: [], // Array of {id, selections: [], source: string, groupId: string}
+      perks: [], // Array of {id, selections: [], source: string, groupId: string}
       abilities: [], // Array of {id, selections: [], source: string, groupId: string}
       attributes: {},
       info: { name: '', bio: '' }
@@ -27,6 +28,7 @@ class WizardStateManager {
     this.flawData = flawData;
     this.destinyData = destinyData;
     this.abilityData = abilityData;
+    this.perkData = perkData;
 
     console.log('WizardStateManager: Initialized with game data.');
   }
@@ -57,6 +59,7 @@ class WizardStateManager {
           // Reset dependent state when the module changes
           this.state.destiny = null;
           this.state.flaws = []; // Reset flaws
+          this.state.perks = []; // Reset perks
           this.state.abilities = []; // Reset abilities
           this.state.attributes = {};
         } else {
@@ -66,6 +69,14 @@ class WizardStateManager {
         this.state[key] = value;
       }
       console.log(`WizardStateManager: State updated - ${key}:`, this.state[key]);
+      // Explicitly dispatch event for setState, as this method is called externally
+      document.dispatchEvent(new CustomEvent('wizard:stateChange', {
+        detail: {
+          key: key,
+          value: this.state[key],
+          newState: this.getState()
+        }
+      }));
     } else {
       console.warn(`WizardStateManager: Attempted to set unknown state key: ${key}`);
     }
@@ -89,6 +100,14 @@ class WizardStateManager {
       if (this.state.hasOwnProperty(key)) {
           this.state[key] = value;
           console.log(`WizardStateManager: Set state property '${key}' to:`, value);
+          // Explicitly dispatch event for set, to ensure consistent updates
+          document.dispatchEvent(new CustomEvent('wizard:stateChange', {
+            detail: {
+              key: key,
+              value: this.state[key],
+              newState: this.getState()
+            }
+          }));
       } else {
           console.warn(`WizardStateManager: Attempted to set non-existent state property: '${key}'`);
       }
@@ -112,6 +131,14 @@ class WizardStateManager {
     return this.flawData[flawId];
   }
 
+  getPerkData() {
+    return this.perkData;
+  }
+
+  getPerk(perkId) {
+    return this.perkData[perkId];
+  }
+
   getDestinyData() {
     return this.destinyData;
   }
@@ -125,17 +152,21 @@ class WizardStateManager {
   }
 
   /**
-   * Retrieves either an ability or a flaw definition based on its ID and optional group ID.
-   * This is used to generalize fetching details for both abilities and flaws.
-   * @param {string} itemId - The ID of the ability or flaw.
-   * @param {string} [groupId] - The ID of the group the item belongs to. Used to determine if it's a flaw.
-   * @returns {Object|null} The ability or flaw data, or null if not found.
+   * Retrieves either an ability, a flaw, or a perk definition based on its ID and optional group ID.
+   * This is used to generalize fetching details for abilities, flaws, and perks.
+   * @param {string} itemId - The ID of the ability, flaw, or perk.
+   * @param {string} [groupId] - The ID of the group the item belongs to (e.g., 'flaws', 'perks').
+   * @returns {Object|null} The item data, or null if not found.
    */
-  getAbilityOrFlawData(itemId, groupId) {
+  getAbilityOrFlawData(itemId, groupId) { // Renamed from getAbilityOrFlawData to reflect new use
     // If the groupId indicates a flaw group, try to get from flawData
     if (groupId === 'flaws' && this.flawData[itemId]) {
       // Return a copy and add a 'type' property to distinguish it
       return { ...this.flawData[itemId], type: 'flaw' };
+    }
+    // If the groupId indicates a perk group, try to get from perkData
+    if (groupId === 'perks' && this.perkData[itemId]) {
+      return { ...this.perkData[itemId], type: 'perk' };
     }
     // Otherwise, assume it's a regular ability
     if (this.abilityData[itemId]) {
@@ -143,7 +174,7 @@ class WizardStateManager {
       // If ability already has a type, keep it. Otherwise, default to 'ability'.
       return { ...this.abilityData[itemId], type: this.abilityData[itemId].type || 'ability' };
     }
-    console.warn(`WizardStateManager: Item with ID '${itemId}' (Group: '${groupId}') not found in abilityData or flawData.`);
+    console.warn(`WizardStateManager: Item with ID '${itemId}' (Group: '${groupId}') not found in abilityData, flawData, or perkData.`);
     return null;
   }
 
@@ -174,19 +205,31 @@ class WizardStateManager {
     const groupDef = destinyData?.abilityGroups?.[newAbility.groupId];
     const maxChoices = groupDef?.maxChoices || 1; // Default to 1 if not specified
 
-    // Remove any existing selection from this group if it's a single-choice group (radio behavior)
+    // Find the index of an existing ability with the same unique identifier
+    const existingAbilityIndex = this.state.abilities.findIndex(a => 
+      a.id === newAbility.id && a.source === newAbility.source && a.groupId === newAbility.groupId
+    );
+
+    let updatedAbilities = [...this.state.abilities]; // Create a shallow copy to work with
+
     if (maxChoices === 1) {
-      this.state.abilities = this.state.abilities.filter(ability =>
-        !(ability.source === newAbility.source && ability.groupId === newAbility.groupId)
+      // For single-choice ability groups (radio behavior), filter out other existing abilities from the same group
+      updatedAbilities = updatedAbilities.filter(ability =>
+        !(ability.source === newAbility.source && ability.groupId === newAbility.groupId && ability.id !== newAbility.id)
       );
     }
-    
-    // Add the new ability if it's not already present by its unique identifier (id, source, groupId)
-    if (!this.state.abilities.some(a => a.id === newAbility.id && a.source === newAbility.source && a.groupId === newAbility.groupId)) {
-        this.state.abilities.push(newAbility);
+
+    if (existingAbilityIndex !== -1) {
+      // If the ability already exists, update it in the copied array
+      updatedAbilities[existingAbilityIndex] = { ...updatedAbilities[existingAbilityIndex], ...newAbility };
+    } else {
+      // If it's a new ability, add it to the copied array
+      updatedAbilities.push(newAbility);
     }
 
+    this.state.abilities = updatedAbilities; // Assign the new array to the state property
     console.log('WizardStateManager: Current abilities state:', this.state.abilities);
+    this.set('abilities', this.state.abilities); // Trigger state change event
   }
 
   /**
@@ -201,6 +244,8 @@ class WizardStateManager {
     if (abilityIndex !== -1) {
       this.state.abilities[abilityIndex].selections = newSelections;
       console.log(`WizardStateManager: Selections updated for ability ${abilityId} (Source: ${source}, Group: ${groupId}):`, newSelections);
+      // Explicitly call set to dispatch the state change event
+      this.set('abilities', this.state.abilities);
     } else {
       console.warn(`WizardStateManager: Attempted to update selections for non-existent ability: ${abilityId} (Source: ${source}, Group: ${groupId})`);
     }
@@ -219,6 +264,8 @@ class WizardStateManager {
     );
     if (this.state.abilities.length < originalLength) {
       console.log(`WizardStateManager: Removed ability: ${abilityId} (Source: ${source}, Group: ${groupId})`);
+      // Explicitly call set to dispatch the state change event
+      this.set('abilities', this.state.abilities);
     } else {
       console.warn(`WizardStateManager: Attempted to remove non-existent ability: ${abilityId} (Source: ${source}, Group: ${groupId})`);
     }
@@ -232,27 +279,35 @@ class WizardStateManager {
   addOrUpdateFlaw(newFlaw) {
     console.log(`WizardStateManager: Adding/updating flaw: ${newFlaw.id} (Source: ${newFlaw.source || 'N/A'}, Group: ${newFlaw.groupId || 'N/A'})`);
 
-    if (!newFlaw.groupId || !newFlaw.source) {
-      console.error('WizardStateManager: newFlaw must have groupId and source properties.', newFlaw);
-      return;
-    }
-
     const destinyData = this.getDestiny(this.state.destiny);
     const groupDef = destinyData?.abilityGroups?.[newFlaw.groupId];
-    const maxChoices = groupDef?.maxChoices || 1; // Default to 1 if not specified
+    const maxChoices = groupDef?.maxChoices || 1;
 
-    // For single-choice flaw groups (radio behavior), filter out existing flaw from the same group
-    if (maxChoices === 1) {
-      this.state.flaws = this.state.flaws.filter(flaw =>
-        !(flaw.source === newFlaw.source && flaw.groupId === newFlaw.groupId)
+    // Find the index of the flaw in the current state
+    const existingFlawIndex = this.state.flaws.findIndex(f => 
+      f.id === newFlaw.id && f.source === newFlaw.source && f.groupId === newFlaw.groupId
+    );
+
+    let updatedFlaws = [...this.state.flaws]; // Create a shallow copy to work with
+
+    if (maxChoices === 1 && newFlaw.groupId) {
+      // For single-choice flaw groups (radio behavior), filter out other existing flaws from the same group
+      updatedFlaws = updatedFlaws.filter(flaw =>
+        !(flaw.source === newFlaw.source && flaw.groupId === newFlaw.groupId && flaw.id !== newFlaw.id)
       );
     }
 
-    // Add the new flaw if it's not already present by its unique identifier (id, source, groupId)
-    if (!this.state.flaws.some(f => f.id === newFlaw.id && f.source === newFlaw.source && f.groupId === newFlaw.groupId)) {
-      this.state.flaws.push(newFlaw);
+    if (existingFlawIndex !== -1) {
+      // If the flaw already exists, update it in the copied array
+      updatedFlaws[existingFlawIndex] = { ...updatedFlaws[existingFlawIndex], ...newFlaw };
+    } else {
+      // If it's a new flaw, add it to the copied array
+      updatedFlaws.push(newFlaw);
     }
+
+    this.state.flaws = updatedFlaws; // Assign the new array to the state property
     console.log('WizardStateManager: Current flaws state:', this.state.flaws);
+    this.set('flaws', this.state.flaws); // Trigger state change event
   }
 
   /**
@@ -267,6 +322,8 @@ class WizardStateManager {
     if (flawIndex !== -1) {
       this.state.flaws[flawIndex].selections = newSelections;
       console.log(`WizardStateManager: Selections updated for flaw ${flawId} (Source: ${source}, Group: ${groupId}):`, newSelections);
+      // Explicitly call set to dispatch the state change event
+      this.set('flaws', this.state.flaws);
     } else {
       console.warn(`WizardStateManager: Attempted to update selections for non-existent flaw: ${flawId} (Source: ${source}, Group: ${groupId})`);
     }
@@ -285,10 +342,126 @@ class WizardStateManager {
     );
     if (this.state.flaws.length < originalLength) {
       console.log(`WizardStateManager: Removed flaw: ${flawId} (Source: ${source}, Group: ${groupId})`);
+      // Explicitly call set to dispatch the state change event
+      this.set('flaws', this.state.flaws);
     } else {
       console.warn(`WizardStateManager: Attempted to remove non-existent flaw: ${flawId} (Source: ${source}, Group: ${groupId})`);
     }
     console.log('WizardStateManager: Current flaws state after removal:', this.state.flaws);
+  }
+
+  /**
+   * Calculates the total weight (points) of all flaws that have the source 'independent-flaw'.
+   * @returns {number} The sum of weights for independent flaws.
+   */
+  getIndependentFlawTotalWeight() {
+    let totalWeight = 0;
+    const independentFlaws = this.state.flaws.filter(f => f.source === 'independent-flaw');
+
+    independentFlaws.forEach(flawState => {
+      const flawDef = this.getFlaw(flawState.id);
+      if (flawDef && typeof flawDef.weight === 'number') {
+        totalWeight += flawDef.weight;
+      } else {
+        console.warn(`WizardStateManager: Flaw '${flawState.id}' (source: independent-flaw) is missing a 'weight' property or it's not a number. Not contributing to total.`);
+      }
+    });
+    return totalWeight;
+  }
+
+  /**
+   * Adds or updates a perk in the state, including its source, group ID, and selections.
+   * @param {Object} newPerk - The perk object to add/update {id, selections: [], source: string, groupId: string}.
+   */
+  addOrUpdatePerk(newPerk) {
+    console.log(`WizardStateManager: Adding/updating perk: ${newPerk.id} (Source: ${newPerk.source || 'N/A'}, Group: ${newPerk.groupId || 'N/A'})`);
+
+    const destinyData = this.getDestiny(this.state.destiny);
+    const groupDef = destinyData?.abilityGroups?.[newPerk.groupId]; // Assuming destiny might have 'perks' ability group
+    const maxChoices = groupDef?.maxChoices || 1;
+
+    // Find the index of the perk in the current state
+    const existingPerkIndex = this.state.perks.findIndex(p => 
+      p.id === newPerk.id && p.source === newPerk.source && p.groupId === newPerk.groupId
+    );
+
+    let updatedPerks = [...this.state.perks]; // Create a shallow copy to work with
+
+    if (maxChoices === 1 && newPerk.groupId) {
+      // For single-choice perk groups (radio behavior), filter out other existing perks from the same group
+      updatedPerks = updatedPerks.filter(perk =>
+        !(perk.source === newPerk.source && perk.groupId === newPerk.groupId && perk.id !== newPerk.id)
+      );
+    }
+    
+    if (existingPerkIndex !== -1) {
+      // If the perk already exists, update it in the copied array
+      updatedPerks[existingPerkIndex] = { ...updatedPerks[existingPerkIndex], ...newPerk };
+    } else {
+      // If it's a new perk, add it to the copied array
+      updatedPerks.push(newPerk);
+    }
+    
+    this.state.perks = updatedPerks; // Assign the new array to the state property
+    console.log('WizardStateManager: Current perks state:', this.state.perks);
+    this.set('perks', this.state.perks); // Trigger state change event
+  }
+
+  /**
+   * Updates selections for a specific perk.
+   * @param {string} perkId - The ID of the perk to update.
+   * @param {string} source - The source of the perk.
+   * @param {string} groupId - The ID of the group the perk belongs to.
+   * @param {Array<Object>} newSelections - The new array of selections for that perk.
+   */
+  updatePerkSelections(perkId, source, groupId, newSelections) {
+    const perkIndex = this.state.perks.findIndex(p => p.id === perkId && p.source === source && p.groupId === groupId);
+    if (perkIndex !== -1) {
+      this.state.perks[perkIndex].selections = newSelections;
+      console.log(`WizardStateManager: Selections updated for perk ${perkId} (Source: ${source}, Group: ${groupId}):`, newSelections);
+      this.set('perks', this.state.perks);
+    } else {
+      console.warn(`WizardStateManager: Attempted to update selections for non-existent perk: ${perkId} (Source: ${source}, Group: ${groupId})`);
+    }
+  }
+
+  /**
+   * NEW: Removes a perk from the state.
+   * @param {string} perkId - The ID of the perk to remove.
+   * @param {string} source - The source of the perk.
+   * @param {string} groupId - The ID of the group the perk belongs to.
+   */
+  removePerk(perkId, source, groupId) {
+    const originalLength = this.state.perks.length;
+    this.state.perks = this.state.perks.filter(p =>
+      !(p.id === perkId && p.source === source && p.groupId === groupId)
+    );
+    if (this.state.perks.length < originalLength) {
+      console.log(`WizardStateManager: Removed perk: ${perkId} (Source: ${source}, Group: ${groupId})`);
+      this.set('perks', this.state.perks);
+    } else {
+      console.warn(`WizardStateManager: Attempted to remove non-existent perk: ${perkId} (Source: ${source}, Group: ${groupId})`);
+    }
+    console.log('WizardStateManager: Current perks state after removal:', this.state.perks);
+  }
+
+  /**
+   * Calculates the total weight (points) of all perks that have the source 'independent-perk'.
+   * @returns {number} The sum of weights for independent perks.
+   */
+  getIndependentPerkTotalWeight() {
+    let totalWeight = 0;
+    const independentPerks = this.state.perks.filter(p => p.source === 'independent-perk');
+
+    independentPerks.forEach(perkState => {
+      const perkDef = this.getPerk(perkState.id);
+      if (perkDef && typeof perkDef.weight === 'number') {
+        totalWeight += perkDef.weight;
+      } else {
+        console.warn(`WizardStateManager: Perk '${perkState.id}' (source: independent-perk) is missing a 'weight' property or it's not a number. Not contributing to total.`);
+      }
+    });
+    return totalWeight;
   }
 }
 

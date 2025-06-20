@@ -157,6 +157,35 @@ class PageNavigator {
           }
         }
         break;
+      case 'flaws-and-perks':
+        const independentFlaws = currentState.flaws.filter(f => f.source === 'independent-flaw');
+        const independentPerks = currentState.perks.filter(p => p.source === 'independent-perk');
+
+        // Validate independent flaws completion
+        const flawsCompleted = independentFlaws.every(flawState => {
+          const flawDef = this.stateManager.getFlaw(flawState.id);
+          if (!flawDef || !flawDef.options || flawDef.maxChoices === undefined || flawDef.maxChoices === null) {
+            return true;
+          }
+          return flawState.selections.length === flawDef.maxChoices;
+        });
+
+        // Validate independent perks completion (similar to flaws)
+        const perksCompleted = independentPerks.every(perkState => {
+            const perkDef = this.stateManager.getPerk(perkState.id); // Use getPerk
+            if (!perkDef || !perkDef.options || perkDef.maxChoices === undefined || perkDef.maxChoices === null) {
+                return true;
+            }
+            return perkState.selections.length === perkDef.maxChoices;
+        });
+
+        // Also check perk points vs flaw points for page completion
+        const totalFlawPoints = this.stateManager.getIndependentFlawTotalWeight();
+        const totalPerkPoints = this.stateManager.getIndependentPerkTotalWeight();
+        const pointsBalanceValid = totalPerkPoints <= totalFlawPoints;
+
+        completed = flawsCompleted && perksCompleted && pointsBalanceValid; // All conditions must be met
+        break;
       case 'info':
         completed = !!currentState.info.name?.trim();
         break;
@@ -168,7 +197,7 @@ class PageNavigator {
   }
 
   /**
-   * Validates if the destiny page (including flaws and ability groups) is complete.
+   * Validates if the destiny page (including flaws, perks and ability groups) is complete.
    * This is a helper for `isPageCompleted`.
    * @param {Object} currentState - The current wizard state.
    * @returns {boolean} True if destiny page is complete, false otherwise.
@@ -191,7 +220,10 @@ class PageNavigator {
       // Determine which state array to check based on groupId
       if (groupId === 'flaws') {
         selectedItemsInGroup = currentState.flaws.filter(item => item.groupId === groupId && item.source === 'destiny');
-      } else {
+      } else if (groupId === 'perks') { // Handle perk groups for destiny page validation
+        selectedItemsInGroup = currentState.perks.filter(item => item.groupId === groupId && item.source === 'destiny');
+      }
+      else {
         selectedItemsInGroup = currentState.abilities.filter(item => item.groupId === groupId && item.source === 'destiny');
       }
 
@@ -296,11 +328,15 @@ class PageNavigator {
       },
       destiny: {
         element: '#destiny-options-container', // More specific element
-        message: 'Please select a Destiny and ensure all ability and flaw selections are complete.'
+        message: 'Please select a Destiny and ensure all ability, flaw, and perk selections are complete.'
       },
       attributes: {
         element: '.dice-assignment-table',
         message: 'Please assign dice to all attributes.'
+      },
+      'flaws-and-perks': { // Updated page name
+        element: '.flaws-and-perks-container', // Target the main container for highlighting
+        message: 'Please complete all required nested flaw and perk selections, and ensure your perk points do not exceed your flaw points.'
       },
       info: {
         element: '#characterName',

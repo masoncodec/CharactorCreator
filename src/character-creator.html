@@ -8,21 +8,24 @@
 </head>
 <body>
     <div class="character-creator">
-        <!-- Add Home Button at top -->
-        <div class="header-controls">
-            <a href="index.html" class="home-link">← Home</a>
-            <h2>Create Your Character</h2>
-        </div>
+        
     
         <!-- Rest of your existing wizard container -->
         <div class="wizard-container">
-            <!-- Navigation -->
-            <nav class="wizard-nav">
-                <div class="nav-item" data-page="module">Module</div>
-                <div class="nav-item" data-page="destiny">Destiny</div>
-                <div class="nav-item" data-page="attributes">Attributes</div>
-                <div class="nav-item" data-page="info">Basic Info</div>
-            </nav>
+            <!-- Add Home Button at top -->
+            <div class="header-controls">
+                <!-- Navigation -->
+                <nav class="wizard-nav">
+                    <a href="index.html" class="home-link">← Home</a>
+                    <h2>Create Your Character</h2>
+                    <div class="nav-item" data-page="module">Module</div>
+                    <div class="nav-item" data-page="destiny">Destiny</div>
+                    <div class="nav-item" data-page="attributes">Attributes</div>
+                    <div class="nav-item" data-page="flaws-and-perks">Flaws and Perks</div>
+                    <div class="nav-item" data-page="info">Basic Info</div>
+                </nav>
+
+            </div>
     
             <div class="wizard-content">
                 <!-- Left Panel -->
@@ -67,6 +70,7 @@
     <script type="module" src="js/wizard/modulePageHandler.js"></script>
     <script type="module" src="js/wizard/destinyPageHandler.js"></script>
     <script type="module" src="js/wizard/attributesPageHandler.js"></script>
+    <script type="module" src="js/wizard/flawsandPerksPageHandler.js"></script>
     <script type="module" src="js/wizard/infoPageHandler.js"></script>
 
     <!-- Character Finalization Module (depends on state, alerter, effectHandler, and potentially db) -->

@@ -1,0 +1,463 @@
+/* _flawsAndPerks.css */
+/* Flaws and Perks Section - Combined and styled for two columns */
+
+/* Overall container for both flaws and perks sections */
+.flaws-and-perks-container {
+    display: grid;
+    /* Two columns: each takes roughly half, with min-width for content */
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem; /* Gap between the two columns */
+    padding: 0; /* MODIFIED: Set padding to 0 */
+    margin-top: 0; /* MODIFIED: Set margin-top to 0 */
+    height: 100%; /* Allow container to take full height of its parent */
+}
+
+/* Styles for the new column wrappers for flaws and perks */
+.flaw-column,
+.perk-column {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Allow it to fill the height of .flaws-and-perks-container */
+    min-height: 0; /* Important for flex items with scrolling content */
+    background: #1a1a1a; /* Dark background for columns */
+    border-radius: 8px;
+    padding: 0 1.5rem 1.5rem 1.5rem; /* MODIFIED: Set top padding to 0 */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Styles for the new scrollable areas within each column */
+.flaws-scroll-area,
+.perks-scroll-area {
+    flex-grow: 1; /* Allow it to take up available vertical space */
+    overflow-y: auto; /* Enable vertical scrolling */
+    min-height: 0; /* Important for flex items with scrolling content */
+    padding-right: 0.5rem; /* Add some padding for the scrollbar */
+    /* Custom scrollbar styling (optional, and browser-specific) */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #FFD700 #252525; /* Thumb and Track color for Firefox */
+}
+
+/* Webkit (Chrome, Safari) scrollbar styling */
+.flaws-scroll-area::-webkit-scrollbar,
+.perks-scroll-area::-webkit-scrollbar {
+    width: 8px;
+}
+
+.flaws-scroll-area::-webkit-scrollbar-track,
+.perks-scroll-area::-webkit-scrollbar-track {
+    background: #252525; /* Track color */
+    border-radius: 10px;
+}
+
+.flaws-scroll-area::-webkit-scrollbar-thumb,
+.perks-scroll-area::-webkit-scrollbar-thumb {
+    background-color: #FFD700; /* Thumb color */
+    border-radius: 10px;
+    border: 2px solid #252525; /* Padding around thumb */
+}
+
+
+/* Common styles for both flaws and perks grid containers */
+.flaws-grid-container,
+.perks-grid-container {
+    display: grid; /* Changed to grid for inner two-column layout */
+    /* Two columns within each section, minimum card width 150px */
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem; /* Smaller gap between cards in the inner grid */
+    padding: 0; /* Removed padding here as it's now on .flaws-scroll-area */
+}
+
+/* Common styles for both flaw and perk cards */
+.flaw-card,
+.perk-card {
+    background: #252525;
+    padding: 1.2rem 1.5rem;
+    border-radius: 8px;
+    border: 1px solid rgb(56, 56, 56);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+    /* Removed flex-grow/shrink as grid handles sizing */
+}
+
+.flaw-card:hover:not(.selected):not(.disabled-for-selection),
+.perk-card:hover:not(.selected):not(.disabled-for-selection) {
+    border-color: #FFD700;
+    background-color: #3A3A3A;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    transform: none;
+}
+
+/* Selected state for both flaw and perk cards */
+.flaw-card.selected {
+    border-color: #FFD700;
+    background-color: #B22222; /* Red accent for flaws */
+    box-shadow: 0 4px 15px rgba(178, 34, 34, 0.4);
+}
+
+.perk-card.selected {
+    border-color: #FFD700;
+    background-color: #4CAF50; /* Green accent for perks */
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+
+
+/* Disabled state for the main item card selection */
+.flaw-card.disabled-for-selection,
+.perk-card.disabled-for-selection {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none; /* Prevent interaction */
+    transition: opacity 0.3s ease;
+}
+
+/* Disabled by other source (prevents re-selection) */
+.flaw-card.disabled-by-other-source,
+.perk-card.disabled-by-other-source {
+    opacity: 0.6;
+    pointer-events: none;
+    cursor: not-allowed;
+    background-color: var(--disabled-bg, #1a1a1a);
+    border-color: var(--disabled-border, #3a3a3a);
+    box-shadow: none;
+}
+
+/* Common header for cards */
+.item-header {
+    display: flex;
+    flex-direction: column; /* Changed to column to put tag on next line */
+    align-items: flex-start; /* Align content to the start (left) */
+    margin-bottom: 0.8rem;
+}
+
+.item-header label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #FFD700;
+    flex-grow: 1;
+    width: 100%; /* Ensure label takes full width in column layout */
+    margin-bottom: 0.5rem; /* Add some space below the label before tags */
+}
+
+/* Hide the actual checkbox/radio inputs for the main card selection */
+.item-header input[type="checkbox"],
+.item-header input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    position: absolute;
+    pointer-events: none;
+}
+
+.item-name {
+    flex-grow: 1;
+    color: #FFD700;
+}
+
+.item-description {
+    font-size: 0.9rem;
+    color: #E0E0E0;
+    margin-bottom: 1rem;
+}
+
+.item-types {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%; /* Ensure tags take full width in column layout */
+    justify-content: flex-start; /* Align tags to the left */
+}
+
+.item-types .type-tag {
+    background-color: #333;
+    color: #E0E0E0;
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    border: 1px solid #555;
+    white-space: nowrap;
+}
+
+/* Specific styles for Flaw type tag */
+.type-tag.flaw-tag {
+    background-color: #6a1a1a; /* Darker red for flaw tag */
+    border-color: #B22222;
+}
+
+/* Specific styles for Perk type tag */
+.type-tag.perk-tag {
+    background-color: #388E3C; /* Darker green for perk tag */
+    border-color: #4CAF50;
+}
+
+/* Nested options section common styles */
+.flaw-options-nested,
+.perk-options-nested {
+    margin-top: 1rem;
+    padding: 1.2rem 0; /* Removed horizontal padding to move options left */
+    border-top: 1px solid rgb(56, 56, 56);
+}
+
+/* Specific border colors when parent card is selected */
+.flaw-card.selected .flaw-options-nested {
+    background-color: #252525;
+    border-color: #FFD700;
+    border-right: 1px solid #FFD700;
+    border-bottom: 1px solid #FFD700;
+    border-left: 1px solid #FFD700;
+}
+
+.perk-card.selected .perk-options-nested {
+    background-color: #252525;
+    border-color: #FFD700;
+    border-right: 1px solid #FFD700;
+    border-bottom: 1px solid #FFD700;
+    border-left: 1px solid #FFD700;
+}
+
+/* Styles for individual nested options (labels wrapping inputs and text) common */
+.flaw-option-nested,
+.perk-option-nested {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 0.8rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #E0E0E0;
+    padding: 0.5rem 0; /* Removed horizontal padding to align visual left */
+    border-radius: 4px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease-in-out;
+}
+
+.flaw-option-nested:last-child,
+.perk-option-nested:last-child {
+    margin-bottom: 0;
+}
+
+/* Hide the actual input within the nested options */
+.flaw-option-nested input[type="checkbox"],
+.flaw-option-nested input[type="radio"],
+.perk-option-nested input[type="checkbox"],
+.perk-option-nested input[type="radio"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    position: absolute;
+    pointer-events: none;
+}
+
+/* Styles for the visual representation of the checkbox/radio common */
+.flaw-option-nested .option-visual,
+.perk-option-nested .option-visual {
+    display: inline-block;
+    width: 1.1em;
+    height: 1.1em;
+    margin-right: 0.7rem; /* Keep this for spacing between visual and text */
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+    border: 2px solid rgb(56, 56, 56);
+    background-color: #252525;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease-in-out;
+}
+
+/* Specific shapes for visual checkbox/radio common */
+.flaw-option-nested input[type="checkbox"] + .option-visual,
+.perk-option-nested input[type="checkbox"] + .option-visual {
+    border-radius: 4px;
+}
+
+.flaw-option-nested input[type="radio"] + .option-visual,
+.perk-option-nested input[type="radio"] + .option-visual {
+    border-radius: 50%;
+}
+
+/* Styles when the hidden input is checked common */
+.flaw-option-nested input[type="checkbox"]:checked + .option-visual,
+.flaw-option-nested input[type="radio"]:checked + .option-visual,
+.perk-option-nested input[type="checkbox"]:checked + .option-visual,
+.perk-option-nested input[type="radio"]:checked + .option-visual {
+    background-color: #FFD700;
+    border-color: #FFD700;
+}
+
+/* Checkmark for custom checkbox common */
+.flaw-option-nested input[type="checkbox"]:checked + .option-visual::before,
+.perk-option-nested input[type="checkbox"]:checked + .option-visual::before {
+    content: '\2713';
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1em;
+    line-height: 1;
+    color: #252525;
+}
+
+/* Inner dot for custom radio button common */
+.flaw-option-nested input[type="radio"]:checked + .option-visual::after,
+.perk-option-nested input[type="radio"]:checked + .option-visual::after {
+    content: '\00a0';
+    display: block;
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background-color: #252525;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Highlight the entire label when the input is checked common */
+.flaw-option-nested input[type="checkbox"]:checked ~ .option-text-content,
+.flaw-option-nested input[type="radio"]:checked ~ .option-text-content,
+.perk-option-nested input[type="checkbox"]:checked ~ .option-text-content,
+.perk-option-nested input[type="radio"]:checked ~ .option-text-content {
+    color: #FFD700;
+}
+
+/* Apply background/border to the entire label when checked common */
+.flaw-option-nested:has(input[type="checkbox"]:checked),
+.flaw-option-nested:has(input[type="radio"]:checked),
+.perk-option-nested:has(input[type="checkbox"]:checked),
+.perk-option-nested:has(input[type="radio"]:checked) {
+    background-color: #3A3A3A;
+    border-color: #FFD700;
+}
+
+/* Disabled state for nested options common */
+.flaw-option-nested input[type="checkbox"]:disabled + .option-visual,
+.flaw-option-nested input[type="radio"]:disabled + .option-visual,
+.perk-option-nested input[type="checkbox"]:disabled + .option-visual,
+.perk-option-nested input[type="radio"]:disabled + .option-visual {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #777; /* Neutral disabled border */
+    background-color: #333; /* Neutral disabled background */
+}
+
+/* Disabled text for the label's content (span) common */
+.flaw-option-nested input[type="checkbox"]:disabled ~ .option-text-content,
+.flaw-option-nested input[type="radio"]:disabled ~ .option-text-content,
+.perk-option-nested input[type="checkbox"]:disabled ~ .option-text-content,
+.perk-option-nested input[type="radio"]:disabled ~ .option-text-content {
+    color: #777;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Hover effect on the custom input visual for nested options common */
+.flaw-option-nested input[type="checkbox"]:hover:not(:disabled) + .option-visual,
+.flaw-option-nested input[type="radio"]:hover:not(:disabled) + .option-visual,
+.perk-option-nested input[type="checkbox"]:hover:not(:disabled) + .option-visual,
+.perk-option-nested input[type="radio"]:hover:not(:disabled) + .option-visual {
+    border-color: #FFD700;
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+}
+
+/* Informer panel styles */
+.flaws-and-perks-info .points-summary-container {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+    gap: 1rem;
+}
+
+.flaws-and-perks-info .flaw-points-summary,
+.flaws-and-perks-info .perk-points-summary {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--heading-color, #FFD700);
+    padding: 10px 15px;
+    background-color: var(--card-bg, #252525);
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+    flex-grow: 1;
+}
+
+.flaws-and-perks-info .perk-points-summary {
+    color: var(--perk-color, #4CAF50); /* Green for perk points */
+}
+
+.flaws-and-perks-info .selected-items-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two columns for selected items */
+    gap: 1.5rem;
+}
+
+.flaws-and-perks-info .selected-column h4 {
+    color: #FFD700;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgb(56, 56, 56);
+    padding-bottom: 0.5rem;
+}
+
+.flaws-and-perks-info .selected-item-display-card { /* Common class for display cards */
+    background-color: #252525;
+    border: 1px solid rgb(56, 56, 56);
+    border-radius: 8px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.flaws-and-perks-info .selected-item-display-card h4 {
+    margin-top: 0;
+    margin-bottom: 0.8rem;
+    color: #FFD700;
+    font-size: 1.1rem;
+}
+
+.flaws-and-perks-info .selected-item-display-card ul {
+    list-style: disc;
+    padding-left: 20px;
+    margin-top: 0.5rem;
+}
+
+.flaws-and-perks-info .selected-item-display-card ul li {
+    font-size: 0.9rem;
+    color: #E0E0E0;
+}
+
+/* Error highlight for the container */
+.flaws-options.error-highlight,
+.perks-options.error-highlight {
+    box-shadow: 0 0 0 3px red, 0 0 10px red;
+    transition: box-shadow 0.3s ease-in-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+    .flaws-and-perks-container {
+        grid-template-columns: 1fr; /* Single column on smaller screens */
+    }
+    .flaws-and-perks-info .selected-items-columns {
+        grid-template-columns: 1fr; /* Single column for selected items on smaller screens */
+    }
+    .flaws-and-perks-info .points-summary-container {
+        flex-direction: column; /* Stack points summary vertically */
+    }
+    /* Inner grids for cards should also stack vertically on smaller screens */
+    .flaws-grid-container,
+    .perks-grid-container {
+        grid-template-columns: 1fr; /* Single column for cards on small screens */
+    }
+}

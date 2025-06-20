@@ -4,7 +4,7 @@
 
 /**
  * Loads all necessary game data from JSON files.
- * @returns {Promise<{moduleSystemData: object, flawData: object, destinyData: object, abilityData: object}>}
+ * @returns {Promise<{moduleSystemData: object, flawData: object, destinyData: object, abilityData: object, perkData: object}>}
  * A promise that resolves with an object containing all loaded data.
  */
 export async function loadGameData() {
@@ -14,6 +14,7 @@ export async function loadGameData() {
     const destinyData = {};
     let flawData = null;
     let abilityData = null;
+    let perkData = null;
     let moduleList = null;
 
     try {
@@ -31,14 +32,21 @@ export async function loadGameData() {
         flawData = await flawResponse.json();
         console.log('dataLoader: flaws.json loaded successfully.');
 
-        // 3. Load module_list.json
+        // 3. Load perks.json
+        console.log('dataLoader: Fetching perks.json...');
+        const perkResponse = await fetch('data/perks.json');
+        if (!perkResponse.ok) throw new Error(`HTTP error! status: ${perkResponse.status} for perks.json`);
+        perkData = await perkResponse.json();
+        console.log('dataLoader: perks.json loaded successfully.');
+
+        // 4. Load module_list.json
         console.log('dataLoader: Fetching data/module_list.json...');
         const moduleListResponse = await fetch('data/module_list.json');
         if (!moduleListResponse.ok) throw new Error(`HTTP error! status: ${moduleListResponse.status} for module_list.json`);
         moduleList = await moduleListResponse.json();
         console.log('dataLoader: module_list.json loaded successfully.');
 
-        // 4. Discover and Load all Module and Destiny data dynamically
+        // 5. Discover and Load all Module and Destiny data dynamically
         console.log('dataLoader: Fetching all module and destiny data...');
         const allFetches = [];
 
@@ -68,8 +76,7 @@ export async function loadGameData() {
         await Promise.all(allFetches);
         console.log('dataLoader: All module and destiny data loaded successfully.');
 
-        return { moduleSystemData, flawData, destinyData, abilityData };
-
+        return { moduleSystemData, flawData, destinyData, abilityData, perkData };
     } catch (error) {
         console.error('dataLoader: Error loading data:', error);
         throw error; // Re-throw to allow calling code to handle

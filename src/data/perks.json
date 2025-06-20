@@ -1,0 +1,96 @@
+{
+  "keen-eyes": {
+    "id": "keen-eyes",
+    "name": "Keen Eyes",
+    "description": "You gain a +1 bonus to all Perception rolls.",
+    "weight": 2,
+    "type": "perk",
+    "tags": [
+      { "display": "Perk", "icon": "✨", "color": "#4CAF50" }
+    ],
+    "effect": [
+      {
+        "type": "modifier",
+        "name": "Modifier",
+        "attribute": "sturdy",
+        "modifier": 2
+      },
+      {
+        "type": "max_health_mod",
+        "name": "Health",
+        "value": 1
+      }
+    ]
+  },
+  "fast-learner": {
+    "id": "fast-learner",
+    "name": "Fast Learner",
+    "description": "When you gain experience, you gain an additional 10% (rounded down).",
+    "weight": 3,
+    "type": "perk",
+    "tags": [
+      { "display": "Perk", "icon": "📚", "color": "#2196F3" }
+    ]
+  },
+  "lucky-break": {
+    "id": "lucky-break",
+    "name": "Lucky Break",
+    "description": "Once per session, you can reroll one failed skill check. Must take the second result.",
+    "weight": 5,
+    "type": "perk",
+    "tags": [
+      { "display": "Perk", "icon": "🍀", "color": "#FFC107" }
+    ]
+  },
+  "well-connected": {
+    "id": "well-connected",
+    "name": "Well Connected",
+    "description": "You have a network of contacts. Choose one type of contact:",
+    "weight": 4,
+    "type": "perk",
+    "tags": [
+      { "display": "Perk", "icon": "🤝", "color": "#9C27B0" }
+    ],
+    "options": [
+      {
+        "id": "black-market-dealer",
+        "name": "Black Market Dealer",
+        "description": "Access to illicit goods.",
+        "type": "choice"
+      },
+      {
+        "id": "informant",
+        "name": "Informant",
+        "description": "Someone who gathers street rumors and intelligence.",
+        "type": "choice"
+      },
+      {
+        "id": "corporate-fixer",
+        "name": "Corporate Fixer",
+        "description": "Contacts within a major corporation.",
+        "type": "choice"
+      }
+    ],
+    "maxChoices": 1
+  },
+  "iron-stomach": {
+    "id": "iron-stomach",
+    "name": "Iron Stomach",
+    "description": "You are immune to common foodborne illnesses.",
+    "weight": 1,
+    "type": "perk",
+    "tags": [
+      { "display": "Perk", "icon": "🍔", "color": "#795548" }
+    ]
+  },
+  "adaptive-mind": {
+    "id": "adaptive-mind",
+    "name": "Adaptive Mind",
+    "description": "You can reassign 1 point from any attribute to another once per long rest.",
+    "weight": 3,
+    "type": "perk",
+    "tags": [
+      { "display": "Perk", "icon": "🧠", "color": "#00BCD4" }
+    ]
+  }
+}
