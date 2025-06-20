@@ -205,21 +205,31 @@ class WizardStateManager {
     const groupDef = destinyData?.abilityGroups?.[newAbility.groupId];
     const maxChoices = groupDef?.maxChoices || 1; // Default to 1 if not specified
 
-    // Remove any existing selection from this group if it's a single-choice group (radio behavior)
+    // Find the index of an existing ability with the same unique identifier
+    const existingAbilityIndex = this.state.abilities.findIndex(a => 
+      a.id === newAbility.id && a.source === newAbility.source && a.groupId === newAbility.groupId
+    );
+
+    let updatedAbilities = [...this.state.abilities]; // Create a shallow copy to work with
+
     if (maxChoices === 1) {
-      this.state.abilities = this.state.abilities.filter(ability =>
-        !(ability.source === newAbility.source && ability.groupId === newAbility.groupId)
+      // For single-choice ability groups (radio behavior), filter out other existing abilities from the same group
+      updatedAbilities = updatedAbilities.filter(ability =>
+        !(ability.source === newAbility.source && ability.groupId === newAbility.groupId && ability.id !== newAbility.id)
       );
     }
-    
-    // Add the new ability if it's not already present by its unique identifier (id, source, groupId)
-    if (!this.state.abilities.some(a => a.id === newAbility.id && a.source === newAbility.source && a.groupId === newAbility.groupId)) {
-        this.state.abilities.push(newAbility);
+
+    if (existingAbilityIndex !== -1) {
+      // If the ability already exists, update it in the copied array
+      updatedAbilities[existingAbilityIndex] = { ...updatedAbilities[existingAbilityIndex], ...newAbility };
+    } else {
+      // If it's a new ability, add it to the copied array
+      updatedAbilities.push(newAbility);
     }
 
+    this.state.abilities = updatedAbilities; // Assign the new array to the state property
     console.log('WizardStateManager: Current abilities state:', this.state.abilities);
-    // Explicitly call set to dispatch the state change event
-    this.set('abilities', this.state.abilities);
+    this.set('abilities', this.state.abilities); // Trigger state change event
   }
 
   /**
@@ -271,23 +281,33 @@ class WizardStateManager {
 
     const destinyData = this.getDestiny(this.state.destiny);
     const groupDef = destinyData?.abilityGroups?.[newFlaw.groupId];
-    const maxChoices = groupDef?.maxChoices || 1; // Default to 1 if not specified
+    const maxChoices = groupDef?.maxChoices || 1;
 
-    // For single-choice flaw groups (radio behavior), filter out existing flaw from the same group
-    if (maxChoices === 1 && newFlaw.groupId) { // Only apply this logic if it's a grouped flaw
-      this.state.flaws = this.state.flaws.filter(flaw =>
-        !(flaw.source === newFlaw.source && flaw.groupId === newFlaw.groupId)
+    // Find the index of the flaw in the current state
+    const existingFlawIndex = this.state.flaws.findIndex(f => 
+      f.id === newFlaw.id && f.source === newFlaw.source && f.groupId === newFlaw.groupId
+    );
+
+    let updatedFlaws = [...this.state.flaws]; // Create a shallow copy to work with
+
+    if (maxChoices === 1 && newFlaw.groupId) {
+      // For single-choice flaw groups (radio behavior), filter out other existing flaws from the same group
+      updatedFlaws = updatedFlaws.filter(flaw =>
+        !(flaw.source === newFlaw.source && flaw.groupId === newFlaw.groupId && flaw.id !== newFlaw.id)
       );
     }
 
-    // Add the new flaw if it's not already present by its unique identifier (id, source, groupId)
-    // Note: For independent flaws, groupId will be null, so we filter by id and source
-    if (!this.state.flaws.some(f => f.id === newFlaw.id && f.source === newFlaw.source && f.groupId === newFlaw.groupId)) {
-      this.state.flaws.push(newFlaw);
+    if (existingFlawIndex !== -1) {
+      // If the flaw already exists, update it in the copied array
+      updatedFlaws[existingFlawIndex] = { ...updatedFlaws[existingFlawIndex], ...newFlaw };
+    } else {
+      // If it's a new flaw, add it to the copied array
+      updatedFlaws.push(newFlaw);
     }
+
+    this.state.flaws = updatedFlaws; // Assign the new array to the state property
     console.log('WizardStateManager: Current flaws state:', this.state.flaws);
-    // Explicitly call set to dispatch the state change event
-    this.set('flaws', this.state.flaws);
+    this.set('flaws', this.state.flaws); // Trigger state change event
   }
 
   /**
@@ -360,17 +380,31 @@ class WizardStateManager {
     const groupDef = destinyData?.abilityGroups?.[newPerk.groupId]; // Assuming destiny might have 'perks' ability group
     const maxChoices = groupDef?.maxChoices || 1;
 
+    // Find the index of the perk in the current state
+    const existingPerkIndex = this.state.perks.findIndex(p => 
+      p.id === newPerk.id && p.source === newPerk.source && p.groupId === newPerk.groupId
+    );
+
+    let updatedPerks = [...this.state.perks]; // Create a shallow copy to work with
+
     if (maxChoices === 1 && newPerk.groupId) {
-      this.state.perks = this.state.perks.filter(perk =>
-        !(perk.source === newPerk.source && perk.groupId === newPerk.groupId)
+      // For single-choice perk groups (radio behavior), filter out other existing perks from the same group
+      updatedPerks = updatedPerks.filter(perk =>
+        !(perk.source === newPerk.source && perk.groupId === newPerk.groupId && perk.id !== newPerk.id)
       );
     }
     
-    if (!this.state.perks.some(p => p.id === newPerk.id && p.source === newPerk.source && p.groupId === newPerk.groupId)) {
-      this.state.perks.push(newPerk);
+    if (existingPerkIndex !== -1) {
+      // If the perk already exists, update it in the copied array
+      updatedPerks[existingPerkIndex] = { ...updatedPerks[existingPerkIndex], ...newPerk };
+    } else {
+      // If it's a new perk, add it to the copied array
+      updatedPerks.push(newPerk);
     }
+    
+    this.state.perks = updatedPerks; // Assign the new array to the state property
     console.log('WizardStateManager: Current perks state:', this.state.perks);
-    this.set('perks', this.state.perks);
+    this.set('perks', this.state.perks); // Trigger state change event
   }
 
   /**

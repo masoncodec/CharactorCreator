@@ -116,6 +116,8 @@ class FlawsAndPerksPageHandler { // Renamed class
 
         if (clickedNestedOptionInput) {
             console.log(`_handleCardClick: Dispatching change event for nested option ${clickedNestedOptionInput.dataset.option}.`);
+            // Using setTimeout to ensure the parent item state update (if any)
+            // has propagated before the nested option change is processed.
             setTimeout(() => {
                 clickedNestedOptionInput.dispatchEvent(new Event('change', { bubbles: true }));
             }, 0);
@@ -179,6 +181,7 @@ class FlawsAndPerksPageHandler { // Renamed class
 
       console.log(`_processParentItemSelection: Adding ${itemType} ${itemId} to independent selections.`);
       if (itemType === 'flaw') {
+        // When adding, ensure selections array is initialized, even if empty.
         this.stateManager.addOrUpdateFlaw({ id: itemId, selections: [], source: source, groupId: null });
       } else { // perk
         this.stateManager.addOrUpdatePerk({ id: itemId, selections: [], source: source, groupId: null });
@@ -210,59 +213,76 @@ class FlawsAndPerksPageHandler { // Renamed class
    * @private
    */
   _handleNestedOptionChange(e) {
+    console.log('Nested option change event fired!', e.target); 
     const inputElement = e.target;
 
-    // First, verify that the changed input is indeed part of a Flaw or Perk card.
-    // Assuming your Flaw/Perk cards have a distinct class like 'flaw-perk-card'
-    // or that you can identify them by a specific data attribute, e.g., data-item-type="flaw" or "perk"
-    const cardElement = inputElement.closest('.selection-card');
+    const cardElement = inputElement.closest('.flaw-card, .perk-card');
 
-    // If no parent card with '.selection-card' is found, OR
-    // if the found card is not specifically a 'flaw' or 'perk' card, exit early.
-    // Adjust 'data-item-type' check based on your actual HTML structure.
-    if (!cardElement || (cardElement.dataset.itemType !== 'flaw' && cardElement.dataset.itemType !== 'perk')) {
-        // Log a more specific debug message rather than a warning if it's expected behavior
+    if (!cardElement || (cardElement.dataset.type !== 'flaw' && cardElement.dataset.type !== 'perk')) {
         console.debug('FlawsAndPerksPageHandler._handleNestedOptionChange: Event not from a Flaw/Perk card, ignoring.');
         return; // Ignore events not originating from a flaw or perk card
     }
 
-    const optionId = inputElement.value;
-
-    // The rest of your existing logic for handling flaws and perks:
-    // This part should be similar to the previous fix you implemented.
+    const optionId = inputElement.value; // Assuming option value is its ID
     const itemId = cardElement.dataset.itemId;
     const itemSource = cardElement.dataset.source;
-    const itemType = cardElement.dataset.itemType; // This should now always be 'flaw' or 'perk' due to the check above
-    const itemGroupId = cardElement.dataset.groupId;
+    const itemType = cardElement.dataset.type;
 
     let parentItemState;
+    const currentState = this.stateManager.getState(); // Get the current state
     if (itemType === 'flaw') {
-        parentItemState = this.stateManager.getFlaw(itemId, itemSource, itemGroupId);
+        // CORRECTED: Get the actual flaw object from the state.flaws array
+        parentItemState = currentState.flaws.find(f => f.id === itemId && f.source === itemSource && f.groupId === null);
     } else if (itemType === 'perk') {
-        parentItemState = this.stateManager.getPerk(itemId, itemSource, itemGroupId);
+        // CORRECTED: Get the actual perk object from the state.perks array
+        parentItemState = currentState.perks.find(p => p.id === itemId && p.source === itemSource && p.groupId === null);
     } else {
-        // This 'else' block should ideally not be reached if the initial check is robust.
         console.error(`FlawsAndPerksPageHandler._handleNestedOptionChange: Logic error: Reached unexpected itemType: ${itemType}`);
         return;
     }
 
     if (!parentItemState) {
         console.warn(`FlawsAndPerksPageHandler._handleNestedOptionChange: Parent item '${itemId}' (source: ${itemSource}, type: ${itemType}) NOT FOUND IN STATE. Cannot update nested option.`);
+        inputElement.checked = false; 
+        this._refreshItemOptionStates();
         return;
+    }
+
+    if (!Array.isArray(parentItemState.selections)) {
+        parentItemState.selections = [];
     }
 
     const isOptionSelected = parentItemState.selections.includes(optionId);
 
-    if (inputElement.checked) {
-        if (!isOptionSelected) {
-            parentItemState.selections.push(optionId);
+    if (inputElement.type === 'radio') {
+        if (inputElement.checked) {
+            parentItemState.selections = [optionId];
         }
-    } else {
-        if (isOptionSelected) {
-            parentItemState.selections = parentItemState.selections.filter(s => s !== optionId);
+    } else { // Checkbox
+        if (inputElement.checked) {
+            if (!isOptionSelected) {
+                const parentItemDef = this.stateManager.getAbilityOrFlawData(itemId, itemType === 'flaw' ? 'flaws' : 'perks');
+                if (parentItemDef && parentItemDef.maxChoices !== undefined && parentItemDef.maxChoices !== null &&
+                    parentItemState.selections.length >= parentItemDef.maxChoices) {
+                    this.alerter.show(`You can only select up to ${parentItemDef.maxChoices} option(s) for ${parentItemDef.name}.`, 'warning');
+                    inputElement.checked = false;
+                    this._refreshItemOptionStates();
+                    return;
+                }
+                parentItemState.selections.push(optionId);
+            }
+        } else {
+            if (isOptionSelected) {
+                parentItemState.selections = parentItemState.selections.filter(s => s !== optionId);
+            }
         }
     }
+    
+    // DEBUG LOGS (Keep them for now for verification)
+    console.log('DEBUG: parentItemState AFTER updating selections but BEFORE calling stateManager.addOrUpdateFlaw/Perk:', JSON.stringify(parentItemState));
+    console.log('DEBUG: parentItemState.selections AFTER updating selections but BEFORE calling stateManager.addOrUpdateFlaw/Perk:', JSON.stringify(parentItemState.selections));
 
+    // Update the state manager with the modified parent item state
     if (itemType === 'flaw') {
         this.stateManager.addOrUpdateFlaw(parentItemState);
     } else if (itemType === 'perk') {
@@ -270,10 +290,16 @@ class FlawsAndPerksPageHandler { // Renamed class
     }
 
     this._refreshItemOptionStates();
+    this.informerUpdater.update('flaws-and-perks');
+    this.pageNavigator.updateNav();
   }
 
   /**
    * Handles the selection/deselection of an option nested within a flaw or perk.
+   * NOTE: This function appears to be a duplicate or previous version of logic
+   * now primarily handled by _handleNestedOptionChange. It's not currently called
+   * directly within _handleNestedOptionChange. Keeping it for reference, but its
+   * usage should be reviewed if actual issues persist after fixing _handleNestedOptionChange.
    * @param {string} itemId - The ID of the parent item.
    * @param {string} source - The source of the parent item.
    * @param {string} itemType - 'flaw' or 'perk'.
@@ -283,6 +309,11 @@ class FlawsAndPerksPageHandler { // Renamed class
    * @private
    */
   _handleNestedOptionSelection(itemId, source, itemType, optionId, isSelectedFromInput, inputElement) {
+    // This function seems to be an older approach or a helper not currently invoked directly
+    // by the _handleNestedOptionChange event listener. The logic within _handleNestedOptionChange
+    // itself is performing the state updates directly.
+    console.warn("'_handleNestedOptionSelection' was called. This function might be deprecated or unused as _handleNestedOptionChange now handles updates directly.");
+
     const currentState = this.stateManager.getState();
     const parentItemState = (itemType === 'flaw' ? currentState.flaws : currentState.perks)
       .find(item => item.id === itemId && item.source === source);
@@ -295,16 +326,18 @@ class FlawsAndPerksPageHandler { // Renamed class
     }
 
     const parentItemDef = this.stateManager.getAbilityOrFlawData(itemId, (itemType === 'flaw' ? 'flaws' : 'perks'));
-    let newSelections = [...parentItemState.selections];
+    let newSelections = [...parentItemState.selections]; // Ensure selections are simple strings/IDs
 
-    const isOptionCurrentlyInState = parentItemState.selections.some(s => s.id === optionId);
+    // Ensure the options stored in state are just the IDs (strings)
+    const isOptionCurrentlyInState = parentItemState.selections.includes(optionId);
+
 
     if (inputElement.type === 'radio') {
-      newSelections = [{ id: optionId }];
+      newSelections = [optionId]; // For radio, just store the single selected ID
     } else { // Checkbox
       if (isOptionCurrentlyInState && !isSelectedFromInput) {
         console.log(`_handleNestedOptionSelection: Deselecting checkbox option ${optionId} for ${itemType} ${itemId}.`);
-        newSelections = newSelections.filter(s => s.id !== optionId);
+        newSelections = newSelections.filter(s => s !== optionId);
       } else if (!isOptionCurrentlyInState && isSelectedFromInput) {
         console.log(`_handleNestedOptionSelection: Selecting checkbox option ${optionId} for ${itemType} ${itemId}.`);
         if (parentItemDef.maxChoices !== undefined && parentItemDef.maxChoices !== null &&
@@ -314,16 +347,17 @@ class FlawsAndPerksPageHandler { // Renamed class
           this._refreshItemOptionStates();
           return;
         }
-        newSelections.push({ id: optionId });
+        newSelections.push(optionId); // Add the ID as a string
       } else {
         console.log(`_handleNestedOptionSelection: Click on option ${optionId} for ${itemType} ${itemId} resulted in no state change (current: ${isOptionCurrentlyInState}, input: ${isSelectedFromInput}).`);
       }
     }
     
     if (itemType === 'flaw') {
-      this.stateManager.updateFlawSelections(itemId, source, null, newSelections);
+      // Ensure the state manager updates the selections correctly
+      this.stateManager.addOrUpdateFlaw({ ...parentItemState, selections: newSelections });
     } else { // perk
-      this.stateManager.updatePerkSelections(itemId, source, null, newSelections);
+      this.stateManager.addOrUpdatePerk({ ...parentItemState, selections: newSelections });
     }
     
     console.log(`_handleNestedOptionSelection: Selections updated for ${itemType} ${itemId}:`,
@@ -357,8 +391,9 @@ class FlawsAndPerksPageHandler { // Renamed class
         }
         console.log(`FlawsAndPerksPageHandler._restoreState: Independent flaw card "${flawState.id}" re-selected.`); 
         if (flawState.selections && flawState.selections.length > 0) {
-          flawState.selections.forEach(option => {
-            const optionInput = flawCard.querySelector(`input[data-item="${flawState.id}"][data-option="${option.id}"]`);
+          // Iterate over string IDs, not objects
+          flawState.selections.forEach(optionId => {
+            const optionInput = flawCard.querySelector(`input[data-item="${flawState.id}"][data-option="${optionId}"]`);
             if (optionInput) {
               optionInput.checked = true;
             }
@@ -367,7 +402,7 @@ class FlawsAndPerksPageHandler { // Renamed class
       }
     });
 
-    // Restore Perks (NEW)
+    // Restore Perks
     const independentPerksInState = currentState.perks.filter(p => p.source === 'independent-perk');
     independentPerksInState.forEach(perkState => {
       const perkCard = this.selectorPanel.querySelector(
@@ -381,8 +416,9 @@ class FlawsAndPerksPageHandler { // Renamed class
         }
         console.log(`FlawsAndPerksPageHandler._restoreState: Independent perk card "${perkState.id}" re-selected.`); 
         if (perkState.selections && perkState.selections.length > 0) {
-          perkState.selections.forEach(option => {
-            const optionInput = perkCard.querySelector(`input[data-item="${perkState.id}"][data-option="${option.id}"]`);
+          // Iterate over string IDs, not objects
+          perkState.selections.forEach(optionId => {
+            const optionInput = perkCard.querySelector(`input[data-item="${perkState.id}"][data-option="${optionId}"]`);
             if (optionInput) {
               optionInput.checked = true;
             }
@@ -403,7 +439,7 @@ class FlawsAndPerksPageHandler { // Renamed class
     const flawsGridContainer = this.selectorPanel.querySelector('.flaws-grid-container');
     const perksGridContainer = this.selectorPanel.querySelector('.perks-grid-container');
     if (!flawsGridContainer || !perksGridContainer) {
-      console.error('FlawsAndPerksPageHandler: .flaws-grid-container or .perks-grid-container not found.');
+      console.error('FlawsAndPerksPageHandler: .flaws-grid-container or .perks-grid-container not found within the selectorPanel. This might lead to rendering issues if the HTML structure is not as expected.');
       return;
     }
 
@@ -532,6 +568,7 @@ class FlawsAndPerksPageHandler { // Renamed class
     const currentState = this.stateManager.getState();
     const parentItemStates = (itemType === 'flaw' ? currentState.flaws : currentState.perks);
     const parentItemState = parentItemStates.find(item => item.id === itemId && item.source === source);
+    // Ensure selections are an array of string IDs, not objects
     const currentSelections = parentItemState ? parentItemState.selections : [];
     const isParentItemCurrentlySelected = !!parentItemState;
 
@@ -540,7 +577,9 @@ class FlawsAndPerksPageHandler { // Renamed class
     const isParentDisabledByOtherSource = parentItemStates.some(item => item.id === itemId && item.source !== source);
 
     const inputType = (parentItemDef.maxChoices === 1) ? 'radio' : 'checkbox';
-    const inputName = (inputType === 'radio') ? `name="${itemType}-nested-options-${itemId}"` : '';
+    // For radio buttons, the 'name' attribute ensures only one can be selected within the group.
+    // For checkboxes, a name is not strictly required for grouping behavior, but good practice.
+    const inputName = (inputType === 'radio') ? `name="${itemType}-nested-options-${itemId}"` : `name="${itemType}-nested-option-${itemId}-${source}"`;
     const chooseText = (parentItemDef.maxChoices === 1) ? 'Choose one' : `Choose ${parentItemDef.maxChoices || 'any'}`;
 
     const optionsClass = itemType === 'flaw' ? 'flaw-options-nested' : 'perk-options-nested';
@@ -550,7 +589,9 @@ class FlawsAndPerksPageHandler { // Renamed class
       <div class="${optionsClass}">
           <p>${chooseText}:</p>
           ${parentItemDef.options.map(option => {
-            const isOptionSelected = currentSelections.some(s => s.id === option.id);
+            // Check if the option's ID is present in the current selections array (which should contain string IDs)
+            const isOptionSelected = currentSelections.includes(option.id);
+            
             // Disable if parent is not selected OR if parent is disabled by other source
             const disabledAttribute = (!isParentItemCurrentlySelected || isParentDisabledByOtherSource) ? 'disabled' : '';
             const checkedAttribute = isOptionSelected ? 'checked' : '';
@@ -560,7 +601,7 @@ class FlawsAndPerksPageHandler { // Renamed class
                     <input type="${inputType}"
                         ${inputName}
                         ${checkedAttribute}
-                        data-item="${itemId}"
+                        value="${option.id}" data-item="${itemId}"
                         data-option="${option.id}"
                         data-source="${source}"
                         data-type="${itemType}"
@@ -592,7 +633,7 @@ class FlawsAndPerksPageHandler { // Renamed class
       const currentCardSource = card.dataset.source; // Should be 'independent-flaw'
       const itemType = card.dataset.type; // 'flaw'
 
-      const itemDef = this.stateManager.getFlaw(itemId);
+      const itemDef = this.stateManager.getAbilityOrFlawData(itemId, 'flaws'); // Use getAbilityOrFlawData for definitions
       if (!itemDef) {
         console.warn(`_refreshItemOptionStates: Flaw definition not found for ID: ${itemId}. Skipping card update.`);
         return;
@@ -612,7 +653,7 @@ class FlawsAndPerksPageHandler { // Renamed class
           mainItemInput.disabled = true;
         }
         if (isIndependentlySelected) {
-          this.stateManager.removeFlaw(itemId, currentCardSource, null);
+          this.stateManager.removeFlaw(itemId, currentCardSource, null); // Remove if selected independently but now from other source
         }
       } else {
         card.classList.remove('disabled-by-other-source');
@@ -633,21 +674,22 @@ class FlawsAndPerksPageHandler { // Renamed class
       if (optionsContainer && itemDef && itemDef.options) {
         optionsContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(optionInput => {
           const optionId = optionInput.dataset.option;
-          const isOptionSelected = independentItemState ? independentItemState.selections.some(s => s.id === optionId) : false;
+          // Ensure selections is an array of string IDs
+          const isOptionSelected = independentItemState ? independentItemState.selections.includes(optionId) : false;
 
           let shouldBeDisabled = false;
           if (isSelectedFromOtherSource || !isIndependentlySelected) {
             shouldBeDisabled = true;
-            if (optionInput.checked) optionInput.checked = false;
+            if (optionInput.checked) optionInput.checked = false; // Uncheck if disabled
           } else {
             const currentSelectionsCount = independentItemState.selections.length;
-            const maxChoicesForOption = itemDef.maxChoices;
+            const maxChoicesForOption = itemDef.maxChoices; // This refers to the parent item's maxChoices for its options
             if (optionInput.type === 'radio') {
-              shouldBeDisabled = false;
-            } else {
+              shouldBeDisabled = false; // Radio buttons are typically managed by their group, not maxChoices directly
+            } else { // Checkbox
               if (maxChoicesForOption !== undefined && maxChoicesForOption !== null &&
                   currentSelectionsCount >= maxChoicesForOption && !isOptionSelected) {
-                shouldBeDisabled = true;
+                shouldBeDisabled = true; // Disable if max choices reached and this option isn't selected
               } else {
                 shouldBeDisabled = false;
               }
@@ -659,13 +701,13 @@ class FlawsAndPerksPageHandler { // Renamed class
       }
     });
 
-    // Handle Perk cards (NEW)
+    // Handle Perk cards
     this.selectorPanel.querySelectorAll('.perk-card').forEach(card => {
       const itemId = card.dataset.itemId;
       const currentCardSource = card.dataset.source; // Should be 'independent-perk'
       const itemType = card.dataset.type; // 'perk'
 
-      const itemDef = this.stateManager.getPerk(itemId);
+      const itemDef = this.stateManager.getAbilityOrFlawData(itemId, 'perks'); // Use getAbilityOrFlawData for definitions
       if (!itemDef) {
         console.warn(`_refreshItemOptionStates: Perk definition not found for ID: ${itemId}. Skipping card update.`);
         return;
@@ -679,6 +721,8 @@ class FlawsAndPerksPageHandler { // Renamed class
 
       // Determine if the perk should be disabled due to weight limits
       const willExceedFlawPoints = (currentTotalPerkPoints + itemDef.weight) > currentTotalFlawPoints;
+      // A perk should be disabled by weight if it's *not* currently selected independently
+      // AND selecting it would exceed flaw points.
       const shouldBeDisabledByWeight = !isIndependentlySelected && willExceedFlawPoints;
 
       if (isSelectedFromOtherSource) {
@@ -720,7 +764,8 @@ class FlawsAndPerksPageHandler { // Renamed class
       if (optionsContainer && itemDef && itemDef.options) {
         optionsContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(optionInput => {
           const optionId = optionInput.dataset.option;
-          const isOptionSelected = independentItemState ? independentItemState.selections.some(s => s.id === optionId) : false;
+          // Ensure selections is an array of string IDs
+          const isOptionSelected = independentItemState ? independentItemState.selections.includes(optionId) : false;
 
           let shouldBeDisabled = false;
           // Nested options are disabled if parent card is disabled by other source OR
@@ -728,16 +773,16 @@ class FlawsAndPerksPageHandler { // Renamed class
           // if parent card is not independently selected
           if (isSelectedFromOtherSource || shouldBeDisabledByWeight || !isIndependentlySelected) {
             shouldBeDisabled = true;
-            if (optionInput.checked) optionInput.checked = false;
+            if (optionInput.checked) optionInput.checked = false; // Uncheck if disabled
           } else {
             const currentSelectionsCount = independentItemState.selections.length;
-            const maxChoicesForOption = itemDef.maxChoices;
+            const maxChoicesForOption = itemDef.maxChoices; // This refers to the parent item's maxChoices for its options
             if (optionInput.type === 'radio') {
               shouldBeDisabled = false;
-            } else {
+            } else { // Checkbox
               if (maxChoicesForOption !== undefined && maxChoicesForOption !== null &&
                   currentSelectionsCount >= maxChoicesForOption && !isOptionSelected) {
-                shouldBeDisabled = true;
+                shouldBeDisabled = true; // Disable if max choices reached and this option isn't selected
               } else {
                 shouldBeDisabled = false;
               }
