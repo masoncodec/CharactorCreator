@@ -37,7 +37,7 @@
 .wizard-nav {
     display: flex;
     background: #2D2D2D;
-    padding: 1rem;
+    padding: .5rem;
     justify-content: center;
     gap: 1rem;
     /* REMOVED: position: fixed; */
