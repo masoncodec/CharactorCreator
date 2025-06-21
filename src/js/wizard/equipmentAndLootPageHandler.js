@@ -231,7 +231,6 @@ class EquipmentAndLootPageHandler {
         }
 
         this.stateManager.addOrUpdateInventoryItem({ id: itemId, quantity: quantityToAdd, equipped: false });
-        this.alerter.show(`${itemDef.name} added to inventory!`, 'success');
     } else if (action === 'remove') {
         if (itemDef.stackable) {
             const quantityInput = this.selectorPanel.querySelector(`#quantity-${itemId}`);
@@ -242,15 +241,13 @@ class EquipmentAndLootPageHandler {
                 return;
             }
             if (quantityToRemove > currentQuantityInState) {
-                thisalerter.show(`Cannot remove ${quantityToRemove} of ${itemDef.name}. You only have ${currentQuantityInState}.`, 'warning');
+                this.alerter.show(`Cannot remove ${quantityToRemove} of ${itemDef.name}. You only have ${currentQuantityInState}.`, 'warning');
                 quantityToRemove = currentQuantityInState; // Adjust to remove all available
             }
             this.stateManager.removeInventoryItem(itemId, quantityToRemove);
-            this.alerter.show(`${quantityToRemove} of ${itemDef.name} removed from inventory.`, 'success');
         } else {
             // For non-stackable, just remove 1
             this.stateManager.removeInventoryItem(itemId, 1);
-            this.alerter.show(`${itemDef.name} removed from inventory.`, 'success');
         }
     }
     this._updateItemCardButton(button, itemId, itemDef.stackable);
@@ -308,7 +305,6 @@ class EquipmentAndLootPageHandler {
     }
 
     this.stateManager.addOrUpdateInventoryItem({ id: itemId, equipped: isEquipped });
-    this.alerter.show(`${this.stateManager.getInventoryItemDefinition(itemId)?.name} is now ${isEquipped ? 'equipped' : 'unequipped'}.`, 'info');
     
     this._renderInformerPanel(); // Re-render informer to reflect changes
   }
