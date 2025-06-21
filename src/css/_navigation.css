@@ -37,14 +37,11 @@
 /* Wizard Navigation - Modified for Horizontal Layout and No Wrap */
 .wizard-nav {
     display: flex;
-    flex-grow: 1;
-    flex-direction: row; /* Keep items horizontal */
+    flex-direction: row;
     align-items: center;
-    justify-content: space-between; /* NEW: Spread items evenly across the space */
-    gap: 2rem; /* NEW: Consistent spacing between the Home link, h2, and nav items group */
-    flex-wrap: nowrap; /* Prevent the entire wizard navigation from wrapping */
-    /* Removed 'margin-left: auto;' as justify-content now handles positioning */
-    /* Removed 'width: 100%;' and 'justify-content: space-around;' from here */
+    justify-content: flex-end; /* Push nav items to the right by default */
+    gap: 1rem; /* Adjust gap between nav items */
+    flex-wrap: wrap; /* Allow nav items to wrap if needed */
 }
 
 .nav-item {
@@ -107,4 +104,16 @@
     background: #2D2D2D;
     border-top: 1px solid #444;
     padding: 1rem 2rem;
+}
+
+@media (max-width: 768px) {
+    .wizard-nav {
+        justify-content: center; /* Center the nav items on small screens */
+    }
+    
+    .nav-item {
+        /* This ensures nav items are a bit smaller but still readable */
+        font-size: 0.9em;
+        padding: 0.5rem 0.75rem;
+    }
 }
