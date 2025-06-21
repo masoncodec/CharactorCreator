@@ -42,23 +42,28 @@ class DestinyPageHandler {
    * @private
    */
   _attachEventListeners() {
-    // Remove existing listeners to prevent duplicates if setupPage is called multiple times
-    this.selectorPanel.removeEventListener('click', this._boundDestinyOptionClickHandler);
-    this.selectorPanel.removeEventListener('click', this._boundAbilityCardClickHandler); // This will handle both radio/checkbox parent clicks
-    this.selectorPanel.removeEventListener('change', this._boundAbilityOptionChangeHandler); // For nested options
+    console.log('DestinyPageHandler._attachEventListeners: Attaching event listeners.');
 
-    // Bind event handlers to the class instance
+    // Remove existing listeners if they were previously attached (important for re-setup)
+    if (this._boundDestinyOptionClickHandler) {
+      this.selectorPanel.removeEventListener('click', this._boundDestinyOptionClickHandler);
+    }
+    if (this._boundAbilityCardClickHandler) {
+      this.selectorPanel.removeEventListener('click', this._boundAbilityCardClickHandler);
+    }
+    if (this._boundAbilityOptionChangeHandler) {
+      this.selectorPanel.removeEventListener('change', this._boundAbilityOptionChangeHandler);
+    }
+
+    // Bind 'this' to the event handlers and store references for removal
     this._boundDestinyOptionClickHandler = this._handleDestinyOptionClick.bind(this);
-    this.selectorPanel.addEventListener('click', this._boundDestinyOptionClickHandler);
-
-    // This single handler now manages clicks on both ability and flaw cards
     this._boundAbilityCardClickHandler = this._handleAbilityCardClick.bind(this);
-    this.selectorPanel.addEventListener('click', this._boundAbilityCardClickHandler);
-
     this._boundAbilityOptionChangeHandler = this._handleAbilityOptionChange.bind(this);
-    this.selectorPanel.addEventListener('change', this._boundAbilityOptionChangeHandler);
 
-    console.log('DestinyPageHandler: All event listeners attached.');
+    // Attach new event listeners using the bound functions
+    this.selectorPanel.addEventListener('click', this._boundDestinyOptionClickHandler);
+    this.selectorPanel.addEventListener('click', this._boundAbilityCardClickHandler);
+    this.selectorPanel.addEventListener('change', this._boundAbilityOptionChangeHandler);
   }
 
   /**
@@ -873,6 +878,27 @@ class DestinyPageHandler {
       }
     });
     this.pageNavigator.updateNav();
+  }
+
+  /**
+   * Cleans up event listeners when the page is unloaded.
+   * This method is called by CharacterWizard.loadPage to detach listeners
+   * before new page content is loaded.
+   */
+  cleanup() {
+    console.log('DestinyPageHandler.cleanup: Cleaning up destiny page resources.');
+    if (this._boundDestinyOptionClickHandler) {
+      this.selectorPanel.removeEventListener('click', this._boundDestinyOptionClickHandler);
+      this._boundDestinyOptionClickHandler = null; // Clear reference
+    }
+    if (this._boundAbilityCardClickHandler) {
+      this.selectorPanel.removeEventListener('click', this._boundAbilityCardClickHandler);
+      this._boundAbilityCardClickHandler = null; // Clear reference
+    }
+    if (this._boundAbilityOptionChangeHandler) {
+      this.selectorPanel.removeEventListener('change', this._boundAbilityOptionChangeHandler);
+      this._boundAbilityOptionChangeHandler = null; // Clear reference
+    }
   }
 }
 
