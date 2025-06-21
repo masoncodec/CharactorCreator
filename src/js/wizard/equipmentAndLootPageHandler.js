@@ -304,7 +304,14 @@ class EquipmentAndLootPageHandler {
         return;
     }
 
-    this.stateManager.addOrUpdateInventoryItem({ id: itemId, equipped: isEquipped });
+    // *** THIS IS THE FIX ***
+    // Pass the existing quantity along with the new equipped status
+    // to prevent the state manager from miscalculating the quantity.
+    this.stateManager.addOrUpdateInventoryItem({
+      id: itemId,
+      quantity: currentItemInState.quantity,
+      equipped: isEquipped
+    });
     
     this._renderInformerPanel(); // Re-render informer to reflect changes
   }
