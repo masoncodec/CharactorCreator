@@ -1,0 +1,180 @@
+/* --- Main Layout & Typography --- */
+.equipment-loot-container {
+  padding: 1.5rem;
+  background-color: #1a202c; /* bg-gray-900 */
+  color: #e2e8f0; /* text-gray-200 */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.page-title {
+  font-size: 2.25rem; /* text-4xl */
+  font-weight: 800; /* font-extrabold */
+  color: #c4b5fd; /* text-purple-300 */
+}
+
+.page-subtitle {
+  color: #a0aec0; /* text-gray-400 */
+  margin-top: 0.5rem;
+}
+
+.equipment-loot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  flex-grow: 1;
+  overflow: hidden; /* Prevent parent from scrolling */
+}
+
+.equipment-column, .loot-column {
+  display: flex;
+  flex-direction: column;
+  background-color: #2d3748; /* bg-gray-800 */
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+.column-title {
+  font-size: 1.5rem; /* text-2xl */
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #9f7aea; /* text-purple-500 */
+  border-bottom: 2px solid #4a5568;
+  padding-bottom: 0.5rem;
+}
+
+.scroll-area {
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 1rem; /* Space for scrollbar */
+}
+
+/* --- Item Card Styling --- */
+.item-card {
+  background-color: #4a5568; /* bg-gray-700 */
+  border-radius: 0.5rem;
+  padding: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid transparent;
+  transition: all 0.2s ease-in-out;
+}
+
+.item-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-left-color: #805ad5; /* a purple accent */
+}
+
+.item-card-header {
+  font-size: 1.125rem; /* text-lg */
+  font-weight: 600; /* font-semibold */
+  margin-bottom: 0.75rem;
+}
+
+.item-card-header .item-category {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #a0aec0; /* text-gray-400 */
+}
+
+.item-card-body {
+  flex-grow: 1;
+  font-size: 0.875rem; /* text-sm */
+  color: #cbd5e0; /* text-gray-300 */
+  margin-bottom: 1rem;
+}
+
+.item-card-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  color: #a0aec0; /* text-gray-400 */
+  font-size: 0.75rem; /* text-xs */
+  text-transform: uppercase;
+}
+
+.item-card-meta .rarity {
+  text-transform: capitalize;
+}
+
+.item-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid #718096; /* gray-600 */
+}
+
+/* --- Buttons and Inputs --- */
+.add-remove-btn {
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  color: white;
+  background-color: #4299e1; /* bg-blue-500 */
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-remove-btn:hover {
+  background-color: #3182ce; /* bg-blue-600 */
+}
+
+/* State for the "Remove" button */
+.add-remove-btn.action-remove {
+  background-color: #e53e3e; /* bg-red-500 */
+}
+
+.add-remove-btn.action-remove:hover {
+  background-color: #c53030; /* bg-red-600 */
+}
+
+.quantity-input {
+  width: 4rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background-color: #1a202c; /* bg-gray-900 */
+  color: white;
+  border: 1px solid #718096; /* gray-600 */
+}
+
+.equip-toggle-group label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.equip-toggle {
+  height: 1.25rem;
+  width: 1.25rem;
+  margin-right: 0.5rem;
+}
+
+/* --- Custom Scrollbar --- */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 12px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #2d3748; /* bg-gray-800 */
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #718096; /* bg-gray-600 */
+  border-radius: 10px;
+  border: 3px solid #2d3748; /* bg-gray-800 */
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #a0aec0; /* bg-gray-500 */
+}

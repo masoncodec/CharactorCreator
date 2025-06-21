@@ -1,39 +1,20 @@
-<div class="equipment-loot-container p-6 bg-gray-800 text-white rounded-lg shadow-xl h-full overflow-y-auto custom-scrollbar">
-  <h2 class="text-3xl font-extrabold mb-6 text-center text-purple-300">Choose Your Gear & Loot</h2>
-  <p class="text-gray-400 text-center mb-8">Select equipment to prepare for your adventures and gather valuable loot for your journey.</p>
+<div class="equipment-loot-container">
+  <div class="page-header">
+    <h2 class="page-title">Choose Your Gear & Loot</h2>
+    <p class="page-subtitle">Select equipment to prepare for your adventures and gather valuable loot for your journey.</p>
+  </div>
 
-  <!-- Content will be rendered dynamically by JavaScript -->
-  <div id="equipment-loot-content">
-    <!-- Equipment and Loot lists will be injected here by EquipmentAndLootPageHandler -->
-    <p class="text-gray-400 text-center">Loading items...</p>
+  <div class="equipment-loot-grid">
+    <div class="equipment-column">
+      <h3 class="column-title">Equipment</h3>
+      <div class="scroll-area custom-scrollbar">
+        </div>
+    </div>
+
+    <div class="loot-column">
+      <h3 class="column-title">Loot</h3>
+      <div class="scroll-area custom-scrollbar">
+        </div>
+    </div>
   </div>
 </div>
-
-<style>
-/* Custom scrollbar styles */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 12px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #2d3748; /* bg-gray-800 */
-  border-radius: 10px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #4a5568; /* bg-gray-600 */
-  border-radius: 10px;
-  border: 3px solid #2d3748; /* bg-gray-800 */
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #636b77; /* A bit lighter on hover */
-}
-
-/* Error highlighting */
-.error-highlight {
-  border: 2px solid #ef4444 !important; /* Tailwind red-500 */
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6) !important;
-  transition: all 0.3s ease-in-out;
-}
-</style>
