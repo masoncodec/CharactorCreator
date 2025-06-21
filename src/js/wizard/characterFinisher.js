@@ -43,10 +43,10 @@ class CharacterFinisher {
         errors.push("• Please select a Destiny.");
         console.log('  - Validation error: Destiny not selected.');
       } else {
-          // Validate ability groups and their selections
+          // Validate choice groups and their selections
           const destiny = this.stateManager.getDestiny(currentState.destiny);
-          if (destiny && destiny.abilityGroups) {
-            Object.entries(destiny.abilityGroups).forEach(([groupId, groupDef]) => {
+          if (destiny && destiny.choiceGroups) {
+            Object.entries(destiny.choiceGroups).forEach(([groupId, groupDef]) => {
                 const isFlawGroup = groupId === 'flaws';
                 const isPerkGroup = groupId === 'perks'; // Check for perk group
                 
@@ -61,7 +61,7 @@ class CharacterFinisher {
 
                 if (selectedItemsInGroup.length !== groupDef.maxChoices) {
                     const itemTypeString = isFlawGroup ? 'flaw' : (isPerkGroup ? 'perk' : 'abilit');
-                    errors.push(`• For "${groupDef.name}" group, please select exactly ${groupDef.maxChoices} ${itemTypeString}${groupDef.maxChoices === 1 ? '' : 'ies'}.`);
+                    errors.push(`• For "${groupDef.name}" Choice Group, please select exactly ${groupDef.maxChoices} ${itemTypeString}${groupDef.maxChoices === 1 ? '' : 'ies'}.`);
                     console.log(`  - Validation error: Incorrect number of ${itemTypeString}${groupDef.maxChoices === 1 ? '' : 'ies'} selected for group "${groupDef.name}".`);
                 }
 
@@ -77,8 +77,8 @@ class CharacterFinisher {
                 });
             });
           } else {
-              errors.push("• Destiny data or ability groups missing, cannot validate abilities/flaws/perks.");
-              console.error("CharacterFinisher: Destiny data or ability groups are null when validating abilities/flaws/perks.");
+              errors.push("• Destiny data or choice groups missing, cannot validate abilities/flaws/perks.");
+              console.error("CharacterFinisher: Destiny data or choice groups are null when validating abilities/flaws/perks.");
           }
       }
 

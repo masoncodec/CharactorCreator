@@ -168,8 +168,8 @@ class CharacterWizard {
         if (!destinyData[destinyId]) {
           console.error(`Missing destiny data for: ${destinyId} (from module ${moduleId})`);
         } else {
-          // Check for flaws within the new abilityGroups structure
-          const flawsGroup = destinyData[destinyId].abilityGroups?.flaws;
+          // Check for flaws within the new choiceGroups structure
+          const flawsGroup = destinyData[destinyId].choiceGroups?.flaws;
           if (flawsGroup && flawsGroup.abilities) {
             flawsGroup.abilities.forEach(flawId => {
               if (!flawData[flawId]) {
@@ -177,11 +177,11 @@ class CharacterWizard {
               }
             });
           } else {
-            console.warn(`Destiny '${destinyId}' has no 'flaws' ability group defined or it has no abilities. Ensure this is intentional.`);
+            console.warn(`Destiny '${destinyId}' has no 'flaws' choice group defined or it has no abilities. Ensure this is intentional.`);
           }
 
-          // Check for perks within the new abilityGroups structure
-          const perksGroup = destinyData[destinyId].abilityGroups?.perks;
+          // Check for perks within the new choiceGroups structure
+          const perksGroup = destinyData[destinyId].choiceGroups?.perks;
           if (perksGroup && perksGroup.abilities) {
             perksGroup.abilities.forEach(perkId => {
               if (!perkData[perkId]) {
@@ -189,17 +189,17 @@ class CharacterWizard {
               }
             });
           } else {
-            console.warn(`Destiny '${destinyId}' has no 'perks' ability group defined or it has no abilities. Ensure this is intentional.`);
+            console.warn(`Destiny '${destinyId}' has no 'perks' choice group defined or it has no abilities. Ensure this is intentional.`);
           }
 
-          // Iterate through all other abilityGroups
-          if (destinyData[destinyId].abilityGroups) {
-            Object.entries(destinyData[destinyId].abilityGroups).forEach(([groupId, groupDef]) => {
+          // Iterate through all other choiceGroups
+          if (destinyData[destinyId].choiceGroups) {
+            Object.entries(destinyData[destinyId].choiceGroups).forEach(([groupId, groupDef]) => {
               // Skip the 'flaws' and 'perks' groups as they're handled separately above
               if (groupId === 'flaws' || groupId === 'perks') return;
 
               if (!groupDef.abilities || !Array.isArray(groupDef.abilities)) {
-                  console.error(`Ability group '${groupId}' in destiny '${destinyId}' has no 'abilities' array or it's invalid.`);
+                  console.error(`Choice group '${groupId}' in destiny '${destinyId}' has no 'abilities' array or it's invalid.`);
                   return;
               }
               groupDef.abilities.forEach(abilityId => {
@@ -209,7 +209,7 @@ class CharacterWizard {
               });
             });
           } else {
-              console.warn(`Destiny '${destinyId}' has no 'abilityGroups' defined. Ensure this is intentional.`);
+              console.warn(`Destiny '${destinyId}' has no 'choiceGroups' defined. Ensure this is intentional.`);
           }
         }
       });

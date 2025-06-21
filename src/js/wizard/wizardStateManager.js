@@ -223,7 +223,7 @@ class WizardStateManager {
     }
 
     const destinyData = this.getDestiny(this.state.destiny);
-    const groupDef = destinyData?.abilityGroups?.[newAbility.groupId];
+    const groupDef = destinyData?.choiceGroups?.[newAbility.groupId];
     const maxChoices = groupDef?.maxChoices || 1; // Default to 1 if not specified
 
     // Find the index of an existing ability with the same unique identifier
@@ -301,7 +301,7 @@ class WizardStateManager {
     console.log(`WizardStateManager: Adding/updating flaw: ${newFlaw.id} (Source: ${newFlaw.source || 'N/A'}, Group: ${newFlaw.groupId || 'N/A'})`);
 
     const destinyData = this.getDestiny(this.state.destiny);
-    const groupDef = destinyData?.abilityGroups?.[newFlaw.groupId];
+    const groupDef = destinyData?.choiceGroups?.[newFlaw.groupId];
     const maxChoices = groupDef?.maxChoices || 1;
 
     // Find the index of the flaw in the current state
@@ -398,7 +398,7 @@ class WizardStateManager {
     console.log(`WizardStateManager: Adding/updating perk: ${newPerk.id} (Source: ${newPerk.source || 'N/A'}, Group: ${newPerk.groupId || 'N/A'})`);
 
     const destinyData = this.getDestiny(this.state.destiny);
-    const groupDef = destinyData?.abilityGroups?.[newPerk.groupId]; // Assuming destiny might have 'perks' ability group
+    const groupDef = destinyData?.choiceGroups?.[newPerk.groupId]; // Assuming destiny might have 'perks' choice group
     const maxChoices = groupDef?.maxChoices || 1;
 
     // Find the index of the perk in the current state

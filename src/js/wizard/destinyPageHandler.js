@@ -414,7 +414,7 @@ class DestinyPageHandler {
           itemCard.classList.add('selected');
           
           const destinyDefinition = this.stateManager.getDestiny(currentState.destiny);
-          const groupDef = destinyDefinition?.abilityGroups?.[itemState.groupId];
+          const groupDef = destinyDefinition?.choiceGroups?.[itemState.groupId];
           const inputType = groupDef?.maxChoices === 1 ? 'radio' : 'checkbox';
           
           // Select the correct main input element within the card
@@ -502,8 +502,8 @@ class DestinyPageHandler {
     }
 
     const destiny = this.stateManager.getDestiny(this.stateManager.get('destiny'));
-    if (!destiny || !destiny.abilityGroups) {
-        console.warn('DestinyPageHandler: No destiny data or ability groups to render items.');
+    if (!destiny || !destiny.choiceGroups) {
+        console.warn('DestinyPageHandler: No destiny data or choice groups to render items.');
         if (abilitiesSection) abilitiesSection.remove(); // Ensure section is gone if no data
         return;
     }
@@ -514,7 +514,7 @@ class DestinyPageHandler {
 
     const currentState = this.stateManager.getState();
 
-    Object.entries(destiny.abilityGroups).forEach(([groupId, groupDef]) => {
+    Object.entries(destiny.choiceGroups).forEach(([groupId, groupDef]) => {
       // Determine if this is the special "flaws" group or "perks" group
       const isFlawGroup = groupId === 'flaws';
       const isPerkGroup = groupId === 'perks';
@@ -730,9 +730,9 @@ class DestinyPageHandler {
     if (!currentState.destiny) return;
 
     const destiny = this.stateManager.getDestiny(currentState.destiny);
-    if (!destiny || !destiny.abilityGroups) return;
+    if (!destiny || !destiny.choiceGroups) return;
 
-    Object.entries(destiny.abilityGroups).forEach(([groupId, groupDef]) => {
+    Object.entries(destiny.choiceGroups).forEach(([groupId, groupDef]) => {
       if (groupDef.maxChoices > 0 && groupDef.maxChoices === groupDef.abilities.length) {
         const isFlawGroup = groupId === 'flaws';
         const isPerkGroup = groupId === 'perks';

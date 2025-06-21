@@ -213,12 +213,12 @@ class PageNavigator {
     }
 
     const destinyDefinition = this.stateManager.getDestiny(currentState.destiny);
-    if (!destinyDefinition || !destinyDefinition.abilityGroups) {
-        console.warn('PageNavigator.validateDestinyCompletion: Destiny data or ability groups missing for:', currentState.destiny);
+    if (!destinyDefinition || !destinyDefinition.choiceGroups) {
+        console.warn('PageNavigator.validateDestinyCompletion: Destiny data or choice groups missing for:', currentState.destiny);
         return false;
     }
 
-    const allGroupsComplete = Object.entries(destinyDefinition.abilityGroups).every(([groupId, groupDef]) => {
+    const allGroupsComplete = Object.entries(destinyDefinition.choiceGroups).every(([groupId, groupDef]) => {
       let selectedItemsInGroup;
 
       // Determine which state array to check based on groupId
