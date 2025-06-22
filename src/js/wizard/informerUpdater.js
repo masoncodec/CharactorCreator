@@ -258,7 +258,6 @@ class InformerUpdater {
                 <li class="bg-gray-800 p-2 rounded flex justify-between items-center text-gray-200 text-sm">
                   <span>${itemDef.name} ${itemState.quantity > 1 ? `(x${itemState.quantity})` : ''}</span>
                   <div class="flex items-center">
-                    <span class="mr-4 text-sm text-yellow-400">Points: ${itemPointCost}</span>
                     ${itemState.equipped ? '<span class="text-green-400 text-xs font-bold">(Equipped)</span>' : ''}
                   </div>
                 </li>
