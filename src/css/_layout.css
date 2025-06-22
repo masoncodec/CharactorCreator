@@ -7,13 +7,19 @@
     box-sizing: border-box; /* Ensure padding/border don't add to height */
 }
 
-/* Updated header-controls */
 .header-controls {
     display: flex;
-    align-items: center; /* Vertically align items */
-    padding: 1rem 2rem 1rem; /* Add top and side padding */
-    /* Removed justify-content and gap from here as .wizard-nav will handle child spacing */
+    align-items: center;
+    justify-content: space-between; /* This will separate the title and nav items */
+    padding: 1rem 2rem;
     background: #2D2D2D;
+    flex-wrap: wrap; /* Allow wrapping for smaller screens */
+}
+
+.header-main {
+    display: flex;
+    align-items: center;
+    gap: 2rem; /* Keep space between home link and title */
 }
 
 .home-link {
@@ -149,5 +155,42 @@
 
     .play-area {
         padding: 1rem;
+    }
+
+    .header-controls {
+        justify-content: center; /* Center the content on small screens */
+        gap: 1.5rem; /* Add space between title row and nav row */
+    }
+
+    .header-main {
+        justify-content: center; /* Center the home link and title */
+        width: 100%;
+    }
+    
+    .wizard-nav {
+        /* Reduce the gap between navigation elements */
+        gap: 1rem;
+        /* Allow the nav items to wrap if they still don't fit */
+        flex-wrap: wrap; 
+    }
+    
+    .header-controls h2 {
+        /* Make the title font smaller */
+        font-size: 1.1em;
+        /* Center the title if the nav items wrap to the next line */
+        text-align: center;
+        /* Allow the title to take the full width if needed */
+        width: 100%;
+    }
+    
+    .nav-item {
+        /* Reduce padding inside the nav buttons */
+        padding: 0.4rem 0.5rem;
+        /* Reduce the minimum width to allow buttons to shrink */
+        min-width: 80px;
+        /* Make the button font smaller */
+        font-size: 0.85em;
+        /* Allow nav items to grow and fill space evenly */
+        flex-grow: 1; 
     }
 }

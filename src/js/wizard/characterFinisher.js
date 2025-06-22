@@ -8,12 +8,16 @@ class CharacterFinisher {
    * @param {Object} db - The database instance for saving characters (e.g., Firestore).
    * @param {Object} alerter - The alerter utility for displaying messages.
    * @param {EffectHandler} EffectHandler - The EffectHandler module for calculating character effects.
+   * @param {PageNavigator} pageNavigator - The instance of the PageNavigator for centralized validation.
+   * @param {string[]} pages - An array of all page names in order.
    */
-  constructor(stateManager, db, alerter, EffectHandler) {
+  constructor(stateManager, db, alerter, EffectHandler, pageNavigator, pages) {
     this.stateManager = stateManager;
     this.db = db;
     this.alerter = alerter;
-    this.EffectHandler = EffectHandler; // Assuming EffectHandler is a class or object with static methods
+    this.EffectHandler = EffectHandler;
+    this.pageNavigator = pageNavigator; // Store the PageNavigator instance
+    this.pages = pages; // Store the list of pages
 
     // Listen for the custom event dispatched by PageNavigator when 'Finish' is clicked
     document.removeEventListener('wizard:finish', this._boundFinishHandler); // Remove previous listener
@@ -24,95 +28,26 @@ class CharacterFinisher {
   }
 
   /**
-   * Performs the final validation of the entire wizard state.
+   * Performs the final validation by delegating to the centralized PageNavigator.
    * @returns {{isValid: boolean, message: string}} Validation result and message.
    * @private
    */
   _validateAllPages() {
-    console.log('CharacterFinisher._validateAllPages: Running final validation across all pages.');
+    console.log('CharacterFinisher._validateAllPages: Running centralized validation via PageNavigator.');
     const errors = [];
-    const currentState = this.stateManager.getState(); // Get the complete current state
+    const currentState = this.stateManager.getState();
 
-    // Validate Module selection
-    if (!currentState.module) {
-      errors.push("• Please select a Module.");
-      console.log('  - Validation error: Module not selected.');
-    } else {
-      // Validate Destiny selection (only if module is selected)
-      if (!currentState.destiny) {
-        errors.push("• Please select a Destiny.");
-        console.log('  - Validation error: Destiny not selected.');
-      } else {
-          // Validate ability groups and their selections
-          const destiny = this.stateManager.getDestiny(currentState.destiny);
-          if (destiny && destiny.abilityGroups) {
-            Object.entries(destiny.abilityGroups).forEach(([groupId, groupDef]) => {
-                const isFlawGroup = groupId === 'flaws';
-                const isPerkGroup = groupId === 'perks'; // Check for perk group
-                
-                let selectedItemsInGroup;
-                if (isFlawGroup) {
-                    selectedItemsInGroup = currentState.flaws.filter(f => f.groupId === groupId && f.source === 'destiny');
-                } else if (isPerkGroup) {
-                    selectedItemsInGroup = currentState.perks.filter(p => p.groupId === groupId && p.source === 'destiny');
-                } else {
-                    selectedItemsInGroup = currentState.abilities.filter(a => a.groupId === groupId && a.source === 'destiny');
-                }
+    // Define pages that have actual validation logic.
+    const pagesToValidate = this.pages.filter(p => 
+        p !== 'frame' && p !== 'equipment-and-loot'
+    );
 
-                if (selectedItemsInGroup.length !== groupDef.maxChoices) {
-                    const itemTypeString = isFlawGroup ? 'flaw' : (isPerkGroup ? 'perk' : 'abilit');
-                    errors.push(`• For "${groupDef.name}" group, please select exactly ${groupDef.maxChoices} ${itemTypeString}${groupDef.maxChoices === 1 ? '' : 'ies'}.`);
-                    console.log(`  - Validation error: Incorrect number of ${itemTypeString}${groupDef.maxChoices === 1 ? '' : 'ies'} selected for group "${groupDef.name}".`);
-                }
-
-                // Validate nested options for each selected item in the group
-                selectedItemsInGroup.forEach(itemState => {
-                    const itemDef = this.stateManager.getAbilityOrFlawData(itemState.id, itemState.groupId); // Use unified getter
-                    if (itemDef && itemDef.options && itemDef.maxChoices !== undefined && itemDef.maxChoices !== null) {
-                        if (itemState.selections.length !== itemDef.maxChoices) {
-                            errors.push(`• Please select exactly ${itemDef.maxChoices} option(s) for the ${itemDef.type} "${itemDef.name}".`);
-                            console.log(`  - Validation error: Incorrect number of options for nested ${itemDef.type} "${itemDef.name}".`);
-                        }
-                    }
-                });
-            });
-          } else {
-              errors.push("• Destiny data or ability groups missing, cannot validate abilities/flaws/perks.");
-              console.error("CharacterFinisher: Destiny data or ability groups are null when validating abilities/flaws/perks.");
-          }
-      }
-
-      // Validate Attributes (only if module is selected)
-      const moduleData = this.stateManager.getModule(currentState.module);
-      if (moduleData && moduleData.attributes) {
-          const requiredAttrs = moduleData.attributes;
-          const missingAttrs = requiredAttrs.filter(attr =>
-            !currentState.attributes[attr.toLowerCase()]
-          );
-
-          if (missingAttrs.length > 0) {
-            errors.push(`• Assign dice to: ${missingAttrs.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')}`);
-            console.log('  - Validation error: Missing attribute assignments:', missingAttrs);
-          }
-      } else {
-          // This case should ideally not happen if module selection is validated prior
-          errors.push("• Module data missing, cannot validate attributes.");
-          console.error("CharacterFinisher: Module data is null when validating attributes.");
-      }
-    }
-
-    // Validate Perk Points vs. Flaw Points
-    const totalFlawPoints = this.stateManager.getIndependentFlawTotalWeight();
-    const totalPerkPoints = this.stateManager.getIndependentPerkTotalWeight();
-    if (totalPerkPoints > totalFlawPoints) {
-      errors.push(`• Your total Perk Points (${totalPerkPoints}) exceed your total Flaw Points (${totalFlawPoints}). Please adjust your selections.`);
-      console.log('  - Validation error: Perk points exceed flaw points.');
-    }
-
-    // Validate Info (name)
-    if (!currentState.info.name?.trim()) {
-      errors.push("• Please enter a Character Name.");
-      console.log('  - Validation error: Character name is empty.');
+    for (const page of pagesToValidate) {
+        if (!this.pageNavigator.isPageCompleted(page, currentState)) {
+            const errorMessage = this.pageNavigator.getCompletionError(page);
+            errors.push(`• ${errorMessage}`);
+            console.log(`  - Validation error on page '${page}': ${errorMessage}`);
+        }
     }
 
     return {
@@ -120,6 +55,7 @@ class CharacterFinisher {
       message: errors.join("\n")
     };
   }
+
 
   /**
    * Calculates the character's effects based on selected abilities, flaws, and perks.
@@ -132,6 +68,7 @@ class CharacterFinisher {
     const abilityData = this.stateManager.getAbilityData();
     const flawData = this.stateManager.getFlawData();
     const perkData = this.stateManager.getPerkData(); // Get perk data
+    // equipmentAndLootData will not be processed for effects here yet, as it's a stretch goal.
 
     // Re-create the activeAbilityStates Set as expected by EffectHandler.processActiveAbilities
     const activeAbilityStates = new Set(
@@ -168,6 +105,69 @@ class CharacterFinisher {
 
     return effectedCharacter;
   }
+  
+  /**
+   * Processes the raw inventory from the state, combining stackable items.
+   * @param {Array<Object>} rawInventory - The inventory array from the state manager.
+   * @returns {Array<Object>} The processed, final inventory.
+   * @private
+   */
+  _processFinalInventory(rawInventory) {
+    console.log("CharacterFinisher: Processing final inventory...");
+    const finalInventory = [];
+    const stackableMap = new Map();
+
+    for (const itemState of rawInventory) {
+      const itemDef = this.stateManager.getInventoryItemDefinition(itemState.id);
+      if (!itemDef) {
+        console.warn(`Could not find definition for item ${itemState.id}. Skipping.`);
+        continue;
+      }
+
+      if (itemDef.stackable) {
+        if (!stackableMap.has(itemState.id)) {
+          stackableMap.set(itemState.id, {
+            id: itemState.id,
+            quantity: 0,
+            equipped: true, // Assume equipped unless one part is not
+            sources: new Set(),
+            selections: [], // Note: Combining selections isn't defined, taking first one's for now
+          });
+        }
+        const entry = stackableMap.get(itemState.id);
+        entry.quantity += itemState.quantity;
+        if (itemState.source) {
+            entry.sources.add(itemState.source);
+        }
+        // If any instance is unequipped, the final stack is unequipped
+        if (itemState.equipped === false) {
+          entry.equipped = false;
+        }
+        // Simplistic selection merge: just overwrite.
+        if (itemState.selections && itemState.selections.length > 0) {
+            entry.selections = itemState.selections;
+        }
+      } else {
+        // Non-stackable items are added directly
+        finalInventory.push(itemState);
+      }
+    }
+
+    // Process the collected stackable items
+    for (const [itemId, combinedItem] of stackableMap.entries()) {
+      finalInventory.push({
+        id: itemId,
+        quantity: combinedItem.quantity,
+        equipped: combinedItem.equipped,
+        selections: combinedItem.selections,
+        source: Array.from(combinedItem.sources).join(', '),
+        groupId: null // GroupID is less relevant after combination
+      });
+    }
+    
+    console.log("CharacterFinisher: Final inventory processed:", finalInventory);
+    return finalInventory;
+  }
 
   /**
    * Initiates the wizard finishing process: validates all data and saves the character.
@@ -188,6 +188,10 @@ class CharacterFinisher {
 
     // Construct the final character object to be saved
     const currentState = this.stateManager.getState();
+    
+    // Process the inventory before saving
+    const finalInventory = this._processFinalInventory(currentState.inventory);
+
     const character = {
       module: currentState.module,
       destiny: currentState.destiny,
@@ -199,7 +203,7 @@ class CharacterFinisher {
           max: characterEffects.calculatedHealth.currentMax,
           temporary: 0
       },
-      inventory: [], // Assuming empty for now
+      inventory: finalInventory, // Use the processed inventory
       abilities: currentState.abilities,
       createdAt: new Date().toISOString(),
       info: currentState.info

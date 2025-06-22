@@ -9,8 +9,9 @@ class WizardStateManager {
    * @param {Object} destinyData - Data for destinies.
    * @param {Object} abilityData - Data for abilities.
    * @param {Object} perkData - Data for perks.
+   * @param {Object} equipmentAndLootData - Data for equipment and loot.
    */
-  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData) {
+  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData) {
     // Initialize the wizard's state. This state will be updated by various handlers.
     this.state = {
       module: null,
@@ -20,6 +21,7 @@ class WizardStateManager {
       perks: [], // Array of {id, selections: [], source: string, groupId: string}
       abilities: [], // Array of {id, selections: [], source: string, groupId: string}
       attributes: {},
+      inventory: [], // Array of {id, quantity: number, equipped: boolean, selections: [], source?: string, groupId?: string}
       info: { name: '', bio: '' }
     };
 
@@ -29,6 +31,7 @@ class WizardStateManager {
     this.destinyData = destinyData;
     this.abilityData = abilityData;
     this.perkData = perkData;
+    this.equipmentAndLootData = equipmentAndLootData;
 
     console.log('WizardStateManager: Initialized with game data.');
   }
@@ -62,6 +65,7 @@ class WizardStateManager {
           this.state.perks = []; // Reset perks
           this.state.abilities = []; // Reset abilities
           this.state.attributes = {};
+          this.state.inventory = []; // Reset inventory
         } else {
           console.log(`WizardStateManager: Module re-selected: ${value}. No change.`);
         }
@@ -152,6 +156,49 @@ class WizardStateManager {
   }
 
   /**
+   * Retrieves all equipment and loot data.
+   * @returns {Object} The complete equipment and loot data.
+   */
+  getEquipmentAndLootData() {
+    return this.equipmentAndLootData;
+  }
+  
+  /**
+   * NEW: Calculates the summary of equipment points spent.
+   * Points are determined by the 'weight' property of items sourced from 'equipment-and-loot'.
+   * @returns {{total: number, spent: number, remaining: number}}
+   */
+  getEquipmentPointsSummary() {
+    const TOTAL_POINTS = 20;
+    let spentPoints = 0;
+
+    const equipmentItems = this.state.inventory.filter(item => item.source === 'equipment-and-loot');
+    const allItemDefinitions = this.getEquipmentAndLootData();
+
+    equipmentItems.forEach(itemState => {
+      const itemDef = allItemDefinitions[itemState.id];
+      if (itemDef && typeof itemDef.weight === 'number') {
+        spentPoints += itemDef.weight * itemState.quantity;
+      }
+    });
+
+    return {
+      total: TOTAL_POINTS,
+      spent: spentPoints,
+      remaining: TOTAL_POINTS - spentPoints,
+    };
+  }
+
+  /**
+   * Retrieves a specific equipment or loot item by its ID.
+   * @param {string} itemId - The ID of the item.
+   * @returns {Object|null} The item data, or null if not found.
+   */
+  getInventoryItemDefinition(itemId) {
+    return this.equipmentAndLootData[itemId] || null;
+  }
+
+  /**
    * Retrieves either an ability, a flaw, or a perk definition based on its ID and optional group ID.
    * This is used to generalize fetching details for abilities, flaws, and perks.
    * @param {string} itemId - The ID of the ability, flaw, or perk.
@@ -202,7 +249,7 @@ class WizardStateManager {
     }
 
     const destinyData = this.getDestiny(this.state.destiny);
-    const groupDef = destinyData?.abilityGroups?.[newAbility.groupId];
+    const groupDef = destinyData?.choiceGroups?.[newAbility.groupId];
     const maxChoices = groupDef?.maxChoices || 1; // Default to 1 if not specified
 
     // Find the index of an existing ability with the same unique identifier
@@ -280,7 +327,7 @@ class WizardStateManager {
     console.log(`WizardStateManager: Adding/updating flaw: ${newFlaw.id} (Source: ${newFlaw.source || 'N/A'}, Group: ${newFlaw.groupId || 'N/A'})`);
 
     const destinyData = this.getDestiny(this.state.destiny);
-    const groupDef = destinyData?.abilityGroups?.[newFlaw.groupId];
+    const groupDef = destinyData?.choiceGroups?.[newFlaw.groupId];
     const maxChoices = groupDef?.maxChoices || 1;
 
     // Find the index of the flaw in the current state
@@ -377,7 +424,7 @@ class WizardStateManager {
     console.log(`WizardStateManager: Adding/updating perk: ${newPerk.id} (Source: ${newPerk.source || 'N/A'}, Group: ${newPerk.groupId || 'N/A'})`);
 
     const destinyData = this.getDestiny(this.state.destiny);
-    const groupDef = destinyData?.abilityGroups?.[newPerk.groupId]; // Assuming destiny might have 'perks' ability group
+    const groupDef = destinyData?.choiceGroups?.[newPerk.groupId]; // Assuming destiny might have 'perks' choice group
     const maxChoices = groupDef?.maxChoices || 1;
 
     // Find the index of the perk in the current state
@@ -462,6 +509,71 @@ class WizardStateManager {
       }
     });
     return totalWeight;
+  }
+
+  /**
+   * Adds or updates an item in the character's inventory from a specific source.
+   * @param {Object} newItemData - The item data to add/update {id, quantity, equipped, selections}.
+   * @param {string} source - The source of the item (e.g., 'destiny', 'equipment-and-loot').
+   * @param {string|null} groupId - The group ID if applicable (e.g., from a choice group).
+   */
+  addOrUpdateInventoryItem(newItemData, source, groupId = null) {
+    console.log(`WizardStateManager: Adding/updating inventory item: ${newItemData.id} from source: ${source}`);
+
+    const existingItemIndex = this.state.inventory.findIndex(item => item.id === newItemData.id && item.source === source);
+    
+    // If the new quantity is 0, treat it as a removal.
+    if (newItemData.quantity === 0) {
+        this.removeInventoryItem(newItemData.id, 9999, source); // Remove all
+        return;
+    }
+
+    if (existingItemIndex !== -1) {
+      // Update existing item from the same source
+      const currentItem = this.state.inventory[existingItemIndex];
+      currentItem.quantity = (newItemData.quantity !== undefined) ? newItemData.quantity : (currentItem.quantity || 0) + 1;
+      currentItem.equipped = (newItemData.equipped !== undefined) ? newItemData.equipped : currentItem.equipped;
+      currentItem.selections = newItemData.selections || currentItem.selections || [];
+      console.log(`WizardStateManager: Updated existing item: ${newItemData.id}, New Qty: ${currentItem.quantity}`);
+    } else {
+      // Add new item with source and groupId
+      this.state.inventory.push({
+        id: newItemData.id,
+        quantity: newItemData.quantity || 1,
+        equipped: newItemData.equipped === true, // Ensure it's a boolean
+        selections: newItemData.selections || [],
+        source: source,
+        groupId: groupId
+      });
+      console.log(`WizardStateManager: Added new item: ${newItemData.id} from source: ${source}`);
+    }
+    this.set('inventory', this.state.inventory);
+  }
+
+  /**
+   * Removes an item from the character's inventory from a specific source.
+   * @param {string} itemId - The ID of the item to remove.
+   * @param {number} quantityToRemove - The number of items to remove. If quantity results in 0 or less, the item instance is removed.
+   * @param {string} source - The source of the item to target.
+   */
+  removeInventoryItem(itemId, quantityToRemove, source) {
+    const itemIndex = this.state.inventory.findIndex(item => item.id === itemId && item.source === source);
+
+    if (itemIndex !== -1) {
+      const currentItem = this.state.inventory[itemIndex];
+      currentItem.quantity -= quantityToRemove;
+
+      if (currentItem.quantity <= 0) {
+        this.state.inventory.splice(itemIndex, 1);
+        console.log(`WizardStateManager: Fully removed item: ${itemId} from source: ${source}`);
+      } else {
+        console.log(`WizardStateManager: Reduced quantity for item: ${itemId} from source: ${source}, New Qty: ${currentItem.quantity}`);
+      }
+      this.set('inventory', this.state.inventory);
+    } else {
+      console.warn(`WizardStateManager: Attempted to remove non-existent item: ${itemId} from source: ${source}`);
+    }
+    console.log('WizardStateManager: Current inventory state after removal:', this.state.inventory);
   }
 }
 

@@ -9,7 +9,7 @@
         { "id": "nature", "display": "Nature", "color": "#28a745", "icon": "🌳" },
         { "id": "beast-tamer", "display": "Beast Tamer", "color": "#C4A484", "icon": "🐻" }
     ],
-    "abilityGroups": {
+    "choiceGroups": {
         "flaws": {
             "name": "Flaws",
             "maxChoices": 1,
@@ -34,6 +34,15 @@
             "name": "Domain Abilities",
             "maxChoices": 2,
             "abilities": ["small-domain", "medium-domain", "large-domain"]
+        },
+        "equipment": {
+            "name": "Fae-Touched Gift",
+            "maxChoices": 1,
+            "abilities": [
+                "staff-of-moon-whispers",
+                "mothwing-cloak",
+                "pixie-call-whistle"
+            ]
         }
     }
 }

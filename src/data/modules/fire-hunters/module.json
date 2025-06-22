@@ -4,5 +4,19 @@
     "descriptions": {
         "module": "A Tale about Fae"
     },
-    "destinies": ["whisperer"]
+    "destinies": ["whisperer"],
+    "frame": {
+        "name": "Not using Module Name",
+        "description": "Not using Module description either",
+        "author": "Mason",
+        "complexityRating": 3,
+        "pitch": [
+            "This will be a lengthy multiple paragraph section containing a lot of information about how the campaign works",
+            "I hope that you are very interested in what this campaign has to offer blah blah blah",
+            "Is this enough text? I am very unsure. Meow I am a small cat who is hungry for fish."
+            ],
+        "tone": "Playful, Deceptive, Funny, Light-hearted",
+        "theme": "Ecological, Cooperation",
+        "inspiration": "Smokey Bear, Fae"
+    }
 }

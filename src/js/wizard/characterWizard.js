@@ -14,9 +14,11 @@ import { InformerUpdater } from './informerUpdater.js';
 
 // Import page-specific handlers
 import { ModulePageHandler } from './modulePageHandler.js';
+import { FramePageHandler } from './framePageHandler.js';
 import { DestinyPageHandler } from './destinyPageHandler.js';
 import { AttributesPageHandler } from './attributesPageHandler.js';
 import { FlawsAndPerksPageHandler } from './flawsAndPerksPageHandler.js';
+import { EquipmentAndLootPageHandler } from './equipmentAndLootPageHandler.js'; 
 import { InfoPageHandler } from './infoPageHandler.js';
 import { CharacterFinisher } from './characterFinisher.js';
 
@@ -27,14 +29,15 @@ class CharacterWizard {
    * @param {Object} destinyData - Loaded data for destinies.
    * @param {Object} abilityData - Loaded data for abilities.
    * @param {Object} perkData - Loaded data for perks.
+   * @param {Object} equipmentAndLootData - Loaded data for equipment and loot.
    * @param {Object} db - The database instance for saving characters.
    */
-  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData, db) {
+  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData, db) {
     // Initialize the central state manager
-    this.stateManager = new WizardStateManager(moduleSystemData, flawData, destinyData, abilityData, perkData);
+    this.stateManager = new WizardStateManager(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData);
 
     // Define the pages of the wizard in order
-    this.pages = ['module', 'destiny', 'attributes', 'flaws-and-perks', 'info'];
+    this.pages = ['module', 'frame', 'destiny', 'attributes', 'flaws-and-perks', 'equipment-and-loot', 'info']; // UPDATED
 
     // Initialize the navigation component
     this.pageNavigator = new PageNavigator(this.pages, this.stateManager, {
@@ -47,20 +50,22 @@ class CharacterWizard {
     // Initialize page-specific handlers
     this.pageHandlers = {
       module: new ModulePageHandler(this.stateManager, this.informerUpdater, this.pageNavigator),
+      frame: new FramePageHandler(this.stateManager, this.informerUpdater), // NEW
       destiny: new DestinyPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator),
       attributes: new AttributesPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator, alerter),
       'flaws-and-perks': new FlawsAndPerksPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator, alerter),
+      'equipment-and-loot': new EquipmentAndLootPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator, alerter),
       info: new InfoPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator)
     };
 
-    // Initialize the character finishing component
-    this.characterFinisher = new CharacterFinisher(this.stateManager, db, alerter, EffectHandler);
+    // Initialize the character finishing component, now passing pageNavigator and pages
+    this.characterFinisher = new CharacterFinisher(this.stateManager, db, alerter, EffectHandler, this.pageNavigator, this.pages);
 
     // Attach global database reference
     this.db = db;
 
     // Add a property to keep track of the currently active handler
-    this.activePageHandler = null; // NEW
+    this.activePageHandler = null; 
 
     console.log('CharacterWizard: Initializing main wizard application.');
     this.init();
@@ -93,7 +98,7 @@ class CharacterWizard {
     const informerPanel = document.getElementById('informerPanel');
 
     try {
-      // NEW: Clean up the previous page's handler before loading new content
+      // Clean up the previous page's handler before loading new content
       if (this.activePageHandler && typeof this.activePageHandler.cleanup === 'function') {
         console.log(`CharacterWizard.loadPage: Cleaning up previous handler for page: ${this.activePageHandler.constructor.name}`);
         this.activePageHandler.cleanup();
@@ -114,10 +119,10 @@ class CharacterWizard {
       if (handler) {
         // Pass the container elements so handlers don't need to query them
         handler.setupPage(selectorPanel, informerPanel);
-        this.activePageHandler = handler; // NEW: Set the new handler as active
+        this.activePageHandler = handler; // Set the new handler as active
       } else {
         console.warn(`CharacterWizard.loadPage: No handler found for page: ${page}`);
-        this.activePageHandler = null; // NEW: No active handler if none found
+        this.activePageHandler = null; // No active handler if none found
       }
 
     } catch (error) {
@@ -148,56 +153,59 @@ class CharacterWizard {
     const flawData = this.stateManager.getFlawData();
     const abilityData = this.stateManager.getAbilityData();
     const perkData = this.stateManager.getPerkData();
+    const equipmentAndLootData = this.stateManager.getEquipmentAndLootData();
+
+    if (!equipmentAndLootData || Object.keys(equipmentAndLootData).length === 0) {
+      console.warn('CharacterWizard.validateLoadedData: equipmentAndLootData is empty or missing. Ensure data/equipmentAndLoot.json is populated.');
+    } else {
+      console.log(`CharacterWizard.validateLoadedData: Loaded ${Object.keys(equipmentAndLootData).length} equipment/loot items.`);
+    }
 
     Object.keys(moduleSystem).forEach(moduleId => {
       const destiniesForModule = moduleSystem[moduleId].destinies || [];
       destiniesForModule.forEach(destinyId => {
         if (!destinyData[destinyId]) {
           console.error(`Missing destiny data for: ${destinyId} (from module ${moduleId})`);
+          return;
+        }
+        
+        if (destinyData[destinyId].choiceGroups) {
+          Object.entries(destinyData[destinyId].choiceGroups).forEach(([groupId, groupDef]) => {
+            if (!groupDef.abilities || !Array.isArray(groupDef.abilities)) {
+              console.error(`Choice group '${groupId}' in destiny '${destinyId}' has no 'abilities' array or it's invalid.`);
+              return;
+            }
+
+            groupDef.abilities.forEach(itemId => {
+              let found = false;
+              let dataType = '';
+
+              switch (groupId) {
+                case 'flaws':
+                  found = !!flawData[itemId];
+                  dataType = 'flaw';
+                  break;
+                case 'perks':
+                  found = !!perkData[itemId];
+                  dataType = 'perk';
+                  break;
+                case 'equipment':
+                  found = !!equipmentAndLootData[itemId];
+                  dataType = 'equipment';
+                  break;
+                default: // This handles all other groups as abilities
+                  found = !!abilityData[itemId];
+                  dataType = 'ability';
+                  break;
+              }
+
+              if (!found) {
+                console.error(`Missing ${dataType} data: ${itemId} in group '${groupId}' for destiny ${destinyId}`);
+              }
+            });
+          });
         } else {
-          // Check for flaws within the new abilityGroups structure
-          const flawsGroup = destinyData[destinyId].abilityGroups?.flaws;
-          if (flawsGroup && flawsGroup.abilities) {
-            flawsGroup.abilities.forEach(flawId => {
-              if (!flawData[flawId]) {
-                console.error(`Missing flaw data: ${flawId} in flaws group for destiny ${destinyId}`);
-              }
-            });
-          } else {
-            console.warn(`Destiny '${destinyId}' has no 'flaws' ability group defined or it has no abilities. Ensure this is intentional.`);
-          }
-
-          // Check for perks within the new abilityGroups structure
-          const perksGroup = destinyData[destinyId].abilityGroups?.perks;
-          if (perksGroup && perksGroup.abilities) {
-            perksGroup.abilities.forEach(perkId => {
-              if (!perkData[perkId]) {
-                console.error(`Missing perk data: ${perkId} in perks group for destiny ${destinyId}`);
-              }
-            });
-          } else {
-            console.warn(`Destiny '${destinyId}' has no 'perks' ability group defined or it has no abilities. Ensure this is intentional.`);
-          }
-
-          // Iterate through all other abilityGroups
-          if (destinyData[destinyId].abilityGroups) {
-            Object.entries(destinyData[destinyId].abilityGroups).forEach(([groupId, groupDef]) => {
-              // Skip the 'flaws' and 'perks' groups as they're handled separately above
-              if (groupId === 'flaws' || groupId === 'perks') return;
-
-              if (!groupDef.abilities || !Array.isArray(groupDef.abilities)) {
-                  console.error(`Ability group '${groupId}' in destiny '${destinyId}' has no 'abilities' array or it's invalid.`);
-                  return;
-              }
-              groupDef.abilities.forEach(abilityId => {
-                if (!abilityData[abilityId]) {
-                  console.error(`Missing ability data: ${abilityId} in group '${groupId}' for destiny ${destinyId}`);
-                }
-              });
-            });
-          } else {
-              console.warn(`Destiny '${destinyId}' has no 'abilityGroups' defined. Ensure this is intentional.`);
-          }
+          console.warn(`Destiny '${destinyId}' has no 'choiceGroups' defined. Ensure this is intentional.`);
         }
       });
     });
@@ -218,12 +226,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('CharacterWizard: DOMContentLoaded event fired. Loading game data...');
 
   try {
-      // Load all game data using the new dataLoader module
-      const { moduleSystemData, flawData, destinyData, abilityData, perkData } = await loadGameData();
+      const { moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData } = await loadGameData();
       console.log('CharacterWizard: All game data loaded. Initializing CharacterWizard.');
       
-      // Initialize CharacterWizard with all loaded data and the database instance
-      new CharacterWizard(moduleSystemData, flawData, destinyData, abilityData, perkData, db);
+      new CharacterWizard(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData, db);
 
   } catch (error) {
       console.error('CharacterWizard: Error loading game data:', error);
