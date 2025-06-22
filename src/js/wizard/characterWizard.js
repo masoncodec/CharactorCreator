@@ -58,8 +58,8 @@ class CharacterWizard {
       info: new InfoPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator)
     };
 
-    // Initialize the character finishing component
-    this.characterFinisher = new CharacterFinisher(this.stateManager, db, alerter, EffectHandler);
+    // Initialize the character finishing component, now passing pageNavigator and pages
+    this.characterFinisher = new CharacterFinisher(this.stateManager, db, alerter, EffectHandler, this.pageNavigator, this.pages);
 
     // Attach global database reference
     this.db = db;
@@ -78,15 +78,6 @@ class CharacterWizard {
     console.log('CharacterWizard.init: Setting up global event listeners and initial page.');
     // Initialize navigation listeners (prev/next buttons, nav items)
     this.pageNavigator.initNavListeners();
-
-    // Add a global listener to update navigation whenever the state changes.
-    // This ensures that page completion status (e.g., checkmarks) and
-    // the 'Next' button's availability are always up-to-date across all pages.
-    document.addEventListener('wizard:stateChange', () => {
-      console.log('CharacterWizard: Detected state change, updating navigation.');
-      this.pageNavigator.updateNav();
-    });
-
     // Load the first page
     this.loadPage(this.pages[0]);
     console.log(`CharacterWizard.init: Initial page loaded: ${this.pages[0]}`);

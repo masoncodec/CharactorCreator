@@ -305,50 +305,50 @@ class PageNavigator {
   }
 
   /**
+   * Returns a user-friendly error message for an incomplete page.
+   * @param {string} pageName - The name of the page with the error.
+   * @returns {string} The error message.
+   */
+  getCompletionError(pageName) {
+    const errorMap = {
+      module: 'Please select a module to continue.',
+      destiny: 'Please select a Destiny and ensure all choices are complete (including for abilities, flaws, and equipment).',
+      attributes: 'Please assign dice to all attributes.',
+      'flaws-and-perks': 'Please complete all required nested flaw/perk selections and ensure Perk Points do not exceed Flaw Points.',
+      'equipment-and-loot': 'Please review your equipment and loot selections.',
+      info: "Please enter your character's name."
+    };
+    return errorMap[pageName] || `The '${pageName}' page has an unresolved validation issue.`;
+  }
+
+  /**
    * Displays an error message for an incomplete page.
    * @param {string} pageName - The name of the page with the error.
    */
   showPageError(pageName) {
-    const errorMap = {
-      module: {
-        element: '.module-options',
-        message: 'Please select a module to continue.'
-      },
-      destiny: {
-        element: '#destiny-options-container',
-        message: 'Please select a Destiny and ensure all ability, flaw, and perk selections are complete.'
-      },
-      attributes: {
-        element: '.dice-assignment-table',
-        message: 'Please assign dice to all attributes.'
-      },
-      'flaws-and-perks': {
-        element: '.flaws-and-perks-container',
-        message: 'Please complete all required nested flaw and perk selections, and ensure your perk points do not exceed your flaw points.'
-      },
-      'equipment-and-loot': {
-        element: '#equipment-loot-container',
-        message: 'Please review your equipment and loot selections.'
-      },
-      info: {
-        element: '#characterName',
-        message: 'Please enter your character\'s name.'
-      }
+    const elementMap = {
+      module: '.module-options',
+      destiny: '#destiny-options-container',
+      attributes: '.dice-assignment-table',
+      'flaws-and-perks': '.flaws-and-perks-container',
+      'equipment-and-loot': '#equipment-loot-container',
+      info: '#characterName',
     };
 
-    const errorInfo = errorMap[pageName];
-    if (errorInfo) {
-      const { element, message } = errorInfo;
-      const el = document.querySelector(element);
+    const message = this.getCompletionError(pageName);
+    const elementSelector = elementMap[pageName];
+
+    if (elementSelector) {
+      const el = document.querySelector(elementSelector);
       if (el) {
         el.classList.add('error-highlight');
         setTimeout(() => {
           el.classList.remove('error-highlight');
         }, 2000);
       }
-      console.error(`PageNavigator.showPageError: Displaying error for page '${pageName}': ${message}`);
-      alerter.show(message, 'error');
     }
+    console.error(`PageNavigator.showPageError: Displaying error for page '${pageName}': ${message}`);
+    alerter.show(message, 'error');
   }
 }
 
