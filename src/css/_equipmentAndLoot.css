@@ -83,6 +83,16 @@
   border-left-color: #805ad5; /* a purple accent */
 }
 
+.item-card.card-disabled {
+  opacity: 0.5;
+  background-color: #4a5568; /* A slightly different background for clarity */
+  pointer-events: none; /* Prevents clicks on the card itself */
+}
+
+.item-card.card-disabled button {
+  pointer-events: all; /* Re-enable pointer events on the button to show tooltip */
+}
+
 .item-card-header {
   font-size: 1rem;
   font-weight: 600; /* font-semibold */

@@ -240,6 +240,47 @@ class InformerUpdater {
           </div>`;
         break;
 
+      case 'equipment-and-loot':
+        const inventory = currentState.inventory.filter(i => i.source === 'equipment-and-loot');
+        const allItemDefinitions = this.stateManager.getEquipmentAndLootData();
+        const { spent, total } = this.stateManager.getEquipmentPointsSummary();
+
+        let inventoryListHtml = '';
+        if (inventory.length === 0) {
+          inventoryListHtml = '<p class="text-gray-400">Your inventory is empty.</p>';
+        } else {
+          inventoryListHtml = '<ul class="space-y-2">';
+          inventory.forEach(itemState => {
+            const itemDef = allItemDefinitions[itemState.id];
+            if (itemDef) {
+              const itemPointCost = (itemDef.weight || 0) * itemState.quantity;
+              inventoryListHtml += `
+                <li class="bg-gray-800 p-2 rounded flex justify-between items-center text-gray-200 text-sm">
+                  <span>${itemDef.name} ${itemState.quantity > 1 ? `(x${itemState.quantity})` : ''}</span>
+                  <div class="flex items-center">
+                    <span class="mr-4 text-sm text-yellow-400">Points: ${itemPointCost}</span>
+                    ${itemState.equipped ? '<span class="text-green-400 text-xs font-bold">(Equipped)</span>' : ''}
+                  </div>
+                </li>
+              `;
+            }
+          });
+          inventoryListHtml += '</ul>';
+        }
+
+        htmlContent = `
+          <h3 class="text-xl font-bold mb-4">Equipment & Loot</h3>
+          <div class="points-summary-container mb-4">
+            <div class="perk-points-summary">
+                <strong>Equipment Points: ${spent} / ${total}</strong>
+            </div>
+          </div>
+          <div id="current-inventory-list" class="bg-gray-700 p-4 rounded-lg shadow-inner max-h-96 overflow-y-auto">
+            ${inventoryListHtml}
+          </div>
+        `;
+        break;
+        
       case 'info':
         htmlContent = `
           <div class="info-panel-content">

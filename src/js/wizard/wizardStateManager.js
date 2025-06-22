@@ -9,9 +9,9 @@ class WizardStateManager {
    * @param {Object} destinyData - Data for destinies.
    * @param {Object} abilityData - Data for abilities.
    * @param {Object} perkData - Data for perks.
-   * @param {Object} equipmentAndLootData - Data for equipment and loot. // NEW
+   * @param {Object} equipmentAndLootData - Data for equipment and loot.
    */
-  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData) { // UPDATED
+  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData) {
     // Initialize the wizard's state. This state will be updated by various handlers.
     this.state = {
       module: null,
@@ -161,6 +161,32 @@ class WizardStateManager {
    */
   getEquipmentAndLootData() {
     return this.equipmentAndLootData;
+  }
+  
+  /**
+   * NEW: Calculates the summary of equipment points spent.
+   * Points are determined by the 'weight' property of items sourced from 'equipment-and-loot'.
+   * @returns {{total: number, spent: number, remaining: number}}
+   */
+  getEquipmentPointsSummary() {
+    const TOTAL_POINTS = 20;
+    let spentPoints = 0;
+
+    const equipmentItems = this.state.inventory.filter(item => item.source === 'equipment-and-loot');
+    const allItemDefinitions = this.getEquipmentAndLootData();
+
+    equipmentItems.forEach(itemState => {
+      const itemDef = allItemDefinitions[itemState.id];
+      if (itemDef && typeof itemDef.weight === 'number') {
+        spentPoints += itemDef.weight * itemState.quantity;
+      }
+    });
+
+    return {
+      total: TOTAL_POINTS,
+      spent: spentPoints,
+      remaining: TOTAL_POINTS - spentPoints,
+    };
   }
 
   /**
@@ -495,6 +521,12 @@ class WizardStateManager {
     console.log(`WizardStateManager: Adding/updating inventory item: ${newItemData.id} from source: ${source}`);
 
     const existingItemIndex = this.state.inventory.findIndex(item => item.id === newItemData.id && item.source === source);
+    
+    // If the new quantity is 0, treat it as a removal.
+    if (newItemData.quantity === 0) {
+        this.removeInventoryItem(newItemData.id, 9999, source); // Remove all
+        return;
+    }
 
     if (existingItemIndex !== -1) {
       // Update existing item from the same source

@@ -1,5 +1,6 @@
 // equipmentAndLootPageHandler.js
 // This module handles the display and interaction for the Equipment and Loot page.
+// REWORKED for point-based system
 
 class EquipmentAndLootPageHandler {
   /**
@@ -15,11 +16,13 @@ class EquipmentAndLootPageHandler {
     this.alerter = alerter;
     this.SOURCE_ID = 'equipment-and-loot'; // Define a source constant
 
+    // Bindings for event listeners
     this.boundHandleItemSelection = this._handleItemSelection.bind(this);
     this.boundHandleQuantityChange = this._handleQuantityChange.bind(this);
     this.boundHandleEquipToggle = this._handleEquipToggle.bind(this);
+    this.boundOnStateChange = this._onStateChange.bind(this);
 
-    console.log('EquipmentAndLootPageHandler: Initialized.');
+    console.log('EquipmentAndLootPageHandler: Initialized (Point System).');
   }
 
   /**
@@ -34,16 +37,16 @@ class EquipmentAndLootPageHandler {
     this.informerPanel = informerPanel;
 
     this._renderSelectorPanel();
-    this._renderInformerPanel();
     this._attachEventListeners();
 
-    // Initial update of navigation
-    this.pageNavigator.updateNav();
+    // The informer updater is now the single source of truth for the informer panel
     this.informerUpdater.update('equipment-and-loot');
+    this.pageNavigator.updateNav();
   }
 
   /**
-   * Renders the selector panel with available equipment and loot into two columns.
+   * Renders the selector panel with available equipment and loot.
+   * The actual state (disabled, etc.) is handled by _updateAllItemCardStates.
    * @private
    */
   _renderSelectorPanel() {
@@ -68,12 +71,10 @@ class EquipmentAndLootPageHandler {
 
     for (const itemId in allItems) {
       const item = allItems[itemId];
-      // Only find items managed by this page (matching SOURCE_ID)
       const inventoryItem = currentInventory.find(i => i.id === item.id && i.source === this.SOURCE_ID);
       const isInInventory = !!inventoryItem;
       const isEquipped = inventoryItem?.equipped || false;
       const currentQuantity = inventoryItem?.quantity || 0;
-      const isRemoveAction = isInInventory && (!item.stackable || currentQuantity > 0);
 
       const itemCardHtml = `
         <div class="item-card" data-item-id="${item.id}" data-item-type="${item.type}">
@@ -83,7 +84,8 @@ class EquipmentAndLootPageHandler {
           <div class="item-card-body">
             <div class="item-card-meta">
               <span>Rarity: <span class="rarity">${item.rarity || 'N/A'}</span></span>
-              <span>Weight: ${item.weight || 'N/A'}</span>
+              <!-- Changed Weight to Points -->
+              <span class="font-bold">Points: ${item.weight || '0'}</span>
               ${item.value ? `<span>Value: ${item.value} gold</span>` : ''}
             </div>
             <p class="description">${item.description}</p>
@@ -103,11 +105,8 @@ class EquipmentAndLootPageHandler {
                     </label>
                 </div>` : ''
             }
-            <button class="add-remove-btn ${isRemoveAction ? 'action-remove' : ''}"
-                    data-item-id="${item.id}"
-                    data-item-type="${item.type}"
-                    data-action="${isRemoveAction ? 'remove' : 'add'}">
-              ${isRemoveAction ? 'Remove' : 'Add to Inventory'}
+            <button class="add-remove-btn" data-item-id="${item.id}">
+              Add to Inventory
             </button>
           </div>
         </div>
@@ -122,148 +121,153 @@ class EquipmentAndLootPageHandler {
 
     equipmentContainer.innerHTML = equipmentHtml || '<p>No equipment available.</p>';
     lootContainer.innerHTML = lootHtml || '<p>No loot available.</p>';
+    
+    // Initial update of all card states (buttons, disabled status, etc.)
+    this._updateAllItemCardStates();
   }
 
   /**
-   * Renders the informer panel with the character's current inventory summary.
-   * @private
-   */
-  _renderInformerPanel() {
-    const currentState = this.stateManager.getState();
-    const inventory = currentState.inventory;
-    const allItemDefinitions = this.stateManager.getEquipmentAndLootData();
-
-    if (!allItemDefinitions) {
-      this.informerPanel.innerHTML = '<p class="text-red-500">Error: Item definitions not loaded for informer.</p>';
-      return;
-    }
-
-    let inventoryListHtml = '';
-    if (inventory.length === 0) {
-      inventoryListHtml = '<p class="text-gray-400">Your inventory is empty.</p>';
-    } else {
-      inventoryListHtml = '<ul class="space-y-2">';
-      inventory.forEach(itemState => {
-        const itemDef = allItemDefinitions[itemState.id];
-        if (itemDef) {
-          inventoryListHtml += `
-            <li class="bg-gray-800 p-2 rounded flex justify-between items-center text-gray-200 text-sm">
-              <span>${itemDef.name} ${itemState.quantity > 1 ? `(x${itemState.quantity})` : ''}</span>
-              ${itemState.equipped ? '<span class="text-green-400 text-xs">(Equipped)</span>' : ''}
-            </li>
-          `;
-        }
-      });
-      inventoryListHtml += '</ul>';
-    }
-
-    this.informerPanel.innerHTML = `
-      <h3 class="text-xl font-bold mb-4">Current Inventory</h3>
-      <div id="current-inventory-list" class="bg-gray-700 p-4 rounded-lg shadow-inner max-h-64 overflow-y-auto">
-        ${inventoryListHtml}
-      </div>
-      <p class="text-gray-300 text-sm mt-4">Total Weight: <span id="total-inventory-weight">${this._calculateTotalWeight()}</span></p>
-    `;
-  }
-
-  /**
-   * Calculates the total weight of items in the current inventory.
-   * @returns {number} The total weight.
-   * @private
-   */
-  _calculateTotalWeight() {
-    const currentState = this.stateManager.getState();
-    const inventory = currentState.inventory;
-    const allItemDefinitions = this.stateManager.getEquipmentAndLootData();
-    let totalWeight = 0;
-
-    inventory.forEach(itemState => {
-      const itemDef = allItemDefinitions[itemState.id];
-      if (itemDef && typeof itemDef.weight === 'number') {
-        totalWeight += itemDef.weight * itemState.quantity;
-      }
-    });
-    return totalWeight;
-  }
-
-  /**
-   * Attaches event listeners to the relevant elements on the page.
+   * Attaches all necessary event listeners for the page.
    * @private
    */
   _attachEventListeners() {
     this.selectorPanel.removeEventListener('click', this.boundHandleItemSelection);
     this.selectorPanel.addEventListener('click', this.boundHandleItemSelection);
 
-    this.selectorPanel.removeEventListener('change', this.boundHandleQuantityChange);
-    this.selectorPanel.addEventListener('change', this.boundHandleQuantityChange);
+    // Using 'input' for a more responsive feel than 'change'
+    this.selectorPanel.removeEventListener('input', this.boundHandleQuantityChange);
+    this.selectorPanel.addEventListener('input', this.boundHandleQuantityChange);
 
     this.selectorPanel.removeEventListener('change', this.boundHandleEquipToggle);
     this.selectorPanel.addEventListener('change', this.boundHandleEquipToggle);
 
-    document.removeEventListener('wizard:stateChange', this.boundRenderInformerOnStateChange);
-    this.boundRenderInformerOnStateChange = this._renderInformerPanel.bind(this);
-    document.addEventListener('wizard:stateChange', this.boundRenderInformerOnStateChange);
+    // Listen for global state changes to update card affordance
+    document.addEventListener('wizard:stateChange', this.boundOnStateChange);
   }
 
   /**
-   * Handles click events on item "Add/Remove" buttons.
+   * Callback for the wizard:stateChange event.
+   * Updates the UI if the inventory has changed.
+   * @param {CustomEvent} event - The event object.
+   * @private
+   */
+  _onStateChange(event) {
+    if (event.detail && event.detail.key === 'inventory') {
+        this._updateAllItemCardStates();
+        // The informer updater is now responsible for its own content
+        this.informerUpdater.update('equipment-and-loot');
+    }
+  }
+
+  /**
+   * Updates all item cards to reflect the current point state.
+   * This will enable/disable cards, buttons, and inputs based on remaining points.
+   * @private
+   */
+  _updateAllItemCardStates() {
+    const { remaining } = this.stateManager.getEquipmentPointsSummary();
+    const allItemDefs = this.stateManager.getEquipmentAndLootData();
+    const inventory = this.stateManager.getState().inventory;
+    const itemCards = this.selectorPanel.querySelectorAll('.item-card');
+
+    itemCards.forEach(card => {
+        const itemId = card.dataset.itemId;
+        const itemDef = allItemDefs[itemId];
+        if (!itemDef) return;
+
+        const inventoryItem = inventory.find(i => i.id === itemId && i.source === this.SOURCE_ID);
+        const isInInventory = !!inventoryItem;
+        const currentQuantity = inventoryItem?.quantity || 0;
+        const itemCost = itemDef.weight || 0;
+
+        const button = card.querySelector('.add-remove-btn');
+        const quantityInput = card.querySelector('.quantity-input');
+        const equipToggle = card.querySelector('.equip-toggle');
+
+        // Update button text and action based on whether the item is in inventory
+        const isRemoveAction = isInInventory && currentQuantity > 0;
+        button.textContent = isRemoveAction ? 'Remove' : 'Add to Inventory';
+        button.dataset.action = isRemoveAction ? 'remove' : 'add';
+        button.classList.toggle('action-remove', isRemoveAction);
+        
+        // Determine if the item is affordable to be ADDED
+        const canAfford = itemCost <= remaining;
+        
+        if (!isInInventory) {
+            button.disabled = !canAfford;
+            card.classList.toggle('card-disabled', !canAfford);
+        } else {
+            // If it's already in, the remove button should always be enabled
+            button.disabled = false;
+            card.classList.remove('card-disabled');
+        }
+        
+        // Update quantity input for stackable items
+        if (quantityInput) {
+            const pointsAvailableForThisStack = remaining + (currentQuantity * itemCost);
+            const maxCanAfford = itemCost > 0 ? Math.floor(pointsAvailableForThisStack / itemCost) : 9999;
+            // Store the max affordable quantity on the element for later validation
+            quantityInput.dataset.maxAfford = maxCanAfford;
+        }
+
+        // Update equip toggle
+        if (equipToggle) {
+            equipToggle.disabled = !isInInventory;
+            if (!isInInventory) equipToggle.checked = false;
+        }
+    });
+  }
+
+  /**
+   * Handles click events for Add/Remove buttons.
    * @param {Event} event - The click event.
    * @private
    */
   _handleItemSelection(event) {
     const button = event.target.closest('.add-remove-btn');
-    if (!button) return;
+    if (!button || button.disabled) return;
 
     const itemId = button.dataset.itemId;
     const action = button.dataset.action;
     const itemDef = this.stateManager.getInventoryItemDefinition(itemId);
+    if (!itemDef) return;
 
-    if (!itemDef) {
-      this.alerter.show(`Error: Item definition not found for ${itemId}`, 'error');
-      return;
-    }
-
-    let currentQuantityInState = this.stateManager.getState().inventory.find(i => i.id === itemId && i.source === this.SOURCE_ID)?.quantity || 0;
+    const itemCost = itemDef.weight || 0;
+    const { remaining } = this.stateManager.getEquipmentPointsSummary();
+    const inventoryItem = this.stateManager.getState().inventory.find(i => i.id === itemId && i.source === this.SOURCE_ID);
     
     if (action === 'add') {
-      const quantityInput = this.selectorPanel.querySelector(`#quantity-${itemId}`);
-      let quantityToAdd = (itemDef.stackable && quantityInput) ? parseInt(quantityInput.value, 10) : 1;
-
-      if (quantityToAdd <= 0 && itemDef.stackable) {
-        this.alerter.show('Quantity must be greater than zero to add.', 'warning');
+      if (inventoryItem) return; // Safeguard: should not be able to add an item that's already in inventory
+      
+      if (itemCost > remaining) {
+        this.alerter.show(`Not enough points. Needs ${itemCost}, you have ${remaining}.`, 'warning');
         return;
       }
-      if (!itemDef.stackable && currentQuantityInState > 0) {
-        this.alerter.show(`${itemDef.name} is not stackable and you already have it.`, 'warning');
-        return;
-      }
-
-      this.stateManager.addOrUpdateInventoryItem({ id: itemId, quantity: quantityToAdd, equipped: false }, this.SOURCE_ID, null);
-    } else if (action === 'remove') {
-      let quantityToRemove = 1;
+      
+      let quantityToAdd = 1;
       if (itemDef.stackable) {
-        const quantityInput = this.selectorPanel.querySelector(`#quantity-${itemId}`);
-        quantityToRemove = quantityInput ? parseInt(quantityInput.value, 10) : 1;
+          const quantityInput = this.selectorPanel.querySelector(`#quantity-${itemId}`);
+          quantityToAdd = parseInt(quantityInput.value, 10) || 1;
+          if (quantityToAdd <= 0) quantityToAdd = 1; // Default to 1 if input is invalid
+          quantityInput.value = quantityToAdd;
 
-        if (quantityToRemove <= 0) {
-          this.alerter.show('Quantity must be greater than zero to remove.', 'warning');
-          return;
-        }
-        if (quantityToRemove > currentQuantityInState) {
-          this.alerter.show(`Cannot remove ${quantityToRemove} of ${itemDef.name}. You only have ${currentQuantityInState}.`, 'warning');
-          quantityToRemove = currentQuantityInState;
-        }
+          const totalCost = quantityToAdd * itemCost;
+          if (totalCost > remaining) {
+              this.alerter.show(`Cannot afford ${quantityToAdd} of ${itemDef.name}. Cost: ${totalCost}, Remaining Points: ${remaining}.`, 'warning');
+              return;
+          }
       }
-      this.stateManager.removeInventoryItem(itemId, quantityToRemove, this.SOURCE_ID);
+      this.stateManager.addOrUpdateInventoryItem({ id: itemId, quantity: quantityToAdd, equipped: false }, this.SOURCE_ID, null);
+
+    } else if (action === 'remove') {
+      // Remove all items of this type from the page
+      this.stateManager.removeInventoryItem(itemId, inventoryItem.quantity, this.SOURCE_ID);
     }
-    this._updateItemCardButton(button, itemId, itemDef.stackable);
-    this._renderInformerPanel();
-    this.pageNavigator.updateNav();
   }
-  
+
   /**
    * Handles changes to quantity input fields for stackable loot.
-   * @param {Event} event - The change event.
+   * @param {Event} event - The input event.
    * @private
    */
   _handleQuantityChange(event) {
@@ -274,17 +278,20 @@ class EquipmentAndLootPageHandler {
     const itemId = card.dataset.itemId;
     const itemDef = this.stateManager.getInventoryItemDefinition(itemId);
     if (!itemDef || !itemDef.stackable) return;
-
+    
     let newQuantity = parseInt(input.value, 10);
     if (isNaN(newQuantity) || newQuantity < 0) {
-      newQuantity = 0;
-      input.value = 0;
+        newQuantity = 0;
+    }
+    
+    const maxAfford = parseInt(input.dataset.maxAfford, 10);
+    if (newQuantity > maxAfford) {
+        this.alerter.show(`Cannot afford ${newQuantity} of ${itemDef.name}. You can afford a maximum of ${maxAfford}.`, 'warning');
+        newQuantity = maxAfford;
+        input.value = newQuantity; // Visually correct the input value in the browser
     }
 
     this.stateManager.addOrUpdateInventoryItem({ id: itemId, quantity: newQuantity }, this.SOURCE_ID, null);
-    const button = card.querySelector('.add-remove-btn');
-    this._updateItemCardButton(button, itemId, true);
-    this._renderInformerPanel();
   }
   
   /**
@@ -312,50 +319,17 @@ class EquipmentAndLootPageHandler {
       quantity: currentItemInState.quantity,
       equipped: isEquipped
     }, this.SOURCE_ID, null);
-    this._renderInformerPanel();
   }
 
   /**
-   * Updates an item card's add/remove button style and action.
-   * @param {HTMLElement} button - The button element.
-   * @param {string} itemId - The ID of the item.
-   * @param {boolean} isStackable - True if the item is stackable.
-   * @private
-   */
-  _updateItemCardButton(button, itemId, isStackable) {
-    const itemInInventory = this.stateManager.getState().inventory.find(i => i.id === itemId && i.source === this.SOURCE_ID);
-    const currentQuantity = itemInInventory?.quantity || 0;
-    const isRemoveAction = itemInInventory && (isStackable ? currentQuantity > 0 : true);
-
-    if (isRemoveAction) {
-      button.textContent = 'Remove';
-      button.dataset.action = 'remove';
-      button.classList.add('action-remove');
-    } else {
-      button.textContent = 'Add to Inventory';
-      button.dataset.action = 'add';
-      button.classList.remove('action-remove');
-    }
-
-    const card = button.closest('.item-card');
-    const equipCheckbox = card.querySelector('.equip-toggle');
-    if (equipCheckbox) {
-      equipCheckbox.disabled = !itemInInventory;
-      if (!itemInInventory) {
-        equipCheckbox.checked = false;
-      }
-    }
-  }
-
-  /**
-   * Cleans up event listeners.
+   * Cleans up event listeners when the page is changed.
    */
   cleanup() {
     console.log('EquipmentAndLootPageHandler.cleanup: Cleaning up event listeners.');
     this.selectorPanel.removeEventListener('click', this.boundHandleItemSelection);
-    this.selectorPanel.removeEventListener('change', this.boundHandleQuantityChange);
+    this.selectorPanel.removeEventListener('input', this.boundHandleQuantityChange);
     this.selectorPanel.removeEventListener('change', this.boundHandleEquipToggle);
-    document.removeEventListener('wizard:stateChange', this.boundRenderInformerOnStateChange);
+    document.removeEventListener('wizard:stateChange', this.boundOnStateChange);
   }
 }
 
