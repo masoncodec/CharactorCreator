@@ -13,6 +13,7 @@ class EquipmentAndLootPageHandler {
     this.informerUpdater = informerUpdater;
     this.pageNavigator = pageNavigator;
     this.alerter = alerter;
+    this.SOURCE_ID = 'equipment-and-loot'; // Define a source constant
 
     this.boundHandleItemSelection = this._handleItemSelection.bind(this);
     this.boundHandleQuantityChange = this._handleQuantityChange.bind(this);
@@ -63,10 +64,12 @@ class EquipmentAndLootPageHandler {
 
     let equipmentHtml = '';
     let lootHtml = '';
+    const currentInventory = this.stateManager.getState().inventory;
 
     for (const itemId in allItems) {
       const item = allItems[itemId];
-      const inventoryItem = this.stateManager.getState().inventory.find(i => i.id === item.id);
+      // Only find items managed by this page (matching SOURCE_ID)
+      const inventoryItem = currentInventory.find(i => i.id === item.id && i.source === this.SOURCE_ID);
       const isInInventory = !!inventoryItem;
       const isEquipped = inventoryItem?.equipped || false;
       const currentQuantity = inventoryItem?.quantity || 0;
@@ -220,7 +223,7 @@ class EquipmentAndLootPageHandler {
       return;
     }
 
-    let currentQuantityInState = this.stateManager.getState().inventory.find(i => i.id === itemId)?.quantity || 0;
+    let currentQuantityInState = this.stateManager.getState().inventory.find(i => i.id === itemId && i.source === this.SOURCE_ID)?.quantity || 0;
     
     if (action === 'add') {
       const quantityInput = this.selectorPanel.querySelector(`#quantity-${itemId}`);
@@ -235,7 +238,7 @@ class EquipmentAndLootPageHandler {
         return;
       }
 
-      this.stateManager.addOrUpdateInventoryItem({ id: itemId, quantity: quantityToAdd, equipped: false });
+      this.stateManager.addOrUpdateInventoryItem({ id: itemId, quantity: quantityToAdd, equipped: false }, this.SOURCE_ID, null);
     } else if (action === 'remove') {
       let quantityToRemove = 1;
       if (itemDef.stackable) {
@@ -251,7 +254,7 @@ class EquipmentAndLootPageHandler {
           quantityToRemove = currentQuantityInState;
         }
       }
-      this.stateManager.removeInventoryItem(itemId, quantityToRemove);
+      this.stateManager.removeInventoryItem(itemId, quantityToRemove, this.SOURCE_ID);
     }
     this._updateItemCardButton(button, itemId, itemDef.stackable);
     this._renderInformerPanel();
@@ -278,7 +281,7 @@ class EquipmentAndLootPageHandler {
       input.value = 0;
     }
 
-    this.stateManager.addOrUpdateInventoryItem({ id: itemId, quantity: newQuantity });
+    this.stateManager.addOrUpdateInventoryItem({ id: itemId, quantity: newQuantity }, this.SOURCE_ID, null);
     const button = card.querySelector('.add-remove-btn');
     this._updateItemCardButton(button, itemId, true);
     this._renderInformerPanel();
@@ -296,7 +299,7 @@ class EquipmentAndLootPageHandler {
     const itemId = checkbox.closest('.item-card').dataset.itemId;
     const isEquipped = checkbox.checked;
     
-    const currentItemInState = this.stateManager.getState().inventory.find(i => i.id === itemId);
+    const currentItemInState = this.stateManager.getState().inventory.find(i => i.id === itemId && i.source === this.SOURCE_ID);
 
     if (!currentItemInState) {
       this.alerter.show(`Cannot equip/unequip. It's not in your inventory.`, 'warning');
@@ -308,7 +311,7 @@ class EquipmentAndLootPageHandler {
       id: itemId,
       quantity: currentItemInState.quantity,
       equipped: isEquipped
-    });
+    }, this.SOURCE_ID, null);
     this._renderInformerPanel();
   }
 
@@ -320,7 +323,7 @@ class EquipmentAndLootPageHandler {
    * @private
    */
   _updateItemCardButton(button, itemId, isStackable) {
-    const itemInInventory = this.stateManager.getState().inventory.find(i => i.id === itemId);
+    const itemInInventory = this.stateManager.getState().inventory.find(i => i.id === itemId && i.source === this.SOURCE_ID);
     const currentQuantity = itemInInventory?.quantity || 0;
     const isRemoveAction = itemInInventory && (isStackable ? currentQuantity > 0 : true);
 

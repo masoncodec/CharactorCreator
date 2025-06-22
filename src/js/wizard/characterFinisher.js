@@ -171,6 +171,69 @@ class CharacterFinisher {
 
     return effectedCharacter;
   }
+  
+  /**
+   * Processes the raw inventory from the state, combining stackable items.
+   * @param {Array<Object>} rawInventory - The inventory array from the state manager.
+   * @returns {Array<Object>} The processed, final inventory.
+   * @private
+   */
+  _processFinalInventory(rawInventory) {
+    console.log("CharacterFinisher: Processing final inventory...");
+    const finalInventory = [];
+    const stackableMap = new Map();
+
+    for (const itemState of rawInventory) {
+      const itemDef = this.stateManager.getInventoryItemDefinition(itemState.id);
+      if (!itemDef) {
+        console.warn(`Could not find definition for item ${itemState.id}. Skipping.`);
+        continue;
+      }
+
+      if (itemDef.stackable) {
+        if (!stackableMap.has(itemState.id)) {
+          stackableMap.set(itemState.id, {
+            id: itemState.id,
+            quantity: 0,
+            equipped: true, // Assume equipped unless one part is not
+            sources: new Set(),
+            selections: [], // Note: Combining selections isn't defined, taking first one's for now
+          });
+        }
+        const entry = stackableMap.get(itemState.id);
+        entry.quantity += itemState.quantity;
+        if (itemState.source) {
+            entry.sources.add(itemState.source);
+        }
+        // If any instance is unequipped, the final stack is unequipped
+        if (itemState.equipped === false) {
+          entry.equipped = false;
+        }
+        // Simplistic selection merge: just overwrite.
+        if (itemState.selections && itemState.selections.length > 0) {
+            entry.selections = itemState.selections;
+        }
+      } else {
+        // Non-stackable items are added directly
+        finalInventory.push(itemState);
+      }
+    }
+
+    // Process the collected stackable items
+    for (const [itemId, combinedItem] of stackableMap.entries()) {
+      finalInventory.push({
+        id: itemId,
+        quantity: combinedItem.quantity,
+        equipped: combinedItem.equipped,
+        selections: combinedItem.selections,
+        source: Array.from(combinedItem.sources).join(', '),
+        groupId: null // GroupID is less relevant after combination
+      });
+    }
+    
+    console.log("CharacterFinisher: Final inventory processed:", finalInventory);
+    return finalInventory;
+  }
 
   /**
    * Initiates the wizard finishing process: validates all data and saves the character.
@@ -191,6 +254,10 @@ class CharacterFinisher {
 
     // Construct the final character object to be saved
     const currentState = this.stateManager.getState();
+    
+    // Process the inventory before saving
+    const finalInventory = this._processFinalInventory(currentState.inventory);
+
     const character = {
       module: currentState.module,
       destiny: currentState.destiny,
@@ -202,7 +269,7 @@ class CharacterFinisher {
           max: characterEffects.calculatedHealth.currentMax,
           temporary: 0
       },
-      inventory: currentState.inventory, // UPDATED: Pull inventory directly from state
+      inventory: finalInventory, // Use the processed inventory
       abilities: currentState.abilities,
       createdAt: new Date().toISOString(),
       info: currentState.info

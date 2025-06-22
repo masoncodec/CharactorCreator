@@ -207,95 +207,52 @@ class DestinyPageHandler {
    */
   _processParentItemSelection(itemId, groupId, source, itemType, maxChoices, inputElement, intendedSelectionState) {
     console.log(`_processParentItemSelection: Processing ${itemType} ${itemId} with intended state: ${intendedSelectionState}.`);
-    const currentState = this.stateManager.getState();
-    let currentItems;
     
-    // Get the correct state array based on itemType
-    switch (itemType) {
-        case 'ability': currentItems = [...currentState.abilities]; break;
-        case 'flaw': currentItems = [...currentState.flaws]; break;
-        case 'perk': currentItems = [...currentState.perks]; break;
-        case 'equipment': currentItems = [...currentState.inventory]; break;
-        default: console.error(`Unknown itemType: ${itemType}`); return;
-    }
-
-    const isCurrentlyInState = currentItems.some(i => i.id === itemId && i.groupId === groupId && i.source === source);
-    const itemCard = inputElement.closest('.ability-card');
-
-    // Handle same ID, different source for flaws
-    if (itemType === 'flaw' && intendedSelectionState) {
-        let currentFlaws = this.stateManager.get('flaws');
-        const conflictingFlaws = currentFlaws.filter(f => f.id === itemId && f.source !== source);
-
-        if (conflictingFlaws.length > 0) {
-            currentFlaws = currentFlaws.filter(f => !(f.id === itemId && f.source !== source));
-            this.stateManager.set('flaws', currentFlaws);
-            currentItems = currentFlaws; // Update local copy
-        }
-    }
-
-    const setStateForType = (newItems) => {
-        switch (itemType) {
-            case 'ability': this.stateManager.set('abilities', newItems); break;
-            case 'flaw': this.stateManager.set('flaws', newItems); break;
-            case 'perk': this.stateManager.set('perks', newItems); break;
-            case 'equipment': this.stateManager.set('inventory', newItems); break;
-        }
+    // Logic for abilities, flaws, and perks
+    const addOrUpdateMethodMap = {
+      ability: 'addOrUpdateAbility',
+      flaw: 'addOrUpdateFlaw',
+      perk: 'addOrUpdatePerk'
+    };
+    const removeMethodMap = {
+      ability: 'removeAbility',
+      flaw: 'removeFlaw',
+      perk: 'removePerk'
+    };
+    const stateArrayMap = {
+      ability: 'abilities',
+      flaw: 'flaws',
+      perk: 'perks',
+      equipment: 'inventory'
     };
 
-    if (maxChoices === 1) { // Radio button behavior
-      if (intendedSelectionState) {
-        const filteredItems = currentItems.filter(i => !(i.groupId === groupId && i.source === source));
-        
-        // Create the new item state object, with special properties for equipment
-        const newItem = { id: itemId, selections: [], source: source, groupId: groupId };
-        if (itemType === 'equipment') {
-          newItem.quantity = 1;
-          newItem.equipped = true;
-        }
-        filteredItems.push(newItem);
-
-        setStateForType(filteredItems);
-
-        this.selectorPanel.querySelectorAll(`.ability-card[data-group-id="${groupId}"][data-source="${source}"]`).forEach(card => {
-          card.classList.remove('selected');
-        });
-        itemCard.classList.add('selected');
-        inputElement.checked = true;
-      } else {
-          inputElement.checked = true;
-          console.log(`_processParentItemSelection: Cannot deselect radio button for ${itemType} ${itemId}. Re-checking.`);
+    if (intendedSelectionState) { // Add or update item
+      // For single-choice groups, first remove any other item from the same group/source
+      if (maxChoices === 1) {
+          const allItems = this.stateManager.get(stateArrayMap[itemType]);
+          const otherItemsInGroup = allItems.filter(i => i.groupId === groupId && i.source === source && i.id !== itemId);
+          otherItemsInGroup.forEach(otherItem => {
+              if (itemType === 'equipment') {
+                  this.stateManager.removeInventoryItem(otherItem.id, Infinity, source);
+              } else {
+                  this.stateManager[removeMethodMap[itemType]](otherItem.id, source, groupId);
+              }
+          });
       }
-    } else { // Checkbox behavior
-      if (intendedSelectionState && !isCurrentlyInState) { // Selecting
-        const selectedItemsInGroup = currentItems.filter(i => i.groupId === groupId && i.source === source);
-        if (selectedItemsInGroup.length < maxChoices) {
-          const newItem = { id: itemId, selections: [], source: source, groupId: groupId };
-          if (itemType === 'equipment') {
-            newItem.quantity = 1;
-            newItem.equipped = true;
-          }
-          currentItems.push(newItem);
-          setStateForType(currentItems);
-          itemCard.classList.add('selected');
-          inputElement.checked = true;
-        } else {
-          alerter.show(`You can only select up to ${maxChoices} ${itemType}${maxChoices === 1 ? '' : 's'} from this group.`);
-          inputElement.checked = false;
-          this._refreshAbilityOptionStates();
-          return;
-        }
-      } else if (!intendedSelectionState && isCurrentlyInState) { // Deselecting
-        currentItems = currentItems.filter(i => !(i.id === itemId && i.groupId === groupId && i.source === source));
-        setStateForType(currentItems);
-        itemCard.classList.remove('selected');
-        inputElement.checked = false;
+      
+      if (itemType === 'equipment') {
+        this.stateManager.addOrUpdateInventoryItem({ id: itemId, quantity: 1, equipped: true, selections: [] }, source, groupId);
       } else {
-          console.log(`_processParentItemSelection: Click on ${itemId} resulted in no state change (current: ${isCurrentlyInState}, intended: ${intendedSelectionState}).`);
+        this.stateManager[addOrUpdateMethodMap[itemType]]({ id: itemId, selections: [], source, groupId });
+      }
+    } else { // Remove item
+      if (itemType === 'equipment') {
+        this.stateManager.removeInventoryItem(itemId, Infinity, source); // Remove all instances from this source
+      } else {
+        this.stateManager[removeMethodMap[itemType]](itemId, source, groupId);
       }
     }
 
-    console.log(`_processParentItemSelection: ${itemType} state updated for ${itemId}.`);
     this.informerUpdater.update('destiny');
     this.pageNavigator.updateNav();
     this._refreshAbilityOptionStates();
@@ -763,7 +720,7 @@ class DestinyPageHandler {
 
           if (!isAlreadySelected) {
             console.log(`DestinyPageHandler: Auto-selecting item "${itemId}" for Group ${groupId}.`);
-            const inputElement = this.selectorPanel.querySelector(`.ability-card[data-item-id="${itemId}"] input`);
+            const inputElement = this.selectorPanel.querySelector(`.ability-card[data-item-id="${itemId}"][data-group-id="${groupId}"] input`);
             if (inputElement) {
               inputElement.checked = true;
               this._processParentItemSelection(itemId, groupId, source, itemDataType, groupDef.maxChoices, inputElement, true);

@@ -486,59 +486,60 @@ class WizardStateManager {
   }
 
   /**
-   * NEW: Adds or updates an item in the character's inventory.
-   * If the item is already in inventory, its quantity is updated.
-   * If not, it's added. Selections are for items with nested options.
-   * @param {Object} newItem - The item object to add/update {id: string, quantity: number, equipped: boolean, selections: []}.
+   * Adds or updates an item in the character's inventory from a specific source.
+   * @param {Object} newItemData - The item data to add/update {id, quantity, equipped, selections}.
+   * @param {string} source - The source of the item (e.g., 'destiny', 'equipment-and-loot').
+   * @param {string|null} groupId - The group ID if applicable (e.g., from a choice group).
    */
-  addOrUpdateInventoryItem(newItem) {
-    console.log(`WizardStateManager: Adding/updating inventory item: ${newItem.id}, Quantity: ${newItem.quantity || 1}, Equipped: ${newItem.equipped || false}`);
+  addOrUpdateInventoryItem(newItemData, source, groupId = null) {
+    console.log(`WizardStateManager: Adding/updating inventory item: ${newItemData.id} from source: ${source}`);
 
-    const existingItemIndex = this.state.inventory.findIndex(item => item.id === newItem.id);
+    const existingItemIndex = this.state.inventory.findIndex(item => item.id === newItemData.id && item.source === source);
 
     if (existingItemIndex !== -1) {
-      // Update existing item
+      // Update existing item from the same source
       const currentItem = this.state.inventory[existingItemIndex];
-      // If quantity is provided, update it. Otherwise, assume 1 (e.g., for equipping)
-      currentItem.quantity = (newItem.quantity !== undefined) ? newItem.quantity : (currentItem.quantity || 0) + 1;
-      currentItem.equipped = (newItem.equipped !== undefined) ? newItem.equipped : currentItem.equipped;
-      currentItem.selections = newItem.selections || currentItem.selections; // Update selections if provided
-      console.log(`WizardStateManager: Updated existing inventory item: ${newItem.id}, New Quantity: ${currentItem.quantity}`);
+      currentItem.quantity = (newItemData.quantity !== undefined) ? newItemData.quantity : (currentItem.quantity || 0) + 1;
+      currentItem.equipped = (newItemData.equipped !== undefined) ? newItemData.equipped : currentItem.equipped;
+      currentItem.selections = newItemData.selections || currentItem.selections || [];
+      console.log(`WizardStateManager: Updated existing item: ${newItemData.id}, New Qty: ${currentItem.quantity}`);
     } else {
-      // Add new item
+      // Add new item with source and groupId
       this.state.inventory.push({
-        id: newItem.id,
-        quantity: newItem.quantity || 1, // Default quantity to 1 if not specified
-        equipped: newItem.equipped || false, // Default equipped to false
-        selections: newItem.selections || [] // Default selections to empty array
+        id: newItemData.id,
+        quantity: newItemData.quantity || 1,
+        equipped: newItemData.equipped === true, // Ensure it's a boolean
+        selections: newItemData.selections || [],
+        source: source,
+        groupId: groupId
       });
-      console.log(`WizardStateManager: Added new inventory item: ${newItem.id}`);
+      console.log(`WizardStateManager: Added new item: ${newItemData.id} from source: ${source}`);
     }
-    this.set('inventory', this.state.inventory); // Trigger state change event
+    this.set('inventory', this.state.inventory);
   }
 
   /**
-   * NEW: Removes an item from the character's inventory by ID.
+   * Removes an item from the character's inventory from a specific source.
    * @param {string} itemId - The ID of the item to remove.
-   * @param {number} [quantityToRemove=1] - The number of items to remove. If quantity results in 0 or less, item is removed.
+   * @param {number} quantityToRemove - The number of items to remove. If quantity results in 0 or less, the item instance is removed.
+   * @param {string} source - The source of the item to target.
    */
-  removeInventoryItem(itemId, quantityToRemove = 1) {
-    const originalLength = this.state.inventory.length;
-    const itemIndex = this.state.inventory.findIndex(item => item.id === itemId);
+  removeInventoryItem(itemId, quantityToRemove, source) {
+    const itemIndex = this.state.inventory.findIndex(item => item.id === itemId && item.source === source);
 
     if (itemIndex !== -1) {
       const currentItem = this.state.inventory[itemIndex];
       currentItem.quantity -= quantityToRemove;
 
       if (currentItem.quantity <= 0) {
-        this.state.inventory.splice(itemIndex, 1); // Remove item if quantity is zero or less
-        console.log(`WizardStateManager: Fully removed inventory item: ${itemId}`);
+        this.state.inventory.splice(itemIndex, 1);
+        console.log(`WizardStateManager: Fully removed item: ${itemId} from source: ${source}`);
       } else {
-        console.log(`WizardStateManager: Reduced quantity for inventory item: ${itemId}, New Quantity: ${currentItem.quantity}`);
+        console.log(`WizardStateManager: Reduced quantity for item: ${itemId} from source: ${source}, New Qty: ${currentItem.quantity}`);
       }
-      this.set('inventory', this.state.inventory); // Trigger state change event
+      this.set('inventory', this.state.inventory);
     } else {
-      console.warn(`WizardStateManager: Attempted to remove non-existent inventory item: ${itemId}`);
+      console.warn(`WizardStateManager: Attempted to remove non-existent item: ${itemId} from source: ${source}`);
     }
     console.log('WizardStateManager: Current inventory state after removal:', this.state.inventory);
   }
