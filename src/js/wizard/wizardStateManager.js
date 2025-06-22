@@ -21,7 +21,7 @@ class WizardStateManager {
       perks: [], // Array of {id, selections: [], source: string, groupId: string}
       abilities: [], // Array of {id, selections: [], source: string, groupId: string}
       attributes: {},
-      inventory: [], // Array of {id, quantity: number, equipped: boolean, selections: []}
+      inventory: [], // Array of {id, quantity: number, equipped: boolean, selections: [], source?: string, groupId?: string}
       info: { name: '', bio: '' }
     };
 

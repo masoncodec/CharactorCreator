@@ -224,8 +224,10 @@ class PageNavigator {
       // Determine which state array to check based on groupId
       if (groupId === 'flaws') {
         selectedItemsInGroup = currentState.flaws.filter(item => item.groupId === groupId && item.source === 'destiny');
-      } else if (groupId === 'perks') { // Handle perk groups for destiny page validation
+      } else if (groupId === 'perks') {
         selectedItemsInGroup = currentState.perks.filter(item => item.groupId === groupId && item.source === 'destiny');
+      } else if (groupId === 'equipment') {
+        selectedItemsInGroup = currentState.inventory.filter(item => item.groupId === groupId && item.source === 'destiny');
       }
       else {
         selectedItemsInGroup = currentState.abilities.filter(item => item.groupId === groupId && item.source === 'destiny');
@@ -238,8 +240,14 @@ class PageNavigator {
 
       // For each selected item in the group, validate its nested options
       const nestedOptionsComplete = selectedItemsInGroup.every(itemState => {
-        // Use getAbilityOrFlawData and ensure the 'this' context is bound
-        const itemDef = this.stateManager.getAbilityOrFlawData.bind(this.stateManager)(itemState.id, itemState.groupId);
+        let itemDef;
+
+        // Get the item definition from the correct data source based on the group ID
+        if (groupId === 'equipment') {
+            itemDef = this.stateManager.getInventoryItemDefinition(itemState.id);
+        } else {
+            itemDef = this.stateManager.getAbilityOrFlawData(itemState.id, itemState.groupId);
+        }
 
         // If itemDef or itemDef.options is missing, or maxChoices is not defined, assume no nested options or they are not required.
         if (!itemDef || !itemDef.options || itemDef.maxChoices === undefined || itemDef.maxChoices === null) {

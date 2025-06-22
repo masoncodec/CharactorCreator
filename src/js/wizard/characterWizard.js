@@ -153,9 +153,8 @@ class CharacterWizard {
     const flawData = this.stateManager.getFlawData();
     const abilityData = this.stateManager.getAbilityData();
     const perkData = this.stateManager.getPerkData();
-    const equipmentAndLootData = this.stateManager.getEquipmentAndLootData(); // NEW: Get equipment and loot data
+    const equipmentAndLootData = this.stateManager.getEquipmentAndLootData();
 
-    // Basic check for equipment and loot data
     if (!equipmentAndLootData || Object.keys(equipmentAndLootData).length === 0) {
       console.warn('CharacterWizard.validateLoadedData: equipmentAndLootData is empty or missing. Ensure data/equipmentAndLoot.json is populated.');
     } else {
@@ -167,50 +166,48 @@ class CharacterWizard {
       destiniesForModule.forEach(destinyId => {
         if (!destinyData[destinyId]) {
           console.error(`Missing destiny data for: ${destinyId} (from module ${moduleId})`);
+          return;
+        }
+        
+        if (destinyData[destinyId].choiceGroups) {
+          Object.entries(destinyData[destinyId].choiceGroups).forEach(([groupId, groupDef]) => {
+            if (!groupDef.abilities || !Array.isArray(groupDef.abilities)) {
+              console.error(`Choice group '${groupId}' in destiny '${destinyId}' has no 'abilities' array or it's invalid.`);
+              return;
+            }
+
+            // ** START: MODIFIED VALIDATION LOGIC **
+            groupDef.abilities.forEach(itemId => {
+              let found = false;
+              let dataType = '';
+
+              switch (groupId) {
+                case 'flaws':
+                  found = !!flawData[itemId];
+                  dataType = 'flaw';
+                  break;
+                case 'perks':
+                  found = !!perkData[itemId];
+                  dataType = 'perk';
+                  break;
+                case 'equipment':
+                  found = !!equipmentAndLootData[itemId];
+                  dataType = 'equipment';
+                  break;
+                default: // This handles all other groups as abilities
+                  found = !!abilityData[itemId];
+                  dataType = 'ability';
+                  break;
+              }
+
+              if (!found) {
+                console.error(`Missing ${dataType} data: ${itemId} in group '${groupId}' for destiny ${destinyId}`);
+              }
+            });
+            // ** END: MODIFIED VALIDATION LOGIC **
+          });
         } else {
-          // Check for flaws within the new choiceGroups structure
-          const flawsGroup = destinyData[destinyId].choiceGroups?.flaws;
-          if (flawsGroup && flawsGroup.abilities) {
-            flawsGroup.abilities.forEach(flawId => {
-              if (!flawData[flawId]) {
-                console.error(`Missing flaw data: ${flawId} in flaws group for destiny ${destinyId}`);
-              }
-            });
-          } else {
-            console.warn(`Destiny '${destinyId}' has no 'flaws' choice group defined or it has no abilities. Ensure this is intentional.`);
-          }
-
-          // Check for perks within the new choiceGroups structure
-          const perksGroup = destinyData[destinyId].choiceGroups?.perks;
-          if (perksGroup && perksGroup.abilities) {
-            perksGroup.abilities.forEach(perkId => {
-              if (!perkData[perkId]) {
-                console.error(`Missing perk data: ${perkId} in perks group for destiny ${destinyId}`);
-              }
-            });
-          } else {
-            console.warn(`Destiny '${destinyId}' has no 'perks' choice group defined or it has no abilities. Ensure this is intentional.`);
-          }
-
-          // Iterate through all other choiceGroups
-          if (destinyData[destinyId].choiceGroups) {
-            Object.entries(destinyData[destinyId].choiceGroups).forEach(([groupId, groupDef]) => {
-              // Skip the 'flaws' and 'perks' groups as they're handled separately above
-              if (groupId === 'flaws' || groupId === 'perks') return;
-
-              if (!groupDef.abilities || !Array.isArray(groupDef.abilities)) {
-                  console.error(`Choice group '${groupId}' in destiny '${destinyId}' has no 'abilities' array or it's invalid.`);
-                  return;
-              }
-              groupDef.abilities.forEach(abilityId => {
-                if (!abilityData[abilityId]) {
-                  console.error(`Missing ability data: ${abilityId} in group '${groupId}' for destiny ${destinyId}`);
-                }
-              });
-            });
-          } else {
-              console.warn(`Destiny '${destinyId}' has no 'choiceGroups' defined. Ensure this is intentional.`);
-          }
+          console.warn(`Destiny '${destinyId}' has no 'choiceGroups' defined. Ensure this is intentional.`);
         }
       });
     });

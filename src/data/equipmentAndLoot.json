@@ -187,5 +187,86 @@
         "value": "minor"
       }
     ]
+  },
+  "staff-of-moon-whispers": {
+    "id": "staff-of-moon-whispers",
+    "type": "equipment",
+    "category": "weapon",
+    "name": "Staff of Moon-Whispers",
+    "description": "A staff of silvery, smooth wood that hums faintly under the moonlight. It feels surprisingly light.",
+    "rarity": "uncommon",
+    "weight": 4,
+    "attacks": [
+      {
+        "id": "moon-staff-strike",
+        "name": "Strike",
+        "damage_type": "bludgeoning",
+        "damage_dice": "1d6",
+        "range": "melee",
+        "cost": { "stamina": 4 },
+        "properties": ["versatile (1d8)"],
+        "effect": []
+      },
+      {
+        "id": "moon-spark-distraction",
+        "name": "Disorienting Sparks",
+        "damage_type": "none",
+        "damage_dice": "0",
+        "range": "melee",
+        "cost": { "stamina": 2 },
+        "properties": ["On hit, the target has disadvantage on its next attack roll."],
+        "effect": []
+      }
+    ],
+    "effects": []
+  },
+  "mothwing-cloak": {
+    "id": "mothwing-cloak",
+    "type": "equipment",
+    "category": "armor",
+    "name": "Mothwing Cloak",
+    "description": "A light cloak woven from shimmering, giant luna moth wings. It seems to shift and blur your outline.",
+    "rarity": "uncommon",
+    "weight": 3,
+    "defense": [
+      {
+        "id": "mothwing-ac-bonus",
+        "name": "Fey Guile",
+        "defense_type": "armor_class",
+        "value": 12,
+        "properties": ["+DEX modifier"],
+        "effect": []
+      }
+    ],
+    "effects": [
+      {
+        "type": "modifier",
+        "name": "Fey Mind",
+        "attribute": "saving_throws_charm",
+        "modifier": "advantage"
+      }
+    ]
+  },
+  "pixie-call-whistle": {
+    "id": "pixie-call-whistle",
+    "type": "equipment",
+    "category": "accessory",
+    "name": "Pixie-Call Whistle",
+    "description": "A tiny, intricate whistle carved from a single piece of willow. Its sound is only audible to fey creatures and small animals.",
+    "rarity": "uncommon",
+    "weight": 0,
+    "effects": [
+      {
+        "type": "modifier",
+        "name": "Mischievous Charm",
+        "attribute": "persuasion_check",
+        "modifier": 1
+      },
+      {
+        "type": "utility",
+        "name": "Fey Signal",
+        "effect_description": "Once per day, you may blow the whistle to attract the attention of nearby, non-hostile fey or curious small animals."
+      }
+    ]
   }
 }

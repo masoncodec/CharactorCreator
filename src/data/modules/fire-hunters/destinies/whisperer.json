@@ -34,6 +34,15 @@
             "name": "Domain Abilities",
             "maxChoices": 2,
             "abilities": ["small-domain", "medium-domain", "large-domain"]
+        },
+        "equipment": {
+            "name": "Fae-Touched Gift",
+            "maxChoices": 1,
+            "abilities": [
+                "staff-of-moon-whispers",
+                "mothwing-cloak",
+                "pixie-call-whistle"
+            ]
         }
     }
 }
