@@ -240,6 +240,18 @@ class DestinyPageHandler {
           });
       }
       
+      // If the item being added is a flaw, check for and remove any existing flaw with the same ID from a different source.
+      if (itemType === 'flaw') {
+        const allFlaws = this.stateManager.get('flaws'); //
+        const conflictingFlaw = allFlaws.find(f => f.id === itemId && f.source !== source); //
+
+        if (conflictingFlaw) { //
+            console.log(`DestinyPageHandler: Found conflicting flaw '${itemId}' from source '${conflictingFlaw.source}'. Removing it.`);
+            // To remove the conflicting flaw, we need its id, source, and groupId.
+            this.stateManager.removeFlaw(conflictingFlaw.id, conflictingFlaw.source, conflictingFlaw.groupId); //
+        }
+      }
+
       if (itemType === 'equipment') {
         this.stateManager.addOrUpdateInventoryItem({ id: itemId, quantity: 1, equipped: true, selections: [] }, source, groupId);
       } else {
