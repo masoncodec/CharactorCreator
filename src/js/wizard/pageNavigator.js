@@ -77,7 +77,6 @@ class PageNavigator {
       if (!canAccess) {
         const reason = this.getNavigationBlockReason(index, currentState);
         item.title = reason;
-        // console.log(`PageNavigator.updateNav: Page ${page} disabled. Reason: ${reason}`);
       } else {
         item.removeAttribute('title');
       }
@@ -90,7 +89,6 @@ class PageNavigator {
         this.nextBtn.textContent =
         this.currentPageIndex === this.pages.length - 1 ? 'Finish' : 'Next';
     }
-    // console.log(`PageNavigator.updateNav: Prev button disabled: ${this.prevBtn?.disabled}, Next button text: ${this.nextBtn?.textContent}`);
   }
 
   /**
@@ -100,8 +98,8 @@ class PageNavigator {
    * @returns {boolean} True if the page can be accessed, false otherwise.
    */
   canAccessPage(index, currentState) {
-    // Always allow access to the first page (module) and last page (info)
-    if (index === 0 || index === this.pages.length - 1) {
+    // Always allow access to the first page (module). The last page (info) is also accessible.
+    if (index === 0 || this.pages[index] === 'info') {
       return true;
     }
 
@@ -120,14 +118,13 @@ class PageNavigator {
    * @returns {string} The reason message.
    */
   getNavigationBlockReason(index, currentState) {
-    if (index === this.pages.length - 1) return "Enter basic details anytime";
+    if (this.pages[index] === 'info') return "Enter basic details anytime";
     if (!currentState.module) return "Select a module first";
     return "";
   }
 
   /**
    * Checks if a page is considered completed based on the current state.
-   * This logic is now centralized here for navigation completion checks.
    * @param {string} page - The name of the page to check.
    * @param {Object} currentState - The current wizard state.
    * @returns {boolean} True if the page is completed, false otherwise.
@@ -138,6 +135,11 @@ class PageNavigator {
       case 'module':
         completed = !!currentState.module;
         break;
+      case 'frame': 
+        // This is the one modification in this function.
+        // It marks the info-only 'Frame' page as complete so the 'Next' button works.
+        completed = true;
+        break;
       case 'destiny':
         completed = this.validateDestinyCompletion(currentState);
         break;
@@ -147,10 +149,9 @@ class PageNavigator {
         } else {
           const moduleDefinition = this.stateManager.getModule(currentState.module);
           if (!moduleDefinition || !moduleDefinition.attributes) {
-            completed = false; // Module data might be missing attributes
+            completed = false;
           } else {
             const requiredAttrs = moduleDefinition.attributes;
-            // A page is completed if all required attributes have a die assigned
             completed = requiredAttrs.every(attr =>
               currentState.attributes[attr.toLowerCase()]
             );
@@ -161,7 +162,6 @@ class PageNavigator {
         const independentFlaws = currentState.flaws.filter(f => f.source === 'independent-flaw');
         const independentPerks = currentState.perks.filter(p => p.source === 'independent-perk');
 
-        // Validate independent flaws completion
         const flawsCompleted = independentFlaws.every(flawState => {
           const flawDef = this.stateManager.getFlaw(flawState.id);
           if (!flawDef || !flawDef.options || flawDef.maxChoices === undefined || flawDef.maxChoices === null) {
@@ -170,24 +170,21 @@ class PageNavigator {
           return flawState.selections.length === flawDef.maxChoices;
         });
 
-        // Validate independent perks completion (similar to flaws)
         const perksCompleted = independentPerks.every(perkState => {
-            const perkDef = this.stateManager.getPerk(perkState.id); // Use getPerk
+            const perkDef = this.stateManager.getPerk(perkState.id);
             if (!perkDef || !perkDef.options || perkDef.maxChoices === undefined || perkDef.maxChoices === null) {
                 return true;
             }
             return perkState.selections.length === perkDef.maxChoices;
         });
 
-        // Also check perk points vs flaw points for page completion
         const totalFlawPoints = this.stateManager.getIndependentFlawTotalWeight();
         const totalPerkPoints = this.stateManager.getIndependentPerkTotalWeight();
         const pointsBalanceValid = totalPerkPoints <= totalFlawPoints;
 
-        completed = flawsCompleted && perksCompleted && pointsBalanceValid; // All conditions must be met
+        completed = flawsCompleted && perksCompleted && pointsBalanceValid;
         break;
-      case 'equipment-and-loot': // NEW: Add completion logic for equipment and loot page
-        // For now, no specific validation needed, so it's always "completed" if accessible
+      case 'equipment-and-loot':
         completed = true;
         break;
       case 'info':
@@ -196,32 +193,27 @@ class PageNavigator {
       default:
         completed = false;
     }
-    // console.log(`PageNavigator.isPageCompleted: Page '${page}' is completed: ${completed}.`);
     return completed;
   }
 
   /**
-   * Validates if the destiny page (including flaws, perks and ability groups) is complete.
-   * This is a helper for `isPageCompleted`.
+   * Validates if the destiny page is complete.
    * @param {Object} currentState - The current wizard state.
    * @returns {boolean} True if destiny page is complete, false otherwise.
    */
   validateDestinyCompletion(currentState) {
     if (!currentState.destiny) {
-        console.log('Validation (Destiny): No destiny selected.');
         return false;
     }
 
     const destinyDefinition = this.stateManager.getDestiny(currentState.destiny);
     if (!destinyDefinition || !destinyDefinition.choiceGroups) {
-        console.warn('PageNavigator.validateDestinyCompletion: Destiny data or choice groups missing for:', currentState.destiny);
         return false;
     }
 
     const allGroupsComplete = Object.entries(destinyDefinition.choiceGroups).every(([groupId, groupDef]) => {
       let selectedItemsInGroup;
 
-      // Determine which state array to check based on groupId
       if (groupId === 'flaws') {
         selectedItemsInGroup = currentState.flaws.filter(item => item.groupId === groupId && item.source === 'destiny');
       } else if (groupId === 'perks') {
@@ -234,22 +226,18 @@ class PageNavigator {
       }
 
       if (selectedItemsInGroup.length !== groupDef.maxChoices) {
-        console.log(`Validation (Destiny): Group '${groupDef.name}' (${groupId}) incomplete. Expected ${groupDef.maxChoices}, got ${selectedItemsInGroup.length}.`);
         return false;
       }
 
-      // For each selected item in the group, validate its nested options
       const nestedOptionsComplete = selectedItemsInGroup.every(itemState => {
         let itemDef;
 
-        // Get the item definition from the correct data source based on the group ID
         if (groupId === 'equipment') {
             itemDef = this.stateManager.getInventoryItemDefinition(itemState.id);
         } else {
             itemDef = this.stateManager.getAbilityOrFlawData(itemState.id, itemState.groupId);
         }
 
-        // If itemDef or itemDef.options is missing, or maxChoices is not defined, assume no nested options or they are not required.
         if (!itemDef || !itemDef.options || itemDef.maxChoices === undefined || itemDef.maxChoices === null) {
           return true;
         }
@@ -257,18 +245,14 @@ class PageNavigator {
       });
 
       if (!nestedOptionsComplete) {
-        console.log(`Validation (Destiny): Nested options incomplete for an item in group '${groupDef.name}' (${groupId}).`);
         return false;
       }
 
-      return true; // This group is complete
+      return true;
     });
-
-    console.log("Validation (Destiny): All groups completed:", allGroupsComplete);
 
     return allGroupsComplete;
   }
-
 
   /**
    * Navigates to a specific page by name.
@@ -278,10 +262,9 @@ class PageNavigator {
     const pageIndex = this.pages.indexOf(pageName);
     if (pageIndex !== -1 && this.canAccessPage(pageIndex, this.stateManager.getState())) {
       console.log(`PageNavigator.goToPage: Navigating to page: ${pageName}`);
-      this.loadPageCallback(pageName); // Use the callback to trigger the page load in CharacterWizard
+      this.loadPageCallback(pageName);
     } else {
       console.warn(`PageNavigator.goToPage: Attempted to go to inaccessible or unknown page: ${pageName}`);
-      // Error message already shown by event listener check for disabled items
     }
   }
 
@@ -292,10 +275,9 @@ class PageNavigator {
     const currentPageName = this.pages[this.currentPageIndex];
     const currentState = this.stateManager.getState();
 
-    // Check if the current page is completed before allowing navigation to the next
     if (!this.isPageCompleted(currentPageName, currentState)) {
       console.warn(`PageNavigator.nextPage: Current page '${currentPageName}' is not completed. Blocking navigation.`);
-      this.showPageError(currentPageName); // Show specific error for incomplete page
+      this.showPageError(currentPageName);
       return;
     }
 
@@ -305,13 +287,7 @@ class PageNavigator {
       this.loadPageCallback(nextPageName);
     } else {
       console.log('PageNavigator.nextPage: End of wizard, attempting to finish.');
-      // When 'Finish' is clicked, the main CharacterWizard class will handle the final validation/saving
-      // It assumes the CharacterWizard has a public finishWizard() method.
-      // This is passed implicitly through the `this` context when CharacterWizard calls `this.pageNavigator.initNavListeners()`
-      // and `nextPage` is called directly by the button listener, which means `this` refers to PageNavigator.
-      // We need a specific callback for 'finish' action, or pass it to CharacterWizard directly.
-      // For now, let's assume CharacterWizard explicitly calls `finishWizard` when nextBtn is 'Finish'.
-      document.dispatchEvent(new CustomEvent('wizard:finish')); // Custom event for finish
+      document.dispatchEvent(new CustomEvent('wizard:finish'));
     }
   }
 
@@ -339,19 +315,19 @@ class PageNavigator {
         message: 'Please select a module to continue.'
       },
       destiny: {
-        element: '#destiny-options-container', // More specific element
+        element: '#destiny-options-container',
         message: 'Please select a Destiny and ensure all ability, flaw, and perk selections are complete.'
       },
       attributes: {
         element: '.dice-assignment-table',
         message: 'Please assign dice to all attributes.'
       },
-      'flaws-and-perks': { // Updated page name
-        element: '.flaws-and-perks-container', // Target the main container for highlighting
+      'flaws-and-perks': {
+        element: '.flaws-and-perks-container',
         message: 'Please complete all required nested flaw and perk selections, and ensure your perk points do not exceed your flaw points.'
       },
-      'equipment-and-loot': { // NEW: Error message for equipment and loot page (if needed later)
-        element: '#equipment-loot-container', // Placeholder element selector
+      'equipment-and-loot': {
+        element: '#equipment-loot-container',
         message: 'Please review your equipment and loot selections.'
       },
       info: {
@@ -360,17 +336,19 @@ class PageNavigator {
       }
     };
 
-    const { element, message } = errorMap[pageName];
-    const el = document.querySelector(element);
-    if (el) {
-      el.classList.add('error-highlight');
-      setTimeout(() => {
-        el.classList.remove('error-highlight');
-        console.log(`PageNavigator.showPageError: Removed error highlight from ${element}`);
-      }, 2000);
+    const errorInfo = errorMap[pageName];
+    if (errorInfo) {
+      const { element, message } = errorInfo;
+      const el = document.querySelector(element);
+      if (el) {
+        el.classList.add('error-highlight');
+        setTimeout(() => {
+          el.classList.remove('error-highlight');
+        }, 2000);
+      }
+      console.error(`PageNavigator.showPageError: Displaying error for page '${pageName}': ${message}`);
+      alerter.show(message, 'error');
     }
-    console.error(`PageNavigator.showPageError: Displaying error for page '${pageName}': ${message}`);
-    alerter.show(message, 'error');
   }
 }
 

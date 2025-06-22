@@ -52,6 +52,14 @@ class InformerUpdater {
         }
         break;
 
+      case 'frame': 
+        htmlContent = `
+          <div class="frame-informer">
+            <p>This page provides an overview of the campaign setting. Additional details about specific terms may appear here in the future.</p>
+          </div>
+        `;
+        break;
+
       case 'destiny':
         if (!currentState.destiny) {
           htmlContent = '<p>Select your destiny</p>';
@@ -191,7 +199,7 @@ class InformerUpdater {
             }).join('')
           : '<p>No independent flaws selected yet.</p>';
 
-        const independentPerks = currentState.perks.filter(p => p.source === 'independent-perk'); // NEW
+        const independentPerks = currentState.perks.filter(p => p.source === 'independent-perk');
         const selectedIndependentPerksHtml = independentPerks.length > 0
           ? independentPerks.map(perkState => {
               const perkDef = this.stateManager.getPerk(perkState.id);
