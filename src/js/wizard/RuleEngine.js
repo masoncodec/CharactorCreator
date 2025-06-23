@@ -1,6 +1,6 @@
 // RuleEngine.js
 // This module centralizes the validation logic to determine if an item can be selected.
-// It checks for things like point costs, source conflicts, and other dependencies.
+// It checks for things like point costs, source conflicts, and maxChoices limits.
 
 class RuleEngine {
   /**
@@ -14,17 +14,23 @@ class RuleEngine {
   /**
    * Evaluates an item against all relevant rules to determine its current UI state.
    * @param {Object} itemDef - The full definition of the item to validate.
-   * @param {string} source - The context/source of the component rendering the item (e.g., 'independent-perk').
+   * @param {string} source - The context/source of the component rendering the item.
    * @returns {{isDisabled: boolean, reason: string}} The validation state of the item.
    */
   getValidationState(itemDef, source) {
-    // A. Check for source conflicts (e.g., already selected from Destiny).
+    // Rule: Is the item already selected from a different source?
     const sourceConflict = this._checkSourceConflict(itemDef, source);
     if (sourceConflict.isDisabled) {
       return sourceConflict;
     }
 
-    // B. Check for perk point affordability.
+    // Rule: Has the max number of choices for this item's group been reached?
+    const maxChoicesConflict = this._checkMaxChoices(itemDef, source);
+    if (maxChoicesConflict.isDisabled) {
+        return maxChoicesConflict;
+    }
+
+    // Rule: Can the character afford this perk?
     if (itemDef.itemType === 'perk' && source === 'independent-perk') {
       const perkAffordability = this._checkPerkAffordability(itemDef);
       if (perkAffordability.isDisabled) {
@@ -32,20 +38,12 @@ class RuleEngine {
       }
     }
     
-    // C. Check for equipment point affordability.
-    if (itemDef.itemType === 'equipment' && source === 'equipment-and-loot') {
-        const equipmentAffordability = this._checkEquipmentAffordability(itemDef);
-        if (equipmentAffordability.isDisabled) {
-            return equipmentAffordability;
-        }
-    }
-
     // If no rules failed, the item is enabled.
     return { isDisabled: false, reason: '' };
   }
 
   /**
-   * Rule: Checks if the item is already selected from a different source.
+   * Checks if the item is already selected from a different source.
    * @private
    */
   _checkSourceConflict(itemDef, currentSource) {
@@ -61,13 +59,53 @@ class RuleEngine {
   }
 
   /**
-   * Rule: Checks if there are enough Flaw Points to afford a Perk.
+   * NEW RULE: Checks if a group has reached its maximum selections.
+   * @private
+   */
+  _checkMaxChoices(itemDef, source) {
+    // This rule only applies if the item is NOT already selected.
+    if (this.stateManager.itemManager.getSelection(itemDef.id, source)) {
+      return { isDisabled: false, reason: '' };
+    }
+    
+    const groupDef = this._getGroupDefinition(itemDef, source);
+    if (!groupDef || !groupDef.maxChoices) return { isDisabled: false, reason: '' };
+
+    const selectionsInGroup = this.stateManager.state.selections.filter(
+        sel => sel.source === source
+    );
+
+    if (selectionsInGroup.length >= groupDef.maxChoices) {
+        return {
+            isDisabled: true,
+            reason: `You have already selected the maximum of ${groupDef.maxChoices} item(s) from this group.`
+        };
+    }
+    
+    return { isDisabled: false, reason: '' };
+  }
+
+  /**
+   * Helper to find the definition of a choice group from the destiny data.
+   * @private
+   */
+  _getGroupDefinition(itemDef, source) {
+      if (!source.startsWith('destiny-')) return null;
+
+      const destinyId = this.stateManager.get('destiny');
+      if (!destinyId) return null;
+
+      const destinyDef = this.stateManager.getDestiny(destinyId);
+      return destinyDef?.choiceGroups?.[itemDef.groupId] || null;
+  }
+
+  /**
+   * Checks if there are enough Flaw Points to afford a Perk.
    * @private
    */
   _checkPerkAffordability(itemDef) {
-    // This rule only applies if the perk is NOT already selected.
     if (this.stateManager.itemManager.getSelection(itemDef.id, 'independent-perk')) {
-        return { isDisabled: false, reason: '' }; // It's already selected, so don't disable it.
+        return { isDisabled: false, reason: '' };
     }
       
     const availableFlawPoints = this.stateManager.getIndependentFlawTotalWeight();
@@ -78,28 +116,6 @@ class RuleEngine {
       return {
         isDisabled: true,
         reason: `Requires ${perkCost} Flaw Points, but you only have ${availableFlawPoints - spentPerkPoints} available.`
-      };
-    }
-    return { isDisabled: false, reason: '' };
-  }
-  
-  /**
-   * Rule: Checks if there are enough Equipment Points to afford an item.
-   * @private
-   */
-  _checkEquipmentAffordability(itemDef) {
-    // This rule only applies if the item is NOT already selected.
-    if (this.stateManager.itemManager.getSelection(itemDef.id, 'equipment-and-loot')) {
-        return { isDisabled: false, reason: '' };
-    }
-      
-    const { remaining } = this.stateManager.getEquipmentPointsSummary();
-    const itemCost = itemDef.weight || 0;
-
-    if (itemCost > remaining) {
-      return {
-        isDisabled: true,
-        reason: `Requires ${itemCost} Equipment Points, but you only have ${remaining} left.`
       };
     }
     return { isDisabled: false, reason: '' };
