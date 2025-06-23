@@ -17,14 +17,15 @@ class DestinyPageHandler {
     this.informerUpdater = informerUpdater;
     this.pageNavigator = pageNavigator;
     this.selectorPanel = null;
-
-    // A single RuleEngine for all components created by this handler
     this.ruleEngine = new RuleEngine(this.stateManager);
-    
-    // To keep track of the dynamic components we create
     this.activeItemSelectors = [];
 
     this._boundDestinyOptionClickHandler = this._handleDestinyOptionClick.bind(this);
+
+    // --- FIX START ---
+    // Bind the new state change handler to the class instance.
+    this._boundHandleStateChange = this._handleStateChange.bind(this);
+    // --- FIX END ---
 
     console.log('DestinyPageHandler: Initialized.');
   }
@@ -38,31 +39,46 @@ class DestinyPageHandler {
     console.log('DestinyPageHandler.setupPage: Setting up destiny page.');
 
     this._attachEventListeners();
-    this._renderDestinyOptions(); // Render the top-level destiny choices
-    this._restoreState(); // Restore the selected destiny, which in turn renders its item groups
+    this._renderDestinyOptions(); 
+    this._restoreState(); 
 
     this.informerUpdater.update('destiny');
     this.pageNavigator.updateNav();
   }
 
   /**
-   * Attaches the primary event listener for destiny selection.
+   * Attaches event listeners for destiny selection and global state changes.
    * @private
    */
   _attachEventListeners() {
-    // Using event delegation on the container for destiny options
     const destinyOptionsContainer = this.selectorPanel.querySelector('#destiny-options-container');
     if (destinyOptionsContainer) {
         destinyOptionsContainer.removeEventListener('click', this._boundDestinyOptionClickHandler);
         destinyOptionsContainer.addEventListener('click', this._boundDestinyOptionClickHandler);
     }
+    
+    // --- FIX START ---
+    // Add a listener for global state changes to trigger component re-renders.
+    document.addEventListener('wizard:stateChange', this._boundHandleStateChange);
+    // --- FIX END ---
   }
 
+  // --- FIX START ---
   /**
-   * Handles the click on a top-level destiny option.
-   * @param {Event} e - The click event.
-   * @private
+   * Handles the global state change event to re-render child components.
+   * This is the missing piece that keeps the UI in sync with the state.
+   * @param {CustomEvent} event - The 'wizard:stateChange' event.
    */
+  _handleStateChange(event) {
+    // We only need to act if a selection changed.
+    if (event.detail.key === 'selections') {
+      console.log('DestinyPageHandler: Detected selection change, re-rendering item selectors.');
+      // Tell all active ItemSelectorComponent instances to re-render themselves.
+      this.activeItemSelectors.forEach(selector => selector.render());
+    }
+  }
+  // --- FIX END ---
+  
   _handleDestinyOptionClick(e) {
     const destinyOptionDiv = e.target.closest('.destiny-option');
     if (!destinyOptionDiv) return;
@@ -71,44 +87,33 @@ class DestinyPageHandler {
     const currentDestiny = this.stateManager.get('destiny');
 
     if (currentDestiny === selectedDestinyId) {
-        console.log(`DestinyPageHandler: Re-selected same destiny: ${selectedDestinyId}. No state change.`);
         return;
     }
     
-    // Update visual selection
     this.selectorPanel.querySelectorAll('.destiny-option').forEach(opt => {
         opt.classList.remove('selected');
     });
     destinyOptionDiv.classList.add('selected');
 
-    // Set new destiny and clear out any old selections sourced from a previous destiny
+    // Set new destiny. This will clear old selections via the state manager's logic.
+    // NOTE: This call to setState will dispatch 'wizard:stateChange', which will
+    // now be caught by our new _handleStateChange method.
     this.stateManager.setState('destiny', selectedDestinyId);
     
-    // The state change from setState will trigger our components to re-render.
-    // We just need to ensure the container for the choice groups is rendered.
     this._renderAbilityGroupsSection();
   }
 
-  /**
-   * Restores the selected destiny and triggers the rendering of its sub-components.
-   * @private
-   */
   _restoreState() {
     const currentDestinyId = this.stateManager.get('destiny');
     if (currentDestinyId) {
       const destinyOptionDiv = this.selectorPanel.querySelector(`.destiny-option[data-destiny-id="${currentDestinyId}"]`);
       if (destinyOptionDiv) {
         destinyOptionDiv.classList.add('selected');
-        // If a destiny is already selected, render its associated item groups
         this._renderAbilityGroupsSection();
       }
     }
   }
 
-  /**
-   * Renders the main destiny options based on the selected module.
-   * @private
-   */
   _renderDestinyOptions() {
     const container = this.selectorPanel.querySelector('#destiny-options-container');
     if (!container) return;
@@ -133,28 +138,23 @@ class DestinyPageHandler {
     });
   }
 
-  /**
-   * Renders the sections for abilities, flaws, etc., by creating ItemSelectorComponents.
-   * @private
-   */
   _renderAbilityGroupsSection() {
-    this._cleanupItemSelectors(); // Clean up any existing components first
+    this._cleanupItemSelectors(); 
 
     const scrollArea = this.selectorPanel.querySelector('.destiny-content-scroll-area');
     if (!scrollArea) {
-        console.error("DestinyPageHandler Error: The '.destiny-content-scroll-area' container was not found in destiny-selector.html. Cannot render choice groups.");
+        console.error("DestinyPageHandler Error: The '.destiny-content-scroll-area' container was not found.");
         return;
     }
 
     let abilitiesSectionContainer = scrollArea.querySelector('.abilities-section');
     if (!abilitiesSectionContainer) {
-        console.log("DestinyPageHandler: '.abilities-section' not found, creating it now.");
         abilitiesSectionContainer = document.createElement('div');
         abilitiesSectionContainer.className = 'abilities-section';
         scrollArea.appendChild(abilitiesSectionContainer);
     }
     
-    abilitiesSectionContainer.innerHTML = ''; // Clear previous content
+    abilitiesSectionContainer.innerHTML = ''; 
     const destinyId = this.stateManager.get('destiny');
     if (!destinyId) return;
 
@@ -166,7 +166,6 @@ class DestinyPageHandler {
     Object.entries(destiny.choiceGroups).forEach(([groupId, groupDef]) => {
       const groupContainer = document.createElement('div');
       groupContainer.className = 'ability-group-container';
-      
       const maxChoicesText = groupDef.maxChoices === 1 ? 'Choose 1' : `Choose up to ${groupDef.maxChoices}`;
       groupContainer.innerHTML = `<h5 class="group-header">${groupDef.name} (${maxChoicesText})</h5>`;
 
@@ -175,9 +174,6 @@ class DestinyPageHandler {
       groupContainer.appendChild(componentContainer);
       abilitiesSectionContainer.appendChild(groupContainer);
       
-      // *** THIS IS THE FIX ***
-      // We now inject the contextual `groupId` into each item definition
-      // before passing it to the component.
       const itemsForGroup = groupDef.abilities.reduce((acc, itemId) => {
         if (allItemDefs[itemId]) {
           acc[itemId] = { ...allItemDefs[itemId], groupId: groupId };
@@ -185,11 +181,10 @@ class DestinyPageHandler {
         return acc;
       }, {});
       
-      // Create a new component for this group
       const selector = new ItemSelectorComponent(
         componentContainer,
         itemsForGroup,
-        `destiny-${groupId}`, // A unique source for this group, e.g., 'destiny-flaws'
+        `destiny-${groupId}`,
         this.stateManager,
         this.ruleEngine
       );
@@ -199,10 +194,6 @@ class DestinyPageHandler {
     });
   }
 
-  /**
-   * Cleans up all active ItemSelectorComponent instances.
-   * @private
-   */
   _cleanupItemSelectors() {
     this.activeItemSelectors.forEach(selector => selector.cleanup());
     this.activeItemSelectors = [];
@@ -218,6 +209,11 @@ class DestinyPageHandler {
         destinyOptionsContainer.removeEventListener('click', this._boundDestinyOptionClickHandler);
     }
     this._cleanupItemSelectors();
+    
+    // --- FIX START ---
+    // Remove the global state change listener to prevent memory leaks.
+    document.removeEventListener('wizard:stateChange', this._boundHandleStateChange);
+    // --- FIX END ---
   }
 }
 

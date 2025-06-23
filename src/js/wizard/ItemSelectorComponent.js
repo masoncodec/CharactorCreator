@@ -1,6 +1,6 @@
 // ItemSelectorComponent.js
 // A reusable component to render and manage a grid of selectable items.
-// This version includes the definitive fix for the radio button visual glitch.
+// This version includes the definitive fix for the double-click bug.
 
 class ItemSelectorComponent {
   constructor(containerElement, itemsToRender, source, stateManager, ruleEngine) {
@@ -10,7 +10,10 @@ class ItemSelectorComponent {
     this.stateManager = stateManager;
     this.ruleEngine = ruleEngine;
     this._boundHandleClick = this._handleClick.bind(this);
-    this._boundHandleStateChange = this._onStateChange.bind(this);
+    // REMOVED: The state change listener is no longer needed in this component,
+    // as the Page Handler is now responsible for triggering re-renders on state change.
+    // This also helps prevent potential redundant render calls.
+    // this._boundHandleStateChange = this._onStateChange.bind(this);
     this._attachEventListeners();
     console.log(`ItemSelectorComponent: Initialized for source '${this.source}'.`);
   }
@@ -29,12 +32,14 @@ class ItemSelectorComponent {
 
   _attachEventListeners() {
     this.container.addEventListener('click', this._boundHandleClick);
-    document.addEventListener('wizard:stateChange', this._boundHandleStateChange);
+    // The component-level state change listener is removed.
+    // document.addEventListener('wizard:stateChange', this._boundHandleStateChange);
   }
 
-  _onStateChange() {
-    this.render();
-  }
+  // This method is no longer needed as the parent handler triggers renders.
+  // _onStateChange() {
+  //   this.render();
+  // }
 
   _createCardHTML(itemDef, selectionState, validationState) {
     const isSelected = !!selectionState;
@@ -70,21 +75,11 @@ class ItemSelectorComponent {
     `;
   }
 
-  /**
-   * THIS METHOD CONTAINS THE FIX FOR THE DISAPPEARING RADIO BUTTON.
-   */
   _createOptionsHTML(parentItemDef, parentSelectionState) {
     const isParentSelected = !!parentSelectionState;
     const currentSelections = parentSelectionState?.selections || [];
-    
     const inputType = (parentItemDef.maxChoices === 1) ? 'radio' : 'checkbox';
-    
-    // THE FIX: The `name` attribute is now generated correctly without duplication.
-    // By adding a random component, we ensure the radio group is treated as a new,
-    // unique group by the browser on every render, forcing it to correctly
-    // display the 'checked' state.
     const uniqueName = `nested-options-${parentItemDef.id}-${this.source}-${Math.random()}`;
-    
     const limitReached = parentItemDef.maxChoices > 1 && currentSelections.length >= parentItemDef.maxChoices;
 
     return `
@@ -109,6 +104,10 @@ class ItemSelectorComponent {
     `;
   }
 
+  // --- REFACTOR START ---
+  // The _handleClick method is now greatly simplified. It no longer needs to
+  // manage the input's checked state manually or decide between select/deselect.
+  // It entrusts the intelligent `selectItem` method in the state manager to handle all logic.
   _handleClick(e) {
     const card = e.target.closest('.ability-card');
     if (!card || card.classList.contains('disabled-for-selection')) {
@@ -118,6 +117,7 @@ class ItemSelectorComponent {
     const itemDef = this.items[itemId];
     if (!itemDef) return;
 
+    // Handle nested options separately (this logic was already correct).
     if (e.target.closest('.ability-options')) {
       if (e.target.dataset.action === 'select-option') {
         if (!this.stateManager.itemManager.getSelection(itemId, this.source)) {
@@ -135,20 +135,12 @@ class ItemSelectorComponent {
       return; 
     }
     
-    const mainInput = card.querySelector('input[data-action="select-parent"]');
-    if (mainInput) {
-      if (e.target !== mainInput) {
-        mainInput.checked = !mainInput.checked;
-      }
-      if (mainInput.checked) {
-        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
-      } else {
-        if (mainInput.type === 'checkbox') {
-            this.stateManager.itemManager.deselectItem(itemId, this.source);
-        }
-      }
-    }
+    // The single, authoritative call for any parent item selection/deselection.
+    // The state manager's `selectItem` method now contains all the necessary logic
+    // to determine if the action should be a selection, deselection (toggle), or radio swap.
+    this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
   }
+  // --- REFACTOR END ---
 
   _getGroupDefinition(itemDef) {
     if (!this.source.startsWith('destiny-')) return null;
@@ -160,6 +152,7 @@ class ItemSelectorComponent {
 
   cleanup() {
     this.container.removeEventListener('click', this._boundHandleClick);
+    // Ensure the event listener is removed upon cleanup.
     document.removeEventListener('wizard:stateChange', this._boundHandleStateChange);
   }
 }

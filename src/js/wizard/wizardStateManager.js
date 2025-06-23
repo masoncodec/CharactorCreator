@@ -9,53 +9,46 @@ class ItemManager {
   }
 
   // --- REFACTOR START ---
-  // This method has been completely rewritten to support a robust, long-term strategy
-  // for item selection, differentiating between grouped "radio buttons" and independent "checkboxes".
+  // This is the definitive, refactored logic for item selection, based on the
+  // confirmed rule that only grouped, single-choice items are non-toggleable.
   selectItem(itemDef, source, groupId) {
     const { id } = itemDef;
     const isAlreadySelected = this.state.selections.some(sel => sel.id === id && sel.source === source);
 
-    // --- STRATEGY 1: Handle Grouped Items (Radio Buttons) ---
-    if (groupId) {
-      const destiny = this.stateManager.getDestiny(this.state.destiny);
-      const groupDef = destiny?.choiceGroups?.[groupId];
+    const destiny = this.stateManager.getDestiny(this.state.destiny);
+    const groupDef = groupId ? destiny?.choiceGroups?.[groupId] : null; //
+    const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
 
-      // If the item is in a single-choice group and is already selected, do nothing.
-      // This preserves nested options on a redundant click.
-      if (groupDef?.maxChoices === 1 && isAlreadySelected) {
-        console.log(`ItemManager: Ignoring re-selection of radio item '${id}' in group '${groupId}'.`);
-        return;
-      }
-
-      // If we are here, it's a new selection within the group.
-      let newSelections = [...this.state.selections];
-
-      // Deselect any other item in this radio group.
-      if (groupDef?.maxChoices === 1) {
-        newSelections = newSelections.filter(sel => !(sel.groupId === groupId && sel.source === source));
-      }
-      
-      // Add the new item.
-      newSelections.push({ id: id, source: source, groupId: groupId, selections: [] });
-      this.stateManager.set('selections', newSelections);
-      console.log(`ItemManager: Selected grouped item '${id}'.`);
-      return;
-    }
-
-    // --- STRATEGY 2: Handle Independent Items (Perks, Flaws - Checkboxes) ---
-    if (!groupId) {
-      // If the item is already selected, a click means DESELECT (toggle).
-      if (isAlreadySelected) {
-        this.deselectItem(id, source);
+    // --- Step 1: Handle all clicks on previously selected items. ---
+    if (isAlreadySelected) {
+      // Case A: The item is a true, grouped, single-choice radio button.
+      // Per the confirmed rule, we do nothing to preserve the selection.
+      if (groupId && maxChoices === 1) { //
+        console.log(`ItemManager: Ignoring re-selection of true radio item '${id}'.`);
         return;
       }
       
-      // Otherwise, it's a new selection.
-      const newSelections = [...this.state.selections, { id: id, source: source, groupId: null, selections: [] }];
-      this.stateManager.set('selections', newSelections);
-      console.log(`ItemManager: Selected independent item '${id}'.`);
+      // Case B: The item is any other type of selected item (independent flaw/perk,
+      // multi-select grouped item). A click means DESELECT.
+      this.deselectItem(id, source);
       return;
     }
+
+    // --- Step 2: Handle all new selections. ---
+    // If we've reached this point, the item was not previously selected.
+    let newSelections = [...this.state.selections];
+
+    // If selecting within a radio group, first deselect the existing item.
+    if (groupId && maxChoices === 1) { //
+      newSelections = newSelections.filter(
+        sel => !(sel.groupId === groupId && sel.source === source)
+      );
+    }
+    
+    // Add the newly selected item to the array.
+    newSelections.push({ id: id, source: source, groupId: groupId, selections: [] });
+    this.stateManager.set('selections', newSelections);
+    console.log(`ItemManager: Selected new item '${id}'.`);
   }
   // --- REFACTOR END ---
 
@@ -156,9 +149,8 @@ class WizardStateManager {
   getModule(moduleId) { return this.data.modules[moduleId]; }
   getDestiny(destinyId) { return this.data.destinies[destinyId]; }
   getItemData() { return this.data.allItems; }
-  getItemDefinition(itemId) { return this.data.allItems[itemId] || null; }
-  getFlawData() { return this.data.flaws; }
-  getPerkData() { return this.data.perks; }
+  getItemDefinition(itemId) { return this.data.allItems[itemId] || null;
+  }
   getIndependentFlawTotalWeight() { return this.itemManager.getTotalWeightBySource('independent-flaw', this.data.allItems); }
   getIndependentPerkTotalWeight() { return this.itemManager.getTotalWeightBySource('independent-perk', this.data.allItems); }
   getAvailableCharacterPoints() {
