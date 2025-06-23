@@ -1,6 +1,6 @@
 // ItemSelectorComponent.js
 // A reusable component to render and manage a grid of selectable items.
-// This version includes corrected click handling and maxChoices enforcement.
+// This version includes corrected logic for sub-option maxChoices.
 
 class ItemSelectorComponent {
   constructor(containerElement, itemsToRender, source, stateManager, ruleEngine) {
@@ -21,7 +21,6 @@ class ItemSelectorComponent {
     for (const itemId in this.items) {
       const itemDef = this.items[itemId];
       const selectionState = this.stateManager.itemManager.getSelection(itemDef.id, this.source);
-      // Use the rule engine to determine if the card should be disabled
       const validationState = this.ruleEngine.getValidationState(itemDef, this.source);
       allCardsHtml += this._createCardHTML(itemDef, selectionState, validationState);
     }
@@ -43,7 +42,6 @@ class ItemSelectorComponent {
     const disabledClass = isDisabled ? 'disabled-for-selection' : '';
     const selectedClass = isSelected ? 'selected' : '';
     const groupDef = this._getGroupDefinition(itemDef);
-    // Use the group's maxChoices if it exists, otherwise fallback to the item's
     const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
     const inputType = (maxChoices === 1) ? 'radio' : 'checkbox';
     const inputName = `name="group-${this.source}"`;
@@ -72,14 +70,18 @@ class ItemSelectorComponent {
     `;
   }
 
+  /**
+   * THIS METHOD CONTAINS THE FIX FOR SUB-OPTION maxChoices.
+   */
   _createOptionsHTML(parentItemDef, parentSelectionState) {
     const isParentSelected = !!parentSelectionState;
     const currentSelections = parentSelectionState?.selections || [];
-    const inputType = (parentItemDef.maxOptionChoices === 1) ? 'radio' : 'checkbox';
+    // The key fix: Use the parent's `maxChoices` property to determine the input type.
+    const inputType = (parentItemDef.maxChoices === 1) ? 'radio' : 'checkbox';
     const name = `name="nested-options-${parentItemDef.id}-${this.source}"`;
     return `
       <div class="ability-options">
-        <p>Choose ${parentItemDef.maxOptionChoices || 'any'}:</p>
+        <p>Choose ${parentItemDef.maxChoices || 'any'}:</p>
         ${parentItemDef.options.map(option => `
           <label class="ability-option">
             <input type="${inputType}" name="${name}" value="${option.id}"
@@ -95,7 +97,7 @@ class ItemSelectorComponent {
   }
 
   /**
-   * THIS METHOD CONTAINS THE FIX FOR SELECTION GLITCHES.
+   * THIS METHOD CONTAINS THE FIX FOR ENFORCING SUB-OPTION maxChoices.
    */
   _handleClick(e) {
     const card = e.target.closest('.ability-card');
@@ -109,7 +111,6 @@ class ItemSelectorComponent {
     // Check if a nested option was clicked
     if (e.target.closest('.ability-options')) {
       if (e.target.dataset.action === 'select-option') {
-        // First, ensure the parent item is selected if it's not already
         if (!this.stateManager.itemManager.getSelection(itemId, this.source)) {
             this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
         }
@@ -120,17 +121,13 @@ class ItemSelectorComponent {
           .filter(input => input.checked)
           .map(input => input.value);
         
-        // Enforce max choices for nested options
-        if (itemDef.maxOptionChoices && newNestedSelections.length > itemDef.maxOptionChoices) {
+        // Enforce max choices for nested options using the parent's `maxChoices` property.
+        if (itemDef.maxChoices && newNestedSelections.length > itemDef.maxChoices) {
             e.target.checked = false; // Revert the click
-            // Recalculate selections after reverting
-            newNestedSelections = Array.from(allOptionInputs)
-                .filter(input => input.checked)
-                .map(input => input.value);
+            return; // Stop processing
         }
         this.stateManager.itemManager.updateNestedSelections(itemId, this.source, newNestedSelections);
       }
-      // Stop propagation to prevent the parent card from being toggled. THIS FIXES BUG #1.
       return; 
     }
     
@@ -143,7 +140,9 @@ class ItemSelectorComponent {
       if (mainInput.checked) {
         this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
       } else {
-        this.stateManager.itemManager.deselectItem(itemId, this.source);
+        if (mainInput.type === 'checkbox') {
+            this.stateManager.itemManager.deselectItem(itemId, this.source);
+        }
       }
     }
   }

@@ -60,6 +60,7 @@ class RuleEngine {
 
   /**
    * NEW RULE: Checks if a group has reached its maximum selections.
+   * This is the fix for Bug #2.
    * @private
    */
   _checkMaxChoices(itemDef, source) {
@@ -71,7 +72,8 @@ class RuleEngine {
     const groupDef = this._getGroupDefinition(itemDef, source);
     if (!groupDef || !groupDef.maxChoices) return { isDisabled: false, reason: '' };
 
-    // This rule doesn't apply to single-choice (radio button) groups.
+    // This rule doesn't apply to single-choice (radio button) groups,
+    // as their behavior is handled by the input type itself.
     if (groupDef.maxChoices === 1) return { isDisabled: false, reason: '' };
 
     const selectionsInGroup = this.stateManager.state.selections.filter(
@@ -99,6 +101,7 @@ class RuleEngine {
       if (!destinyId) return null;
 
       const destinyDef = this.stateManager.getDestiny(destinyId);
+      // The groupId must be on the itemDef itself, passed down from the page handler.
       return destinyDef?.choiceGroups?.[itemDef.groupId] || null;
   }
 
