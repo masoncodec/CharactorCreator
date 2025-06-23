@@ -16,12 +16,12 @@ class CharacterFinisher {
     this.db = db;
     this.alerter = alerter;
     this.EffectHandler = EffectHandler;
-    this.pageNavigator = pageNavigator; // Store the PageNavigator instance
-    this.pages = pages; // Store the list of pages
+    this.pageNavigator = pageNavigator;
+    this.pages = pages;
 
     // Listen for the custom event dispatched by PageNavigator when 'Finish' is clicked
-    document.removeEventListener('wizard:finish', this._boundFinishHandler); // Remove previous listener
     this._boundFinishHandler = this.finishWizard.bind(this);
+    document.removeEventListener('wizard:finish', this._boundFinishHandler);
     document.addEventListener('wizard:finish', this._boundFinishHandler);
 
     console.log('CharacterFinisher: Initialized.');
@@ -38,16 +38,13 @@ class CharacterFinisher {
     const currentState = this.stateManager.getState();
 
     // Define pages that have actual validation logic.
-    const pagesToValidate = this.pages.filter(p => 
-        p !== 'frame' && p !== 'equipment-and-loot'
-    );
+    const pagesToValidate = this.pages.filter(p => p !== 'frame' && p !== 'equipment-and-loot');
 
     for (const page of pagesToValidate) {
-        if (!this.pageNavigator.isPageCompleted(page, currentState)) {
-            const errorMessage = this.pageNavigator.getCompletionError(page);
-            errors.push(`• ${errorMessage}`);
-            console.log(`  - Validation error on page '${page}': ${errorMessage}`);
-        }
+      if (!this.pageNavigator.isPageCompleted(page, currentState)) {
+        const errorMessage = this.pageNavigator.getCompletionError(page);
+        errors.push(`• ${errorMessage}`);
+      }
     }
 
     return {
@@ -56,112 +53,100 @@ class CharacterFinisher {
     };
   }
 
-
   /**
-   * Calculates the character's effects based on selected abilities, flaws, and perks.
-   * @returns {Object} An object representing the character's calculated state (e.g., health).
+   * REFACTORED: Calculates the character's effects based on the new 'selections' state.
+   * @param {Object} currentState - The complete current state from the state manager.
+   * @param {Object} allItemDefs - A map of all item definitions.
+   * @returns {Object} An object representing the character's calculated state.
    * @private
    */
-  _calculateCharacterEffects() {
-    const currentState = this.stateManager.getState();
-    const destinyData = this.stateManager.getDestinyData();
-    const abilityData = this.stateManager.getAbilityData();
-    const flawData = this.stateManager.getFlawData();
-    const perkData = this.stateManager.getPerkData(); // Get perk data
-    // equipmentAndLootData will not be processed for effects here yet, as it's a stretch goal.
+  _calculateCharacterEffects(currentState, allItemDefs) {
+    // Filter the unified 'selections' array to get the specific item types
+    const abilities = currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'ability');
+    const flaws = currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'flaw');
+    const perks = currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'perk');
 
-    // Re-create the activeAbilityStates Set as expected by EffectHandler.processActiveAbilities
+    // Re-create the activeAbilityStates Set as expected by EffectHandler
     const activeAbilityStates = new Set(
-        currentState.abilities
-            .filter(a => abilityData[a.id]?.type === 'active')
-            .map(a => a.id)
+      abilities
+        .filter(a => allItemDefs[a.id]?.type === 'active')
+        .map(a => a.id)
     );
 
     // Prepare character state for EffectHandler
+    const destinyDef = this.stateManager.getDestiny(currentState.destiny);
     const characterStateForEffects = {
-        abilities: currentState.abilities,
-        flaws: currentState.flaws,
-        perks: currentState.perks,
-        destiny: currentState.destiny,
-        health: { max: destinyData[currentState.destiny].health.value }
+      abilities: abilities,
+      flaws: flaws,
+      perks: perks,
+      destiny: currentState.destiny,
+      health: { max: destinyDef.health.value }
     };
 
-    // Use EffectHandler to process active abilities, now correctly passing activeAbilityStates
-    // Assuming EffectHandler might eventually process perk effects too, if applicable
+    // Use EffectHandler to process effects
     this.EffectHandler.processActiveAbilities(
-        characterStateForEffects,
-        abilityData,
-        flawData,
-        perkData,
-        activeAbilityStates,
-        'wizard'
+      characterStateForEffects,
+      this.stateManager.data.abilities, // Pass the original data slices
+      this.stateManager.data.flaws,
+      this.stateManager.data.perks,
+      activeAbilityStates,
+      'wizard'
     );
 
-    // Apply effects to a dummy character object to get the calculated health
-    const effectedCharacter = this.EffectHandler.applyEffectsToCharacter(
-        characterStateForEffects,
-        'wizard'
+    // Apply effects to get the calculated health
+    return this.EffectHandler.applyEffectsToCharacter(
+      characterStateForEffects,
+      'wizard'
     );
-
-    return effectedCharacter;
   }
   
   /**
-   * Processes the raw inventory from the state, combining stackable items.
-   * @param {Array<Object>} rawInventory - The inventory array from the state manager.
+   * REFACTORED: Processes the final inventory by combining items from multiple sources.
+   * @param {Object} currentState - The complete current state from the state manager.
    * @returns {Array<Object>} The processed, final inventory.
    * @private
    */
-  _processFinalInventory(rawInventory) {
+  _processFinalInventory(currentState) {
     console.log("CharacterFinisher: Processing final inventory...");
     const finalInventory = [];
     const stackableMap = new Map();
 
-    for (const itemState of rawInventory) {
-      const itemDef = this.stateManager.getInventoryItemDefinition(itemState.id);
-      if (!itemDef) {
-        console.warn(`Could not find definition for item ${itemState.id}. Skipping.`);
-        continue;
-      }
+    // 1. Get equipment from the main 'selections' array (e.g., from Destiny)
+    const allItemDefs = this.stateManager.getItemData();
+    const equipmentSelections = currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'equipment');
+
+    const combinedRawInventory = [
+        ...currentState.inventory, // Items from equipment-and-loot page
+        ...equipmentSelections.map(sel => ({ ...sel, quantity: 1, equipped: true })) // Add items from destiny/other selections
+    ];
+
+    for (const itemState of combinedRawInventory) {
+      const itemDef = allItemDefs[itemState.id];
+      if (!itemDef) continue;
 
       if (itemDef.stackable) {
         if (!stackableMap.has(itemState.id)) {
           stackableMap.set(itemState.id, {
             id: itemState.id,
             quantity: 0,
-            equipped: true, // Assume equipped unless one part is not
             sources: new Set(),
-            selections: [], // Note: Combining selections isn't defined, taking first one's for now
           });
         }
         const entry = stackableMap.get(itemState.id);
         entry.quantity += itemState.quantity;
-        if (itemState.source) {
-            entry.sources.add(itemState.source);
-        }
-        // If any instance is unequipped, the final stack is unequipped
-        if (itemState.equipped === false) {
-          entry.equipped = false;
-        }
-        // Simplistic selection merge: just overwrite.
-        if (itemState.selections && itemState.selections.length > 0) {
-            entry.selections = itemState.selections;
-        }
+        if (itemState.source) entry.sources.add(itemState.source);
       } else {
-        // Non-stackable items are added directly
         finalInventory.push(itemState);
       }
     }
 
     // Process the collected stackable items
-    for (const [itemId, combinedItem] of stackableMap.entries()) {
+    for (const [, combinedItem] of stackableMap.entries()) {
       finalInventory.push({
-        id: itemId,
+        id: combinedItem.id,
         quantity: combinedItem.quantity,
-        equipped: combinedItem.equipped,
-        selections: combinedItem.selections,
+        equipped: true, // Simplification for now
         source: Array.from(combinedItem.sources).join(', '),
-        groupId: null // GroupID is less relevant after combination
       });
     }
     
@@ -170,51 +155,51 @@ class CharacterFinisher {
   }
 
   /**
-   * Initiates the wizard finishing process: validates all data and saves the character.
+   * REFACTORED: Initiates the wizard finishing process using the new state structure.
    */
   async finishWizard() {
     console.log('CharacterFinisher.finishWizard: Attempting to finish wizard.');
     const validation = this._validateAllPages();
 
     if (!validation.isValid) {
-      console.warn('CharacterFinisher.finishWizard: Validation failed. Showing errors.');
       this.alerter.show("Please complete the following:\n\n" + validation.message, 'error');
       return;
     }
 
+    const currentState = this.stateManager.getState();
+    const allItemDefs = this.stateManager.getItemData();
+    
     // Calculate final character effects (like health)
-    const characterEffects = this._calculateCharacterEffects();
-    console.log('CharacterFinisher.finishWizard: Character effects calculated:', characterEffects);
+    const characterEffects = this._calculateCharacterEffects(currentState, allItemDefs);
+
+    // Process the inventory before saving
+    const finalInventory = this._processFinalInventory(currentState);
 
     // Construct the final character object to be saved
-    const currentState = this.stateManager.getState();
-    
-    // Process the inventory before saving
-    const finalInventory = this._processFinalInventory(currentState.inventory);
-
     const character = {
       module: currentState.module,
       destiny: currentState.destiny,
-      flaws: currentState.flaws,
-      perks: currentState.perks,
       attributes: currentState.attributes,
-      health: {
-          current: characterEffects.calculatedHealth.currentMax,
-          max: characterEffects.calculatedHealth.currentMax,
-          temporary: 0
-      },
-      inventory: finalInventory, // Use the processed inventory
-      abilities: currentState.abilities,
+      info: currentState.info,
       createdAt: new Date().toISOString(),
-      info: currentState.info
+      // Filter the final selections for saving
+      flaws: currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'flaw'),
+      perks: currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'perk'),
+      abilities: currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'ability'),
+      inventory: finalInventory,
+      health: {
+        current: characterEffects.calculatedHealth.currentMax,
+        max: characterEffects.calculatedHealth.currentMax,
+        temporary: 0
+      },
     };
+    
     console.log('CharacterFinisher.finishWizard: Character object prepared for saving:', character);
 
     try {
       if (this.db && typeof this.db.saveCharacter === 'function') {
         await this.db.saveCharacter(character);
-        console.log('CharacterFinisher.finishWizard: Character saved successfully. Redirecting to character-selector.html');
-        window.location.href = 'character-selector.html'; // Redirect on success
+        window.location.href = 'character-selector.html';
       } else {
         throw new Error("Database service or saveCharacter method is not available.");
       }
@@ -225,7 +210,7 @@ class CharacterFinisher {
   }
 
   /**
-   * Cleans up event listeners when the component is no longer needed (e.g., if wizard is destroyed).
+   * Cleans up event listeners when the component is no longer needed.
    */
   cleanup() {
     console.log('CharacterFinisher.cleanup: Cleaning up resources.');
