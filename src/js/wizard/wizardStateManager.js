@@ -8,41 +8,56 @@ class ItemManager {
     this.state = stateManager.state;
   }
 
+  // --- REFACTOR START ---
+  // This method has been completely rewritten to support a robust, long-term strategy
+  // for item selection, differentiating between grouped "radio buttons" and independent "checkboxes".
   selectItem(itemDef, source, groupId) {
     const { id } = itemDef;
-
-    // This block prevents an already-selected radio button from having its
-    // nested options cleared when it is clicked again.
-    const destiny = this.stateManager.getDestiny(this.state.destiny);
-    const groupDef = destiny?.choiceGroups?.[groupId];
-    const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
     const isAlreadySelected = this.state.selections.some(sel => sel.id === id && sel.source === source);
 
-    if (maxChoices === 1 && isAlreadySelected) {
-      // If it's a radio button (`maxChoices === 1`) and is already selected,
-      // do nothing. This preserves the existing selection and its nested options.
-      console.log(`ItemManager: Ignoring re-selection of radio item '${id}' to preserve options.`);
+    // --- STRATEGY 1: Handle Grouped Items (Radio Buttons) ---
+    if (groupId) {
+      const destiny = this.stateManager.getDestiny(this.state.destiny);
+      const groupDef = destiny?.choiceGroups?.[groupId];
+
+      // If the item is in a single-choice group and is already selected, do nothing.
+      // This preserves nested options on a redundant click.
+      if (groupDef?.maxChoices === 1 && isAlreadySelected) {
+        console.log(`ItemManager: Ignoring re-selection of radio item '${id}' in group '${groupId}'.`);
+        return;
+      }
+
+      // If we are here, it's a new selection within the group.
+      let newSelections = [...this.state.selections];
+
+      // Deselect any other item in this radio group.
+      if (groupDef?.maxChoices === 1) {
+        newSelections = newSelections.filter(sel => !(sel.groupId === groupId && sel.source === source));
+      }
+      
+      // Add the new item.
+      newSelections.push({ id: id, source: source, groupId: groupId, selections: [] });
+      this.stateManager.set('selections', newSelections);
+      console.log(`ItemManager: Selected grouped item '${id}'.`);
       return;
     }
 
-    let newSelections = [...this.state.selections];
-    
-    // This logic correctly handles swapping selections in a radio group.
-    if (maxChoices === 1 && groupId) {
-      newSelections = newSelections.filter(
-        sel => !(sel.groupId === groupId && sel.source === source)
-      );
+    // --- STRATEGY 2: Handle Independent Items (Perks, Flaws - Checkboxes) ---
+    if (!groupId) {
+      // If the item is already selected, a click means DESELECT (toggle).
+      if (isAlreadySelected) {
+        this.deselectItem(id, source);
+        return;
+      }
+      
+      // Otherwise, it's a new selection.
+      const newSelections = [...this.state.selections, { id: id, source: source, groupId: null, selections: [] }];
+      this.stateManager.set('selections', newSelections);
+      console.log(`ItemManager: Selected independent item '${id}'.`);
+      return;
     }
-
-    // This check adds the new item if it's not already in the selections array.
-    // Our fix above handles the case where it *is* already in the array for radio buttons.
-    if (!newSelections.some(sel => sel.id === id && sel.source === source)) {
-        newSelections.push({ id: id, source: source, groupId: groupId, selections: [] });
-    }
-    
-    this.stateManager.set('selections', newSelections);
-    console.log(`ItemManager: Selected item '${id}' from source '${source}'.`);
   }
+  // --- REFACTOR END ---
 
   deselectItem(itemId, source) {
     const newSelections = this.state.selections.filter(
@@ -54,22 +69,12 @@ class ItemManager {
     }
   }
   
-  /**
-   * THIS METHOD CONTAINS THE FIX.
-   * It now creates a fresh copy of the state array instead of mutating it directly,
-   * which prevents visual glitches when the UI re-renders.
-   */
   updateNestedSelections(itemId, source, newNestedSelections) {
     const parentSelectionIndex = this.state.selections.findIndex(sel => sel.id === itemId && sel.source === source);
     
     if (parentSelectionIndex > -1) {
-      // Create a deep copy of the selections array to ensure no stale references are kept.
       const allSelections = JSON.parse(JSON.stringify(this.state.selections));
-      
-      // Update the nested selections on the copied object.
       allSelections[parentSelectionIndex].selections = newNestedSelections;
-      
-      // Set the state with the completely new array, ensuring the UI gets the refresh signal.
       this.stateManager.set('selections', allSelections);
       console.log(`ItemManager: Updated nested selections for '${itemId}':`, newNestedSelections);
     }
@@ -154,7 +159,6 @@ class WizardStateManager {
   getItemDefinition(itemId) { return this.data.allItems[itemId] || null; }
   getFlawData() { return this.data.flaws; }
   getPerkData() { return this.data.perks; }
-  getEquipmentAndLootData() { return this.data.equipment; }
   getIndependentFlawTotalWeight() { return this.itemManager.getTotalWeightBySource('independent-flaw', this.data.allItems); }
   getIndependentPerkTotalWeight() { return this.itemManager.getTotalWeightBySource('independent-perk', this.data.allItems); }
   getAvailableCharacterPoints() {
