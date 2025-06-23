@@ -9,22 +9,33 @@ class InformerUpdater {
   constructor(stateManager) {
     this.stateManager = stateManager;
     this.informerPanel = document.getElementById('informerPanel');
+    this.currentPage = ''; // Keep track of the current page
 
     if (!this.informerPanel) {
       console.warn('InformerUpdater: Informer panel not found. Display updates will not occur.');
     }
+
+    // --- REFACTOR START ---
+    // Add a global listener for state changes to ensure the informer is always up-to-date.
+    document.addEventListener('wizard:stateChange', () => {
+      // Re-render the informer with fresh data whenever the state changes.
+      this.update(this.currentPage);
+    });
+    // --- REFACTOR END ---
+
     console.log('InformerUpdater: Initialized.');
   }
 
   /**
-   * REFACTORED: Updates the informer panel content for the current page using the new state model.
+   * REFACTORED: Updates the informer panel content for the current page.
    * @param {string} page - The name of the current wizard page.
    */
   update(page) {
     if (!this.informerPanel) return;
+    this.currentPage = page; // Update the current page tracker
 
     const currentState = this.stateManager.getState();
-    const allItemDefs = this.stateManager.getItemData(); // Get all item definitions for easy lookup
+    const allItemDefs = this.stateManager.getItemData();
     let htmlContent = '';
 
     switch (page) {
@@ -90,27 +101,29 @@ class InformerUpdater {
         }
         break;
 
+      // --- REFACTOR START ---
+      // This case is completely reworked for the new unified point system.
       case 'flaws-and-perks': {
         const independentSelections = currentState.selections.filter(sel => sel.source.startsWith('independent-'));
         
         const renderIndependentItems = (itemType, title) => {
             const items = independentSelections.filter(sel => allItemDefs[sel.id]?.itemType === itemType);
-            if (items.length === 0) return `<p>No independent ${itemType}s selected yet.</p>`;
+            if (items.length === 0) return `<p>No ${itemType}s selected yet.</p>`;
             return items.map(sel => {
                 const itemDef = allItemDefs[sel.id];
                 return `<div class="selected-item-display-card"><h5>${itemDef.name} (${itemDef.weight} pts)</h5></div>`;
             }).join('');
         };
         
-        const totalFlawPoints = this.stateManager.getIndependentFlawTotalWeight();
-        const totalPerkPoints = this.stateManager.getIndependentPerkTotalWeight();
+        // Get the single, unified point total from the state manager.
+        const availablePoints = this.stateManager.getAvailableCharacterPoints();
 
         htmlContent = `
-          <h3>Your Selections</h3>
+          <h3>Flaws & Perks</h3>
           <div class="points-summary-container">
-            <div><strong>Flaw Points: ${totalFlawPoints}</strong></div>
-            <div><strong>Perk Points: ${totalPerkPoints} / ${totalFlawPoints}</strong></div>
+            <strong>Available Points: ${availablePoints}</strong>
           </div>
+          <hr/>
           <div class="selected-items-columns">
             <div class="selected-column">
               <h4>Selected Flaws</h4>
@@ -123,6 +136,7 @@ class InformerUpdater {
           </div>`;
         break;
       }
+      // --- REFACTOR END ---
 
       case 'equipment-and-loot': {
         const { spent, total } = this.stateManager.getEquipmentPointsSummary();

@@ -1,7 +1,6 @@
 // flawsAndPerksPageHandler.js
 // This module handles the UI setup for the 'flaws-and-perks' selection page
 // by delegating all rendering and interaction logic to the ItemSelectorComponent.
-// THIS VERSION IS NOW CORRECTED to use the proper, normalized data source.
 
 import { ItemSelectorComponent } from './ItemSelectorComponent.js';
 import { RuleEngine } from './RuleEngine.js';
@@ -17,13 +16,14 @@ class FlawsAndPerksPageHandler {
     this.informerUpdater = informerUpdater;
     this.pageNavigator = pageNavigator;
     this.selectorPanel = null;
-
-    // Component instances will be stored here for cleanup
     this.flawSelectorComponent = null;
     this.perkSelectorComponent = null;
-
-    // A single RuleEngine for this page to handle perk affordability
     this.ruleEngine = new RuleEngine(this.stateManager);
+
+    // --- REFACTOR START ---
+    // Bind the event handler method to the class instance.
+    this._handleStateChange = this._handleStateChange.bind(this);
+    // --- REFACTOR END ---
 
     console.log('FlawsAndPerksPageHandler: Initialized.');
   }
@@ -36,7 +36,6 @@ class FlawsAndPerksPageHandler {
     this.selectorPanel = selectorPanel;
     console.log('FlawsAndPerksPageHandler.setupPage: Setting up flaws and perks components.');
 
-    // 1. Find the containers in the partial HTML
     const flawContainer = this.selectorPanel.querySelector('.flaws-grid-container');
     const perkContainer = this.selectorPanel.querySelector('.perks-grid-container');
 
@@ -45,47 +44,50 @@ class FlawsAndPerksPageHandler {
       return;
     }
 
-    // 2. Get the unified, normalized item map from the State Manager.
     const allItems = this.stateManager.getItemData();
 
-    // --- THIS IS THE FIX ---
-    // 3. Filter and REDUCE the unified map to create an OBJECT of items for this page.
-    // The ItemSelectorComponent expects an object (keyed by ID), not an array.
     const allFlawData = Object.values(allItems)
       .filter(item => item.itemType === 'flaw')
-      .reduce((acc, item) => {
-        acc[item.id] = item;
-        return acc;
-      }, {});
+      .reduce((acc, item) => { acc[item.id] = item; return acc; }, {});
       
     const allPerkData = Object.values(allItems)
       .filter(item => item.itemType === 'perk')
-      .reduce((acc, item) => {
-        acc[item.id] = item;
-        return acc;
-      }, {});
+      .reduce((acc, item) => { acc[item.id] = item; return acc; }, {});
 
-
-    // 4. Create new instances of our reusable ItemSelectorComponent
     this.flawSelectorComponent = new ItemSelectorComponent(
-      flawContainer,
-      allFlawData,
-      'independent-flaw', // The unique source for this component
-      this.stateManager,
-      this.ruleEngine
+      flawContainer, allFlawData, 'independent-flaw', this.stateManager, this.ruleEngine
     );
 
     this.perkSelectorComponent = new ItemSelectorComponent(
-      perkContainer,
-      allPerkData,
-      'independent-perk', // The unique source for this component
-      this.stateManager,
-      this.ruleEngine
+      perkContainer, allPerkData, 'independent-perk', this.stateManager, this.ruleEngine
     );
 
-    // 5. Render the components
     this.flawSelectorComponent.render();
     this.perkSelectorComponent.render();
+
+    // --- REFACTOR START ---
+    // Listen for state changes to re-render components, updating their disabled state.
+    document.addEventListener('wizard:stateChange', this._handleStateChange);
+    // --- REFACTOR END ---
+  }
+
+  /**
+   * NEW: Handles state change events to trigger component re-renders.
+   * This ensures that perk buttons are enabled/disabled correctly as points change.
+   */
+  _handleStateChange(event) {
+    // We only need to re-render if a selection changed, which is the most common case.
+    if (event.detail.key === 'selections') {
+      console.log('FlawsAndPerksPageHandler: Detected selection change, re-rendering components.');
+      // Re-rendering the perk component is most important, as its affordibility changes.
+      if (this.perkSelectorComponent) {
+        this.perkSelectorComponent.render();
+      }
+      // Re-rendering the flaw component is good practice for consistency.
+      if (this.flawSelectorComponent) {
+        this.flawSelectorComponent.render();
+      }
+    }
   }
 
   /**
@@ -99,6 +101,10 @@ class FlawsAndPerksPageHandler {
     if (this.perkSelectorComponent) {
       this.perkSelectorComponent.cleanup();
     }
+    // --- REFACTOR START ---
+    // Remove the event listener to prevent memory leaks when navigating away.
+    document.removeEventListener('wizard:stateChange', this._handleStateChange);
+    // --- REFACTOR END ---
   }
 }
 

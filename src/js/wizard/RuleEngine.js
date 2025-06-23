@@ -30,22 +30,20 @@ class RuleEngine {
         return maxChoicesConflict;
     }
 
-    // Rule: Can the character afford this perk?
+    // --- REFACTOR START ---
+    // Rule: Can the character afford this perk based on the unified point system?
     if (itemDef.itemType === 'perk' && source === 'independent-perk') {
       const perkAffordability = this._checkPerkAffordability(itemDef);
       if (perkAffordability.isDisabled) {
         return perkAffordability;
       }
     }
+    // --- REFACTOR END ---
     
     // If no rules failed, the item is enabled.
     return { isDisabled: false, reason: '' };
   }
 
-  /**
-   * Checks if the item is already selected from a different source.
-   * @private
-   */
   _checkSourceConflict(itemDef, currentSource) {
     const selection = this.stateManager.itemManager.getSelection(itemDef.id);
     if (selection && selection.source !== currentSource) {
@@ -58,13 +56,7 @@ class RuleEngine {
     return { isDisabled: false, reason: '' };
   }
 
-  /**
-   * NEW RULE: Checks if a group has reached its maximum selections.
-   * This is the fix for Bug #2.
-   * @private
-   */
   _checkMaxChoices(itemDef, source) {
-    // This rule only applies if the item is NOT already selected.
     if (this.stateManager.itemManager.getSelection(itemDef.id, source)) {
       return { isDisabled: false, reason: '' };
     }
@@ -72,8 +64,6 @@ class RuleEngine {
     const groupDef = this._getGroupDefinition(itemDef, source);
     if (!groupDef || !groupDef.maxChoices) return { isDisabled: false, reason: '' };
 
-    // This rule doesn't apply to single-choice (radio button) groups,
-    // as their behavior is handled by the input type itself.
     if (groupDef.maxChoices === 1) return { isDisabled: false, reason: '' };
 
     const selectionsInGroup = this.stateManager.state.selections.filter(
@@ -90,38 +80,33 @@ class RuleEngine {
     return { isDisabled: false, reason: '' };
   }
 
-  /**
-   * Helper to find the definition of a choice group from the destiny data.
-   * @private
-   */
   _getGroupDefinition(itemDef, source) {
       if (!source.startsWith('destiny-')) return null;
-
       const destinyId = this.stateManager.get('destiny');
       if (!destinyId) return null;
-
       const destinyDef = this.stateManager.getDestiny(destinyId);
-      // The groupId must be on the itemDef itself, passed down from the page handler.
       return destinyDef?.choiceGroups?.[itemDef.groupId] || null;
   }
 
   /**
-   * Checks if there are enough Flaw Points to afford a Perk.
+   * REFACTORED: Checks if there are enough "Available Points" to afford a Perk.
    * @private
    */
   _checkPerkAffordability(itemDef) {
+    // An already selected perk should never be disabled by this rule.
     if (this.stateManager.itemManager.getSelection(itemDef.id, 'independent-perk')) {
         return { isDisabled: false, reason: '' };
     }
       
-    const availableFlawPoints = this.stateManager.getIndependentFlawTotalWeight();
-    const spentPerkPoints = this.stateManager.getIndependentPerkTotalWeight();
+    // Use the new unified point calculation method.
+    const availablePoints = this.stateManager.getAvailableCharacterPoints();
     const perkCost = itemDef.weight || 0;
 
-    if ((spentPerkPoints + perkCost) > availableFlawPoints) {
+    // Check if the cost of the new perk exceeds the available points.
+    if (perkCost > availablePoints) {
       return {
         isDisabled: true,
-        reason: `Requires ${perkCost} Flaw Points, but you only have ${availableFlawPoints - spentPerkPoints} available.`
+        reason: `Requires ${perkCost} points, but you only have ${availablePoints} available.`
       };
     }
     return { isDisabled: false, reason: '' };

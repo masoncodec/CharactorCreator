@@ -40,22 +40,12 @@ class ItemManager {
     }
   }
   
-  /**
-   * THIS METHOD CONTAINS THE FIX.
-   * It now creates a fresh copy of the state array instead of mutating it directly,
-   * which prevents visual glitches when the UI re-renders.
-   */
   updateNestedSelections(itemId, source, newNestedSelections) {
     const parentSelectionIndex = this.state.selections.findIndex(sel => sel.id === itemId && sel.source === source);
     
     if (parentSelectionIndex > -1) {
-      // Create a deep copy of the selections array to ensure no stale references are kept.
       const allSelections = JSON.parse(JSON.stringify(this.state.selections));
-      
-      // Update the nested selections on the copied object.
       allSelections[parentSelectionIndex].selections = newNestedSelections;
-      
-      // Set the state with the completely new array, ensuring the UI gets the refresh signal.
       this.stateManager.set('selections', allSelections);
       console.log(`ItemManager: Updated nested selections for '${itemId}':`, newNestedSelections);
     }
@@ -74,6 +64,7 @@ class ItemManager {
   }
 
   getTotalWeightBySource(source, allItemData) {
+    // REFACTOR: This helper function now correctly looks up the item in the unified allItems map.
     return this.state.selections
       .filter(sel => sel.source === source)
       .reduce((total, sel) => {
@@ -138,11 +129,38 @@ class WizardStateManager {
   getDestiny(destinyId) { return this.data.destinies[destinyId]; }
   getItemData() { return this.data.allItems; }
   getItemDefinition(itemId) { return this.data.allItems[itemId] || null; }
-  getFlawData() { return this.data.flaws; }
-  getPerkData() { return this.data.perks; }
-  getEquipmentAndLootData() { return this.data.equipment; }
-  getIndependentFlawTotalWeight() { return this.itemManager.getTotalWeightBySource('independent-flaw', this.data.flaws); }
-  getIndependentPerkTotalWeight() { return this.itemManager.getTotalWeightBySource('independent-perk', this.data.perks); }
+  
+  // --- REFACTOR START ---
+  // The following methods implement the new unified point system.
+
+  /**
+   * REFACTORED: Calculates the total points from selected flaws.
+   * @returns {number} The total weight from all selected independent flaws.
+   */
+  getIndependentFlawTotalWeight() { 
+    return this.itemManager.getTotalWeightBySource('independent-flaw', this.data.allItems); 
+  }
+  
+  /**
+   * REFACTORED: Calculates the total points spent on perks.
+   * @returns {number} The total weight from all selected independent perks.
+   */
+  getIndependentPerkTotalWeight() { 
+    return this.itemManager.getTotalWeightBySource('independent-perk', this.data.allItems); 
+  }
+
+  /**
+   * NEW: Calculates the single "Available Points" total for the flaws and perks page.
+   * This is the value used for perk affordability and UI display.
+   * @returns {number} The net points from flaws minus perks.
+   */
+  getAvailableCharacterPoints() {
+    const flawPoints = this.getIndependentFlawTotalWeight();
+    const perkPoints = this.getIndependentPerkTotalWeight();
+    return flawPoints - perkPoints;
+  }
+  // --- REFACTOR END ---
+
   getEquipmentPointsSummary() {
     const TOTAL_POINTS = 20;
     const spentPoints = this.itemManager.getTotalWeightBySource('equipment-and-loot', this.data.equipment);
