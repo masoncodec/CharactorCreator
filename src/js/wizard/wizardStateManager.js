@@ -8,49 +8,47 @@ class ItemManager {
     this.state = stateManager.state;
   }
 
-  // --- REFACTOR START ---
-  // This is the definitive, refactored logic for item selection, based on the
-  // confirmed rule that only grouped, single-choice items are non-toggleable.
-  selectItem(itemDef, source, groupId) {
+  // Add an optional 'payload' parameter to carry extra data like quantity/equipped status.
+  selectItem(itemDef, source, groupId, payload = {}) {
     const { id } = itemDef;
     const isAlreadySelected = this.state.selections.some(sel => sel.id === id && sel.source === source);
 
     const destiny = this.stateManager.getDestiny(this.state.destiny);
-    const groupDef = groupId ? destiny?.choiceGroups?.[groupId] : null; //
+    const groupDef = groupId ? destiny?.choiceGroups?.[groupId] : null; 
     const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
 
-    // --- Step 1: Handle all clicks on previously selected items. ---
     if (isAlreadySelected) {
-      // Case A: The item is a true, grouped, single-choice radio button.
-      // Per the confirmed rule, we do nothing to preserve the selection.
-      if (groupId && maxChoices === 1) { //
+      // For equipment page, a re-click always means deselect.
+      // The original logic for radio buttons is preserved for other pages.
+      if (groupId && maxChoices === 1 && source.startsWith('destiny-')) {
         console.log(`ItemManager: Ignoring re-selection of true radio item '${id}'.`);
         return;
       }
       
-      // Case B: The item is any other type of selected item (independent flaw/perk,
-      // multi-select grouped item). A click means DESELECT.
       this.deselectItem(id, source);
       return;
     }
 
-    // --- Step 2: Handle all new selections. ---
-    // If we've reached this point, the item was not previously selected.
     let newSelections = [...this.state.selections];
 
-    // If selecting within a radio group, first deselect the existing item.
-    if (groupId && maxChoices === 1) { //
+    if (groupId && maxChoices === 1) {
       newSelections = newSelections.filter(
         sel => !(sel.groupId === groupId && sel.source === source)
       );
     }
     
-    // Add the newly selected item to the array.
-    newSelections.push({ id: id, source: source, groupId: groupId, selections: [] });
+    // Add the newly selected item, spreading the payload into the object.
+    const newSelectionData = { 
+        id: id, 
+        source: source, 
+        groupId: groupId, 
+        selections: [], 
+        ...payload 
+    };
+    newSelections.push(newSelectionData);
     this.stateManager.set('selections', newSelections);
-    console.log(`ItemManager: Selected new item '${id}'.`);
+    console.log(`ItemManager: Selected new item '${id}'.`, newSelectionData);
   }
-  // --- REFACTOR END ---
 
   deselectItem(itemId, source) {
     const newSelections = this.state.selections.filter(
@@ -59,6 +57,26 @@ class ItemManager {
     if (newSelections.length < this.state.selections.length) {
         this.stateManager.set('selections', newSelections);
         console.log(`ItemManager: Deselected item '${itemId}' from source '${source}'.`);
+    }
+  }
+
+  /**
+   * Updates top-level properties (like quantity or equipped) of an existing selection.
+   * @param {string} itemId - The ID of the item to update.
+   * @param {string} source - The source of the selection.
+   * @param {Object} updates - An object of properties to update (e.g., { quantity: 5 }).
+   */
+  updateSelection(itemId, source, updates) {
+    const selectionIndex = this.state.selections.findIndex(sel => sel.id === itemId && sel.source === source);
+
+    if (selectionIndex > -1) {
+      // Create a new array for immutable update
+      const newSelections = [...this.state.selections];
+      // Merge the updates into the existing selection object
+      newSelections[selectionIndex] = { ...newSelections[selectionIndex], ...updates };
+      
+      this.stateManager.set('selections', newSelections);
+      console.log(`ItemManager: Updated selection for '${itemId}' from source '${source}'.`, updates);
     }
   }
   
@@ -160,8 +178,15 @@ class WizardStateManager {
   }
   getEquipmentPointsSummary() {
     const TOTAL_POINTS = 20;
-    const spentPoints = this.itemManager.getTotalWeightBySource('equipment-and-loot', this.data.equipment);
-    return { total: TOTAL_POINTS, spent: spentPoints, remaining: TOTAL_POINTS - spentPoints, };
+    // UPDATED: Now reads from the main selections array
+    const spentPoints = this.state.selections
+      .filter(sel => sel.source === 'equipment-and-loot')
+      .reduce((total, sel) => {
+        const itemDef = this.data.allItems[sel.id];
+        const quantity = sel.quantity || 1;
+        return total + ((itemDef?.weight || 0) * quantity);
+      }, 0);
+    return { total: TOTAL_POINTS, spent: spentPoints, remaining: TOTAL_POINTS - spentPoints };
   }
   addOrUpdateInventoryItem(newItemData) {
     const existingItemIndex = this.state.inventory.findIndex(item => item.id === newItemData.id);

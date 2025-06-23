@@ -30,7 +30,6 @@ class RuleEngine {
         return maxChoicesConflict;
     }
 
-    // --- REFACTOR START ---
     // Rule: Can the character afford this perk based on the unified point system?
     if (itemDef.itemType === 'perk' && source === 'independent-perk') {
       const perkAffordability = this._checkPerkAffordability(itemDef);
@@ -38,7 +37,14 @@ class RuleEngine {
         return perkAffordability;
       }
     }
-    // --- REFACTOR END ---
+
+    // Rule: Can the character afford this equipment or loot item?
+    if (source === 'equipment-and-loot') {
+        const affordability = this._checkEquipmentAffordability(itemDef);
+        if (affordability.isDisabled) {
+            return affordability;
+        }
+    }
     
     // If no rules failed, the item is enabled.
     return { isDisabled: false, reason: '' };
@@ -107,6 +113,30 @@ class RuleEngine {
       return {
         isDisabled: true,
         reason: `Requires ${perkCost} points, but you only have ${availablePoints} available.`
+      };
+    }
+    return { isDisabled: false, reason: '' };
+  }
+
+  /**
+   * Checks if there are enough Equipment Points to afford an item.
+   * @param {Object} itemDef - The definition of the item to check.
+   * @returns {{isDisabled: boolean, reason: string}}
+   * @private
+   */
+  _checkEquipmentAffordability(itemDef) {
+    // An already selected item should never be disabled by this rule.
+    if (this.stateManager.itemManager.getSelection(itemDef.id, 'equipment-and-loot')) {
+        return { isDisabled: false, reason: '' };
+    }
+
+    const { remaining } = this.stateManager.getEquipmentPointsSummary();
+    const itemCost = itemDef.weight || 0;
+
+    if (itemCost > remaining) {
+      return {
+        isDisabled: true,
+        reason: `Requires ${itemCost} points, but only ${remaining} are available.`
       };
     }
     return { isDisabled: false, reason: '' };
