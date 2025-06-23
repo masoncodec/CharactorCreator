@@ -1,6 +1,7 @@
 // flawsAndPerksPageHandler.js
 // This module handles the UI setup for the 'flaws-and-perks' selection page
 // by delegating all rendering and interaction logic to the ItemSelectorComponent.
+// THIS VERSION IS NOW CORRECTED to use the proper, normalized data source.
 
 import { ItemSelectorComponent } from './ItemSelectorComponent.js';
 import { RuleEngine } from './RuleEngine.js';
@@ -17,11 +18,11 @@ class FlawsAndPerksPageHandler {
     this.pageNavigator = pageNavigator;
     this.selectorPanel = null;
 
-    // Component instances will be stored here
+    // Component instances will be stored here for cleanup
     this.flawSelectorComponent = null;
     this.perkSelectorComponent = null;
 
-    // A single RuleEngine for this page
+    // A single RuleEngine for this page to handle perk affordability
     this.ruleEngine = new RuleEngine(this.stateManager);
 
     console.log('FlawsAndPerksPageHandler: Initialized.');
@@ -35,20 +36,37 @@ class FlawsAndPerksPageHandler {
     this.selectorPanel = selectorPanel;
     console.log('FlawsAndPerksPageHandler.setupPage: Setting up flaws and perks components.');
 
-    // --- (Step 1) Find the containers in the partial HTML ---
+    // 1. Find the containers in the partial HTML
     const flawContainer = this.selectorPanel.querySelector('.flaws-grid-container');
     const perkContainer = this.selectorPanel.querySelector('.perks-grid-container');
 
     if (!flawContainer || !perkContainer) {
-      console.error('FlawsAndPerksPageHandler: Could not find required .flaws-grid-container or .perks-grid-container.');
+      console.error('FlawsAndPerksPageHandler: Could not find required .flaws-grid-container or .perks-grid-container in the HTML.');
       return;
     }
 
-    // --- (Step 2) Get the necessary data from the State Manager ---
-    const allFlawData = this.stateManager.getFlawData();
-    const allPerkData = this.stateManager.getPerkData();
+    // 2. Get the unified, normalized item map from the State Manager.
+    const allItems = this.stateManager.getItemData();
 
-    // --- (Step 3) Create new instances of our reusable ItemSelectorComponent ---
+    // --- THIS IS THE FIX ---
+    // 3. Filter and REDUCE the unified map to create an OBJECT of items for this page.
+    // The ItemSelectorComponent expects an object (keyed by ID), not an array.
+    const allFlawData = Object.values(allItems)
+      .filter(item => item.itemType === 'flaw')
+      .reduce((acc, item) => {
+        acc[item.id] = item;
+        return acc;
+      }, {});
+      
+    const allPerkData = Object.values(allItems)
+      .filter(item => item.itemType === 'perk')
+      .reduce((acc, item) => {
+        acc[item.id] = item;
+        return acc;
+      }, {});
+
+
+    // 4. Create new instances of our reusable ItemSelectorComponent
     this.flawSelectorComponent = new ItemSelectorComponent(
       flawContainer,
       allFlawData,
@@ -65,18 +83,13 @@ class FlawsAndPerksPageHandler {
       this.ruleEngine
     );
 
-    // --- (Step 4) Render the components ---
-    // The components will handle everything else: restoring state, handling clicks, and validation.
+    // 5. Render the components
     this.flawSelectorComponent.render();
     this.perkSelectorComponent.render();
-
-    // The informer and navigator still need to be updated on page load.
-    this.informerUpdater.update('flaws-and-perks');
-    this.pageNavigator.updateNav();
   }
 
   /**
-   * Cleans up the components to prevent memory leaks.
+   * Cleans up the components to prevent memory leaks when the page is changed.
    */
   cleanup() {
     console.log('FlawsAndPerksPageHandler.cleanup: Cleaning up resources.');
