@@ -71,6 +71,9 @@ class RuleEngine {
     const groupDef = this._getGroupDefinition(itemDef, source);
     if (!groupDef || !groupDef.maxChoices) return { isDisabled: false, reason: '' };
 
+    // This rule doesn't apply to single-choice (radio button) groups.
+    if (groupDef.maxChoices === 1) return { isDisabled: false, reason: '' };
+
     const selectionsInGroup = this.stateManager.state.selections.filter(
         sel => sel.source === source
     );

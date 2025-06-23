@@ -109,6 +109,11 @@ class ItemSelectorComponent {
     // Check if a nested option was clicked
     if (e.target.closest('.ability-options')) {
       if (e.target.dataset.action === 'select-option') {
+        // First, ensure the parent item is selected if it's not already
+        if (!this.stateManager.itemManager.getSelection(itemId, this.source)) {
+            this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
+        }
+
         const optionsContainer = e.target.closest('.ability-options');
         const allOptionInputs = optionsContainer.querySelectorAll('input[data-action="select-option"]');
         let newNestedSelections = Array.from(allOptionInputs)

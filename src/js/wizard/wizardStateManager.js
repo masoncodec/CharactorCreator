@@ -2,11 +2,6 @@
 // This module manages the central state of the character creation wizard
 // and provides access to all loaded game data.
 
-/**
- * @private
- * ItemManager class encapsulates the logic for managing all selectable items
- * (abilities, flaws, perks, etc.) in a unified way.
- */
 class ItemManager {
   constructor(stateManager) {
     this.stateManager = stateManager;
