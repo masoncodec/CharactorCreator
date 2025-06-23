@@ -8,26 +8,20 @@ class ItemManager {
     this.state = stateManager.state;
   }
 
-  /**
-   * THIS METHOD CONTAINS THE FIX FOR maxChoices: 1.
-   */
   selectItem(itemDef, source, groupId) {
     const { id } = itemDef;
     let newSelections = [...this.state.selections];
     
-    // Determine the maxChoices from the group definition if it exists
     const destiny = this.stateManager.getDestiny(this.state.destiny);
     const groupDef = destiny?.choiceGroups?.[groupId];
     const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
 
-    // If this is a single-choice group, remove any other selections from the same source/group
     if (maxChoices === 1 && groupId) {
       newSelections = newSelections.filter(
         sel => !(sel.groupId === groupId && sel.source === source)
       );
     }
 
-    // Add the new selection if it's not already there
     if (!newSelections.some(sel => sel.id === id && sel.source === source)) {
         newSelections.push({ id: id, source: source, groupId: groupId, selections: [] });
     }
@@ -46,12 +40,24 @@ class ItemManager {
     }
   }
   
+  /**
+   * THIS METHOD CONTAINS THE FIX.
+   * It now creates a fresh copy of the state array instead of mutating it directly,
+   * which prevents visual glitches when the UI re-renders.
+   */
   updateNestedSelections(itemId, source, newNestedSelections) {
     const parentSelectionIndex = this.state.selections.findIndex(sel => sel.id === itemId && sel.source === source);
+    
     if (parentSelectionIndex > -1) {
-      const allSelections = [...this.state.selections];
+      // Create a deep copy of the selections array to ensure no stale references are kept.
+      const allSelections = JSON.parse(JSON.stringify(this.state.selections));
+      
+      // Update the nested selections on the copied object.
       allSelections[parentSelectionIndex].selections = newNestedSelections;
+      
+      // Set the state with the completely new array, ensuring the UI gets the refresh signal.
       this.stateManager.set('selections', allSelections);
+      console.log(`ItemManager: Updated nested selections for '${itemId}':`, newNestedSelections);
     }
   }
 

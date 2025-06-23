@@ -1,6 +1,6 @@
 // ItemSelectorComponent.js
 // A reusable component to render and manage a grid of selectable items.
-// This version includes corrected logic for sub-option maxChoices.
+// This version includes the definitive fix for the radio button visual glitch.
 
 class ItemSelectorComponent {
   constructor(containerElement, itemsToRender, source, stateManager, ruleEngine) {
@@ -44,7 +44,7 @@ class ItemSelectorComponent {
     const groupDef = this._getGroupDefinition(itemDef);
     const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
     const inputType = (maxChoices === 1) ? 'radio' : 'checkbox';
-    const inputName = `name="group-${this.source}"`;
+    const inputName = `group-${this.source}`;
 
     return `
       <div class="item-container">
@@ -71,34 +71,44 @@ class ItemSelectorComponent {
   }
 
   /**
-   * THIS METHOD CONTAINS THE FIX FOR SUB-OPTION maxChoices.
+   * THIS METHOD CONTAINS THE FIX FOR THE DISAPPEARING RADIO BUTTON.
    */
   _createOptionsHTML(parentItemDef, parentSelectionState) {
     const isParentSelected = !!parentSelectionState;
     const currentSelections = parentSelectionState?.selections || [];
-    // The key fix: Use the parent's `maxChoices` property to determine the input type.
+    
     const inputType = (parentItemDef.maxChoices === 1) ? 'radio' : 'checkbox';
-    const name = `name="nested-options-${parentItemDef.id}-${this.source}"`;
+    
+    // THE FIX: The `name` attribute is now generated correctly without duplication.
+    // By adding a random component, we ensure the radio group is treated as a new,
+    // unique group by the browser on every render, forcing it to correctly
+    // display the 'checked' state.
+    const uniqueName = `nested-options-${parentItemDef.id}-${this.source}-${Math.random()}`;
+    
+    const limitReached = parentItemDef.maxChoices > 1 && currentSelections.length >= parentItemDef.maxChoices;
+
     return `
       <div class="ability-options">
         <p>Choose ${parentItemDef.maxChoices || 'any'}:</p>
-        ${parentItemDef.options.map(option => `
-          <label class="ability-option">
-            <input type="${inputType}" name="${name}" value="${option.id}"
-                   data-action="select-option"
-                   ${currentSelections.includes(option.id) ? 'checked' : ''}
-                   ${!isParentSelected ? 'disabled' : ''}>
-            <span class="option-visual"></span>
-            <span class="option-text-content">${option.name}</span>
-          </label>
-        `).join('')}
+        ${parentItemDef.options.map(option => {
+          const isChecked = currentSelections.includes(option.id);
+          const isDisabled = !isParentSelected || (limitReached && !isChecked);
+
+          return `
+            <label class="ability-option">
+              <input type="${inputType}" name="${uniqueName}" value="${option.id}"
+                     data-action="select-option"
+                     ${isChecked ? 'checked' : ''}
+                     ${isDisabled ? 'disabled' : ''}>
+              <span class="option-visual"></span>
+              <span class="option-text-content">${option.name}</span>
+            </label>
+          `;
+        }).join('')}
       </div>
     `;
   }
 
-  /**
-   * THIS METHOD CONTAINS THE FIX FOR ENFORCING SUB-OPTION maxChoices.
-   */
   _handleClick(e) {
     const card = e.target.closest('.ability-card');
     if (!card || card.classList.contains('disabled-for-selection')) {
@@ -108,7 +118,6 @@ class ItemSelectorComponent {
     const itemDef = this.items[itemId];
     if (!itemDef) return;
 
-    // Check if a nested option was clicked
     if (e.target.closest('.ability-options')) {
       if (e.target.dataset.action === 'select-option') {
         if (!this.stateManager.itemManager.getSelection(itemId, this.source)) {
@@ -117,21 +126,15 @@ class ItemSelectorComponent {
 
         const optionsContainer = e.target.closest('.ability-options');
         const allOptionInputs = optionsContainer.querySelectorAll('input[data-action="select-option"]');
-        let newNestedSelections = Array.from(allOptionInputs)
+        const newNestedSelections = Array.from(allOptionInputs)
           .filter(input => input.checked)
           .map(input => input.value);
         
-        // Enforce max choices for nested options using the parent's `maxChoices` property.
-        if (itemDef.maxChoices && newNestedSelections.length > itemDef.maxChoices) {
-            e.target.checked = false; // Revert the click
-            return; // Stop processing
-        }
         this.stateManager.itemManager.updateNestedSelections(itemId, this.source, newNestedSelections);
       }
       return; 
     }
     
-    // If not a nested option, treat it as a main card click
     const mainInput = card.querySelector('input[data-action="select-parent"]');
     if (mainInput) {
       if (e.target !== mainInput) {
