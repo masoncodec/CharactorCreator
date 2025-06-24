@@ -8,11 +8,10 @@ import { alerter } from './alerter.js';
 import { RollManager } from './RollManager.js';
 
 // === Configuration for Attribute Display ===
-// IMPORTANT: This constant defines the maximum number of modifier columns for the KOB system.
 const MAX_MODIFIER_COLUMNS = 5;
 
 // Global variables
-let moduleDefinitions = {}; // ADDED: To store all module data
+let moduleDefinitions = {};
 let abilityData = {};
 let flawData = {};
 let perkData = {};
@@ -43,15 +42,12 @@ function processAndRenderCharacter(character) {
         `;
     }
 
-    // --- REFACTORED LOGIC to determine attribute system ---
-    let systemType = 'KOB'; // Default to KOB
+    let systemType = 'KOB';
     const moduleId = effectedCharacter.module;
     if (moduleId && moduleDefinitions && moduleDefinitions[moduleId]) {
         const moduleInfo = moduleDefinitions[moduleId];
-        // Use the 'type' property as corrected
         systemType = moduleInfo.type || 'KOB';
     }
-    // --- END REFACTORED LOGIC ---
 
     let attributesHtml = '';
     if (systemType === 'Hope/Fear') {
@@ -91,16 +87,15 @@ function processAndRenderCharacter(character) {
 
     renderHealthDisplay(effectedCharacter);
 
-    // Attach listeners for the rendered attribute system
     if (systemType === 'Hope/Fear') {
         attachHopeFearRollListeners();
     } else {
-        attachAttributeRollListeners(); // KOB listeners
+        attachAttributeRollListeners();
     }
 }
 
 /**
- * NEW: Renders the UI for the "Hope/Fear" attribute system.
+ * Renders the UI for the "Hope/Fear" attribute system.
  * @param {object} effectedCharacter - The character data with effects applied.
  * @returns {string} HTML string for the Hope/Fear attributes display.
  */
@@ -120,9 +115,6 @@ function renderHopeFearUI(effectedCharacter) {
     return `<div class="hope-fear-container" style="${containerStyle}">${attributeButtons}</div>`;
 }
 
-/**
- * NEW: Attaches event listeners for the "Hope/Fear" roll buttons.
- */
 function attachHopeFearRollListeners() {
     document.querySelectorAll('.hope-fear-roll-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -132,8 +124,9 @@ function attachHopeFearRollListeners() {
             const diceNumEffects = EffectHandler.getEffectsForAttribute(attributeName, 'die_num');
             
             const modifierData = {
-                totalNumerical: numericalEffects.reduce((sum, eff) => sum + eff.modifier, 0),
-                totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + eff.modifier, 0),
+                // FIXED: Changed .value to .modifier for calculations.
+                totalNumerical: numericalEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
+                totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
                 sources: [...numericalEffects, ...diceNumEffects]
             };
 
@@ -143,11 +136,6 @@ function attachHopeFearRollListeners() {
     });
 }
 
-/**
- * REFACTORED: Renders the UI for the "KOB" attribute system.
- * @param {object} effectedCharacter - The character data with effects applied.
- * @returns {string} HTML string for the KOB attributes display.
- */
 function renderKOBUI(effectedCharacter) {
     let attributesHtml = '';
     if (effectedCharacter.attributes) {
@@ -299,7 +287,7 @@ function attachAttributeRollListeners() {
                 });
             }
             const activeModifiers = EffectHandler.getEffectsForAttribute(attributeName, "modifier");
-            let totalModifier = activeModifiers.reduce((sum, mod) => sum + mod.modifier, 0);
+            let totalModifier = activeModifiers.reduce((sum, mod) => sum + (mod.modifier || 0), 0);
             const modifiedResult = baseResult + totalModifier;
             updateAttributeRollDisplay(assignment, baseResult, modifiedResult, activeModifiers);
         });
@@ -322,13 +310,9 @@ function renderAbilities(character) {
             try {
                 const path = p1.split('.');
                 let current = abilityDef;
-                for (let i = 0; i < path.length; i++) {
-                    current = current[path[i]];
-                }
+                for (let i = 0; i < path.length; i++) { current = current?.[path[i]]; }
                 return current !== undefined ? current : match;
-            } catch (e) {
-                return match;
-            }
+            } catch (e) { return match; }
         });
         let optionsHtml = '';
         if (abilityDef.options && abilityState.selections && abilityState.selections.length > 0) {
@@ -348,10 +332,6 @@ function renderAbilities(character) {
     return `<div class="character-abilities"><h4>Abilities</h4><div class="abilities-section-active"><h5>Active Abilities</h5><ul id="activeAbilitiesList">${activeAbilitiesHtml.join('')}</ul></div><div class="abilities-section-passive"><h5>Passive Abilities</h5><ul id="passiveAbilitiesList">${passiveAbilitiesHtml.join('')}</ul></div></div>`;
 }
 
-/**
- * Highlights the active navigation link.
- * @param {string} pageName - The name of the current page.
- */
 function highlightActiveNav(pageName) {
     document.querySelectorAll('.nav-link').forEach(link => {
         link.classList.remove('active');
@@ -361,10 +341,6 @@ function highlightActiveNav(pageName) {
     });
 }
 
-/**
- * Renders the character's health display.
- * @param {object} character - The character object.
- */
 function renderHealthDisplay(character) {
     if (!character || !character.health) return;
     const healthDisplayContainer = document.querySelector('.character-health.health-display');
@@ -481,7 +457,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     try {
         const loadedData = await loadGameData();
-        // CHANGED: Store module definitions
         moduleDefinitions = loadedData.moduleSystemData;
         abilityData = loadedData.abilityData;
         flawData = loadedData.flawData;
@@ -533,7 +508,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             a.href = exportData.url;
             a.download = exportData.filename;
             document.body.appendChild(a);
-a.click();
+            a.click();
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(exportData.url), 100);
         }).catch(function(err) {
