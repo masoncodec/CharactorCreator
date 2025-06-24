@@ -5,23 +5,19 @@
 import { EffectHandler } from './effectHandler.js';
 import { loadGameData } from './dataLoader.js';
 import { alerter } from './alerter.js';
+import { RollManager } from './RollManager.js';
 
 // === Configuration for Attribute Display ===
-// IMPORTANT: This constant defines the maximum number of modifier columns.
-// If an attribute has more modifiers than this, they will not be displayed.
-// If an attribute has fewer, empty columns will be created to maintain grid structure.
-const MAX_MODIFIER_COLUMNS = 5; // User-defined maximum number of modifiers
+// IMPORTANT: This constant defines the maximum number of modifier columns for the KOB system.
+const MAX_MODIFIER_COLUMNS = 5;
 
-// Global variable to hold ability data, flaw data, and perk data (now populated by dataLoader)
+// Global variables
+let moduleDefinitions = {}; // ADDED: To store all module data
 let abilityData = {};
 let flawData = {};
 let perkData = {};
-
-// Global variable to hold the state of active toggleable abilities
-// Resets on page refresh as requested.
-let activeAbilityStates = new Set(); // It is a Set.
-
-let activeCharacter = null; // Variable to store the active character
+let activeAbilityStates = new Set();
+let activeCharacter = null;
 
 /**
  * This function will be called to fully update the character display.
@@ -34,16 +30,10 @@ function processAndRenderCharacter(character) {
         return;
     }
 
-    // Step 1: Process all active abilities, flaws, and perks to populate EffectHandler.activeEffects
-    // Pass 'play' context here, including perkData
-    EffectHandler.processActiveAbilities(character, abilityData, flawData, perkData, activeAbilityStates, 'play'); // MODIFIED: Added perkData
-
-    // Step 2: Apply all active effects to a cloned version of the character data
-    // Pass 'play' context here
+    EffectHandler.processActiveAbilities(character, abilityData, flawData, perkData, activeAbilityStates, 'play');
     const effectedCharacter = EffectHandler.applyEffectsToCharacter(character, 'play');
 
-    // Step 3: Render UI based on the effectedCharacter data
-    const characterDetails = document.getElementById('characterDetails'); // Get this element early
+    const characterDetails = document.getElementById('characterDetails');
     const characterNameHeader = document.getElementById('characterNameHeader');
 
     if (characterNameHeader) {
@@ -53,70 +43,28 @@ function processAndRenderCharacter(character) {
         `;
     }
 
+    // --- REFACTORED LOGIC to determine attribute system ---
+    let systemType = 'KOB'; // Default to KOB
+    const moduleId = effectedCharacter.module;
+    if (moduleId && moduleDefinitions && moduleDefinitions[moduleId]) {
+        const moduleInfo = moduleDefinitions[moduleId];
+        // Use the 'type' property as corrected
+        systemType = moduleInfo.type || 'KOB';
+    }
+    // --- END REFACTORED LOGIC ---
+
     let attributesHtml = '';
-    if (effectedCharacter.attributes) {
-        attributesHtml = Object.entries(effectedCharacter.attributes).map(([attr, die]) => {
-            // Get initial modifiers for display. EffectHandler is now a global utility.
-            const initialModifiers = EffectHandler.getEffectsForAttribute(attr, "modifier");
-
-            console.debug(`Processing attribute: ${attr}, Initial Modifiers:`, initialModifiers);
-
-            let modifierSpans = '';
-            for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-                const mod = initialModifiers[i];
-                if (mod) {
-                    modifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`; // MODIFIED: data-ability-name to data-item-name
-                } else {
-                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
-                }
-            }
-            // For initial render, unmodified result is empty as no roll has occurred
-            const unmodifiedResultHtml = initialModifiers.length > 0
-                ? `<div class="unmodified-roll-result"></div>` // Placeholder for initial render
-                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-            return `
-                <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
-                    <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
-                    <span class="die-type">${die.toUpperCase()}</span>
-                    <button class="btn-roll attribute-roll">Roll</button>
-                    <div class="roll-result"></div>
-                    ${modifierSpans}
-                    ${unmodifiedResultHtml}
-                </div>
-            `;
-        }).join('');
-
-        const initialLuckModifiers = EffectHandler.getEffectsForAttribute('luck', "modifier");
-        let luckModifierSpans = '';
-        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-            const mod = initialLuckModifiers[i];
-            if (mod) {
-                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`; // MODIFIED: data-ability-name to data-item-name
-            } else {
-                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
-            }
-        }
-        const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
-            ? `<div class="unmodified-roll-result"></div>`
-            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-        attributesHtml += `
-            <div class="attribute-row" data-attribute="luck" data-dice="d100">
-                <label>Luck</label>
-                <span class="die-type">D100</span>
-                <button class="btn-roll attribute-roll">Roll</button>
-                <div class="roll-result"></div>
-                ${luckModifierSpans}
-                ${unmodifiedLuckResultHtml}
-            </div>
-        `;
+    if (systemType === 'Hope/Fear') {
+        attributesHtml = renderHopeFearUI(effectedCharacter);
+    } else {
+        attributesHtml = renderKOBUI(effectedCharacter);
     }
 
     characterDetails.innerHTML = `
         <div class="character-stats">
             <h4>Attributes</h4>
-            <div class="attributes-grid-container"> ${attributesHtml}</div>
+            <div class="attributes-grid-container">${attributesHtml}</div>
         </div>
-
         <div class="character-health health-display"></div>
         ${renderResources(effectedCharacter)}
         ${renderLanguages(effectedCharacter)}
@@ -141,13 +89,123 @@ function processAndRenderCharacter(character) {
         </div>
     `;
 
-    // Always use the effectedCharacter for health display
     renderHealthDisplay(effectedCharacter);
-    attachAttributeRollListeners(); // Re-attach listeners for all buttons
+
+    // Attach listeners for the rendered attribute system
+    if (systemType === 'Hope/Fear') {
+        attachHopeFearRollListeners();
+    } else {
+        attachAttributeRollListeners(); // KOB listeners
+    }
 }
 
 /**
- * Updates the display for an attribute roll, including results and modifiers.
+ * NEW: Renders the UI for the "Hope/Fear" attribute system.
+ * @param {object} effectedCharacter - The character data with effects applied.
+ * @returns {string} HTML string for the Hope/Fear attributes display.
+ */
+function renderHopeFearUI(effectedCharacter) {
+    if (!effectedCharacter.attributes) return '';
+    
+    const containerStyle = "display: flex; flex-wrap: wrap; justify-content: space-around; gap: 1rem; padding: 1rem; background: #222; border-radius: 5px;";
+    const attributeStyle = "display: flex; flex-direction: column; align-items: center; gap: 0.5rem;";
+
+    const attributeButtons = Object.keys(effectedCharacter.attributes).map(attr => `
+        <div class="hope-fear-attribute" style="${attributeStyle}">
+            <span class="hope-fear-name">${attr.charAt(0).toUpperCase() + attr.slice(1)}</span>
+            <button class="btn-roll hope-fear-roll-btn" data-attribute="${attr}">Roll</button>
+        </div>
+    `).join('');
+
+    return `<div class="hope-fear-container" style="${containerStyle}">${attributeButtons}</div>`;
+}
+
+/**
+ * NEW: Attaches event listeners for the "Hope/Fear" roll buttons.
+ */
+function attachHopeFearRollListeners() {
+    document.querySelectorAll('.hope-fear-roll-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const attributeName = this.dataset.attribute;
+            
+            const numericalEffects = EffectHandler.getEffectsForAttribute(attributeName, 'modifier');
+            const diceNumEffects = EffectHandler.getEffectsForAttribute(attributeName, 'die_num');
+            
+            const modifierData = {
+                totalNumerical: numericalEffects.reduce((sum, eff) => sum + eff.modifier, 0),
+                totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + eff.modifier, 0),
+                sources: [...numericalEffects, ...diceNumEffects]
+            };
+
+            const rollManager = new RollManager(attributeName.charAt(0).toUpperCase() + attributeName.slice(1), modifierData);
+            rollManager.show();
+        });
+    });
+}
+
+/**
+ * REFACTORED: Renders the UI for the "KOB" attribute system.
+ * @param {object} effectedCharacter - The character data with effects applied.
+ * @returns {string} HTML string for the KOB attributes display.
+ */
+function renderKOBUI(effectedCharacter) {
+    let attributesHtml = '';
+    if (effectedCharacter.attributes) {
+        attributesHtml = Object.entries(effectedCharacter.attributes).map(([attr, die]) => {
+            const initialModifiers = EffectHandler.getEffectsForAttribute(attr, "modifier");
+            let modifierSpans = '';
+            for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                const mod = initialModifiers[i];
+                if (mod) {
+                    modifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
+                } else {
+                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+                }
+            }
+            const unmodifiedResultHtml = initialModifiers.length > 0
+                ? `<div class="unmodified-roll-result"></div>`
+                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+            return `
+                <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
+                    <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
+                    <span class="die-type">${String(die).toUpperCase()}</span>
+                    <button class="btn-roll attribute-roll">Roll</button>
+                    <div class="roll-result"></div>
+                    ${modifierSpans}
+                    ${unmodifiedResultHtml}
+                </div>
+            `;
+        }).join('');
+
+        const initialLuckModifiers = EffectHandler.getEffectsForAttribute('luck', "modifier");
+        let luckModifierSpans = '';
+        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+            const mod = initialLuckModifiers[i];
+            if (mod) {
+                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
+            } else {
+                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+            }
+        }
+        const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
+            ? `<div class="unmodified-roll-result"></div>`
+            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+        attributesHtml += `
+            <div class="attribute-row" data-attribute="luck" data-dice="d100">
+                <label>Luck</label>
+                <span class="die-type">D100</span>
+                <button class="btn-roll attribute-roll">Roll</button>
+                <div class="roll-result"></div>
+                ${luckModifierSpans}
+                ${unmodifiedLuckResultHtml}
+            </div>
+        `;
+    }
+    return attributesHtml;
+}
+
+/**
+ * Updates the display for a KOB attribute roll.
  * @param {HTMLElement} assignmentElement - The .attribute-row element.
  * @param {number} baseResult - The raw dice roll result.
  * @param {number} modifiedResult - The result after applying modifiers.
@@ -156,44 +214,27 @@ function processAndRenderCharacter(character) {
 function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResult, activeModifiers) {
     let yellowResultEl = assignmentElement.querySelector('.roll-result');
     let blueResultEl = assignmentElement.querySelector('.unmodified-roll-result');
-
-    if (!yellowResultEl || !blueResultEl) {
-        console.error("Missing roll result display elements.");
-        return;
-    }
-
-    // Reset classes to ensure display on subsequent rolls
+    if (!yellowResultEl || !blueResultEl) return;
     yellowResultEl.classList.remove('visible', 'fade-out');
     blueResultEl.classList.remove('visible', 'fade-out');
     blueResultEl.classList.remove('empty-unmodified-cell');
-
-    // Clear previous dynamic modifier spans
     assignmentElement.querySelectorAll('.modifier-display, .empty-modifier-cell').forEach(el => el.remove());
-
-    // Display yellow modified result
     yellowResultEl.textContent = modifiedResult;
     yellowResultEl.classList.add('visible');
     setTimeout(() => yellowResultEl.classList.add('fade-out'), 2000);
-
-    // Re-render Modifiers
     const modifiersToDisplay = activeModifiers.slice(0, MAX_MODIFIER_COLUMNS);
-
     const rollResultColumn = assignmentElement.querySelector('.roll-result');
     let lastInsertedElement = rollResultColumn;
-
     modifiersToDisplay.forEach(mod => {
         const modSpan = document.createElement('span');
         modSpan.classList.add('modifier-display');
         modSpan.textContent = (mod.modifier > 0 ? '+' : '') + mod.modifier;
         modSpan.style.color = mod.modifier > 0 ? '#03AC13' : '#FF0000';
-        modSpan.dataset.itemName = mod.itemName; // MODIFIED: data-ability-name to data-item-name
+        modSpan.dataset.itemName = mod.itemName;
         modSpan.dataset.sourceType = mod.sourceType;
-
         lastInsertedElement.insertAdjacentElement('afterend', modSpan);
         lastInsertedElement = modSpan;
     });
-
-    // Add empty modifier cells to maintain grid columns
     for (let i = modifiersToDisplay.length; i < MAX_MODIFIER_COLUMNS; i++) {
         const emptyModSpan = document.createElement('span');
         emptyModSpan.classList.add('modifier-display', 'empty-modifier-cell');
@@ -201,8 +242,6 @@ function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResul
         lastInsertedElement.insertAdjacentElement('afterend', emptyModSpan);
         lastInsertedElement = emptyModSpan;
     }
-
-    // Display blue unmodified result
     if (activeModifiers.length > 0) {
         blueResultEl.textContent = baseResult;
         blueResultEl.classList.add('visible');
@@ -214,7 +253,7 @@ function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResul
 }
 
 /**
- * Attaches event listeners to all attribute roll buttons.
+ * Attaches event listeners to all KOB attribute roll buttons.
  */
 function attachAttributeRollListeners() {
     document.querySelectorAll('.attribute-roll').forEach(btn => {
@@ -223,124 +262,74 @@ function attachAttributeRollListeners() {
             const attributeName = assignment.getAttribute('data-attribute');
             const dieType = assignment.getAttribute('data-dice');
             let baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
-
-            // Cost Deduction Logic - only abilities can have costs
-            // Now checks for 'ability' sourceType specifically
             const relevantActiveEffects = EffectHandler.activeEffects.filter(effect =>
                 effect.attribute && effect.attribute.toLowerCase() === attributeName && effect.cost && effect.sourceType === "ability"
             );
-
             let canAffordAll = true;
             const costsToDeduct = {};
-
             relevantActiveEffects.forEach(effect => {
                 const costResource = effect.cost.resource;
                 const costValue = parseInt(effect.cost.value, 10);
-
-                if (!costsToDeduct[costResource]) {
-                    costsToDeduct[costResource] = 0;
-                }
+                if (!costsToDeduct[costResource]) costsToDeduct[costResource] = 0;
                 costsToDeduct[costResource] += costValue;
             });
-
             for (const resourceType in costsToDeduct) {
                 const totalCost = costsToDeduct[resourceType];
                 const charResource = activeCharacter.resources.find(r => r.type === resourceType);
-
                 if (!charResource || charResource.value < totalCost) {
                     canAffordAll = false;
-                    alerter.show(`Not enough ${resourceType} to use all active abilities affecting ${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)}.`, 'error');
+                    alerter.show(`Not enough ${resourceType} to use abilities affecting ${attributeName}.`, 'error');
                     break;
                 }
             }
-
-            if (!canAffordAll) {
-                return; // Stop the roll if costs can't be met
-            }
-
-            // If costs can be met, deduct them and update character
+            if (!canAffordAll) return;
             if (Object.keys(costsToDeduct).length > 0) {
                 const newResources = activeCharacter.resources.map(res => {
-                    if (costsToDeduct[res.type]) {
-                        return { ...res, value: res.value - costsToDeduct[res.type] };
-                    }
+                    if (costsToDeduct[res.type]) return { ...res, value: res.value - costsToDeduct[res.type] };
                     return res;
                 });
                 db.updateCharacterResources(activeCharacter.id, newResources).then(updatedChar => {
-                    activeCharacter = updatedChar; // Update global activeCharacter
-                    processAndRenderCharacter(activeCharacter); // Re-render the character sheet with updated resources
-                    alerter.show(`Costs deducted for active abilities affecting ${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)}.`, 'info');
+                    activeCharacter = updatedChar;
+                    processAndRenderCharacter(activeCharacter);
+                    alerter.show(`Costs deducted for active abilities affecting ${attributeName}.`, 'info');
                 }).catch(err => {
                     alerter.show('Error deducting costs. See console.', 'error');
                     console.error('Error deducting character resources:', err);
-                    return; // Prevent roll if resource update fails
+                    return;
                 });
             }
-
-            // Apply modifiers (uses the already updated EffectHandler.activeEffects)
             const activeModifiers = EffectHandler.getEffectsForAttribute(attributeName, "modifier");
             let totalModifier = activeModifiers.reduce((sum, mod) => sum + mod.modifier, 0);
-
-            const modifiedResult = baseResult + totalModifier; // Apply modifier to the result
-
-            // Update the display for this specific attribute-row
+            const modifiedResult = baseResult + totalModifier;
             updateAttributeRollDisplay(assignment, baseResult, modifiedResult, activeModifiers);
         });
     });
 }
 
 /**
- * Renders the abilities section, separating active and passive abilities.
+ * Renders the abilities section.
  * @param {object} character - The character object with abilities.
  * @returns {string} HTML string for abilities section.
  */
 function renderAbilities(character) {
-    if (!character.abilities || character.abilities.length === 0) {
-        return '';
-    }
-
+    if (!character.abilities || character.abilities.length === 0) return '';
     const activeAbilitiesHtml = [];
     const passiveAbilitiesHtml = [];
-
     character.abilities.forEach(abilityState => {
         const abilityDef = abilityData[abilityState.id];
-        if (!abilityDef) {
-            console.warn(`Ability definition not found for ID: ${abilityState.id}`);
-            return;
-        }
-
-        let description = abilityDef.description;
-
-        // Replace template variables in the description (e.g., ${cost.gold})
-        description = description.replace(/\${([^}]+)}/g, (match, p1) => {
-            let value;
+        if (!abilityDef) return;
+        let description = abilityDef.description.replace(/\${([^}]+)}/g, (match, p1) => {
             try {
                 const path = p1.split('.');
                 let current = abilityDef;
                 for (let i = 0; i < path.length; i++) {
-                    if (current === null || current === undefined) {
-                        current = undefined;
-                        break;
-                    }
                     current = current[path[i]];
                 }
-                value = current;
-                if (value === undefined && typeof abilityDef[p1] !== 'undefined') {
-                    value = abilityDef[p1];
-                }
+                return current !== undefined ? current : match;
             } catch (e) {
-                console.error(`Error resolving template variable ${p1} for ability ${abilityState.id}:`, e);
-                value = undefined;
+                return match;
             }
-            if (value !== undefined) {
-                if (p1 === 'cost.gold' && typeof value === 'number') {
-                    return `${value} gold`;
-                }
-                return value;
-            }
-            return match;
         });
-
         let optionsHtml = '';
         if (abilityDef.options && abilityState.selections && abilityState.selections.length > 0) {
             const selectedOptionNames = abilityState.selections.map(selection => {
@@ -349,51 +338,19 @@ function renderAbilities(character) {
             }).join(', ');
             optionsHtml = `<p class="ability-selections">Selections: ${selectedOptionNames}</p>`;
         }
-
         if (abilityDef.type === "active") {
             const isOn = activeAbilityStates.has(abilityState.id) ? 'selected' : '';
-            activeAbilitiesHtml.push(`
-                <li class="ability-list-item">
-                    <button class="ability-button ability-card ${isOn}" data-ability-id="${abilityState.id}">
-                        <strong>${abilityDef.name}</strong> <span class="ability-type-tag active">ACTIVE</span>
-                        <p>${description}</p>
-                        ${optionsHtml}
-                    </button>
-                </li>
-            `);
-        } else { // Passive ability
-            passiveAbilitiesHtml.push(`
-                <li class="ability-card passive-ability-item">
-                    <strong>${abilityDef.name}</strong> <span class="ability-type-tag passive">PASSIVE</span>
-                    <p>${description}</p>
-                    ${optionsHtml}
-                </li>
-            `);
+            activeAbilitiesHtml.push(`<li class="ability-list-item"><button class="ability-button ability-card ${isOn}" data-ability-id="${abilityState.id}"><strong>${abilityDef.name}</strong> <span class="ability-type-tag active">ACTIVE</span><p>${description}</p>${optionsHtml}</button></li>`);
+        } else {
+            passiveAbilitiesHtml.push(`<li class="ability-card passive-ability-item"><strong>${abilityDef.name}</strong> <span class="ability-type-tag passive">PASSIVE</span><p>${description}</p>${optionsHtml}</li>`);
         }
     });
-
-    return `
-        <div class="character-abilities">
-            <h4>Abilities</h4>
-            <div class="abilities-section-active">
-                <h5>Active Abilities</h5>
-                <ul id="activeAbilitiesList">
-                    ${activeAbilitiesHtml.join('')}
-                </ul>
-            </div>
-            <div class="abilities-section-passive">
-                <h5>Passive Abilities</h5>
-                <ul id="passiveAbilitiesList">
-                    ${passiveAbilitiesHtml.join('')}
-                </ul>
-            </div>
-        </div>
-    `;
+    return `<div class="character-abilities"><h4>Abilities</h4><div class="abilities-section-active"><h5>Active Abilities</h5><ul id="activeAbilitiesList">${activeAbilitiesHtml.join('')}</ul></div><div class="abilities-section-passive"><h5>Passive Abilities</h5><ul id="passiveAbilitiesList">${passiveAbilitiesHtml.join('')}</ul></div></div>`;
 }
 
 /**
- * Highlights the active navigation link based on the page name.
- * @param {string} pageName - The name of the current page (e.g., 'play.html').
+ * Highlights the active navigation link.
+ * @param {string} pageName - The name of the current page.
  */
 function highlightActiveNav(pageName) {
     document.querySelectorAll('.nav-link').forEach(link => {
@@ -404,350 +361,181 @@ function highlightActiveNav(pageName) {
     });
 }
 
-
 /**
- * Renders the character's health display, including health bar and adjustment controls.
- * @param {object} character - The character object (with applied effects) to render health for.
+ * Renders the character's health display.
+ * @param {object} character - The character object.
  */
 function renderHealthDisplay(character) {
-    if (!character || !character.health) {
-        console.warn("Character or health data not available for rendering health display.");
-        return;
-    }
-
+    if (!character || !character.health) return;
     const healthDisplayContainer = document.querySelector('.character-health.health-display');
-    if (!healthDisplayContainer) {
-        console.warn("Health display container not found.");
-        return;
-    }
-
-    // Use character.calculatedHealth if it exists, otherwise fall back to base health
+    if (!healthDisplayContainer) return;
     const currentMaxHealth = character.calculatedHealth ? character.calculatedHealth.currentMax : character.health.max;
-
-    // Calculate health percentage and determine health class for styling
     const healthPercentage = (character.health.current / currentMaxHealth) * 100;
-    let healthClass = '';
-    if (healthPercentage > 60) {
-        healthClass = 'health-full';
-    } else if (healthPercentage > 30) {
-        healthClass = 'health-medium';
-    } else {
-        healthClass = 'health-low';
-    }
-
-    healthDisplayContainer.innerHTML = `
-        <h4>Health</h4>
-        <div class="health-controls">
-            <input type="number" id="healthAdjustmentInput" placeholder="e.g. -5, +10" class="form-control" />
-            <button id="applyHealthAdjustment" class="btn btn-primary">Apply</button>
-        </div>
-        <div class="health-bar-container">
-            <div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div>
-        </div>
-        <div class="health-numbers">
-            ${character.health.current} / ${currentMaxHealth}
-            ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}
-        </div>
-    `;
-
+    let healthClass = healthPercentage > 60 ? 'health-full' : healthPercentage > 30 ? 'health-medium' : 'health-low';
+    healthDisplayContainer.innerHTML = `<h4>Health</h4><div class="health-controls"><input type="number" id="healthAdjustmentInput" placeholder="e.g. -5, +10" class="form-control" /><button id="applyHealthAdjustment" class="btn btn-primary">Apply</button></div><div class="health-bar-container"><div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div></div><div class="health-numbers">${character.health.current} / ${currentMaxHealth} ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}</div>`;
     const applyButton = document.getElementById('applyHealthAdjustment');
     const inputField = document.getElementById('healthAdjustmentInput');
-
     applyButton.addEventListener('click', function() {
-        const value = inputField.value;
-        const adjustment = parseInt(value, 10);
-
-        if (isNaN(adjustment) || !Number.isInteger(adjustment)) {
-            alerter.show('Invalid input. Please enter a whole number.', 'error');
-            inputField.value = '';
-            return;
-        }
-
-        let newCurrentHealth = character.health.current + adjustment;
+        const adjustment = parseInt(inputField.value, 10);
+        if (isNaN(adjustment)) { alerter.show('Invalid input.', 'error'); inputField.value = ''; return; }
+        let newCurrentHealth = Math.max(0, character.health.current + adjustment);
         const finalMaxHealth = character.calculatedHealth ? character.calculatedHealth.currentMax : character.health.max;
-
-        // Cap current health at calculated max health
-        if (newCurrentHealth > finalMaxHealth) {
-            newCurrentHealth = finalMaxHealth;
-        }
-        if (newCurrentHealth < 0) {
-            newCurrentHealth = 0;
-        }
-
+        newCurrentHealth = Math.min(newCurrentHealth, finalMaxHealth);
         db.updateCharacterHealth(activeCharacter.id, { current: newCurrentHealth }).then(updatedCharacter => {
-            activeCharacter = updatedCharacter; // Update the global activeCharacter
-            processAndRenderCharacter(activeCharacter); // Re-render with updated character state
-            console.log(`Health adjusted for ${activeCharacter.info.name}: ${adjustment}. New health: ${activeCharacter.health.current}`);
-            inputField.value = ''; // Clear input field
+            activeCharacter = updatedCharacter;
+            processAndRenderCharacter(activeCharacter);
+            inputField.value = '';
         }).catch(err => {
-            alerter.show('Error updating health. See console.', 'error');
+            alerter.show('Error updating health.', 'error');
             console.error('Error updating character health:', err);
         });
     });
-
-    inputField.addEventListener('keypress', function(event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            applyButton.click();
-        }
-    });
+    inputField.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyButton.click(); } });
 }
 
 /**
  * Renders the character's resources.
- * @param {object} character - The character object with resources.
+ * @param {object} character - The character object.
  * @returns {string} HTML string for resources section.
  */
 function renderResources(character) {
-    if (!character.resources || character.resources.length === 0) {
-        return '';
-    }
-    return `
-        <div class="character-resources">
-            <h4>Resources</h4>
-            <ul class="resource-list">
-                ${character.resources.map(resource => `
-                    <li>
-                        <strong>${resource.type.charAt(0).toUpperCase() + resource.type.slice(1)}:</strong>
-                        ${resource.value} ${resource.max !== undefined ? `/ ${resource.max}` : ''}
-                    </li>
-                `).join('')}
-            </ul>
-        </div>
-    `;
+    if (!character.resources || character.resources.length === 0) return '';
+    return `<div class="character-resources"><h4>Resources</h4><ul class="resource-list">${character.resources.map(r => `<li><strong>${r.type.charAt(0).toUpperCase() + r.type.slice(1)}:</strong> ${r.value} ${r.max !== undefined ? `/ ${r.max}` : ''}</li>`).join('')}</ul></div>`;
 }
 
 /**
  * Renders the character's languages.
- * @param {object} character - The character object with languages.
+ * @param {object} character - The character object.
  * @returns {string} HTML string for languages section.
  */
 function renderLanguages(character) {
-    if (!character.languages || character.languages.length === 0) {
-        return '';
-    }
-    return `
-        <div class="character-languages">
-            <h4>Languages</h4>
-            <ul>
-                ${character.languages.map(lang => `<li>${lang}</li>`).join('')}
-            </ul>
-        </div>
-    `;
+    if (!character.languages || character.languages.length === 0) return '';
+    return `<div class="character-languages"><h4>Languages</h4><ul>${character.languages.map(lang => `<li>${lang}</li>`).join('')}</ul></div>`;
 }
 
 /**
  * Renders the character's active statuses.
- * @param {object} character - The character object with statuses.
+ * @param {object} character - The character object.
  * @returns {string} HTML string for statuses section.
  */
 function renderStatuses(character) {
-    if (!character.statuses || character.statuses.length === 0) {
-        return '';
-    }
-    return `
-        <div class="character-statuses">
-            <h4>Active Statuses</h4>
-            <ul>
-                ${character.statuses.map(status => `<li>${status.name}</li>`).join('')}
-            </ul>
-        </div>
-    `;
+    if (!character.statuses || character.statuses.length === 0) return '';
+    return `<div class="character-statuses"><h4>Active Statuses</h4><ul>${character.statuses.map(s => `<li>${s.name}</li>`).join('')}</ul></div>`;
 }
 
 /**
  * Renders the character's flaws.
- * @param {object} character - The character object with flaws.
+ * @param {object} character - The character object.
  * @returns {string} HTML string for flaws section.
  */
 function renderFlaws(character) {
-    if (!character.flaws || character.flaws.length === 0) {
-        return '';
-    }
-    return `
-        <div class="character-flaws">
-            <h4>Flaws</h4>
-            <ul>
-                ${character.flaws.map(flawState => {
-                    const flawDef = flawData[flawState.id];
-                    if (!flawDef) {
-                        console.warn(`Flaw definition not found for ID: ${flawState.id}`);
-                        return `<li>Unknown Flaw (ID: ${flawState.id})</li>`;
-                    }
-                    // Include nested selections if any
-                    let optionsHtml = '';
-                    if (flawDef.options && flawState.selections && flawState.selections.length > 0) {
-                        const selectedOptionNames = flawState.selections.map(selection => {
-                            const option = flawDef.options.find(opt => opt.id === selection.id);
-                            return option ? option.name : selection.id;
-                        }).join(', ');
-                        optionsHtml = `<p class="flaw-selections">Selections: ${selectedOptionNames}</p>`;
-                    }
-                    return `
-                        <li class="flaw-item">
-                            <strong>${flawDef.name}</strong>
-                            <p>${flawDef.description}</p>
-                            ${optionsHtml}
-                        </li>
-                    `;
-                }).join('')}
-            </ul>
-        </div>
-    `;
+    if (!character.flaws || character.flaws.length === 0) return '';
+    return `<div class="character-flaws"><h4>Flaws</h4><ul>${character.flaws.map(flawState => {
+        const flawDef = flawData[flawState.id];
+        if (!flawDef) return `<li>Unknown Flaw (ID: ${flawState.id})</li>`;
+        let optionsHtml = '';
+        if (flawDef.options && flawState.selections && flawState.selections.length > 0) {
+            optionsHtml = `<p class="flaw-selections">Selections: ${flawState.selections.map(s => { const o = flawDef.options.find(opt => opt.id === s.id); return o ? o.name : s.id; }).join(', ')}</p>`;
+        }
+        return `<li class="flaw-item"><strong>${flawDef.name}</strong><p>${flawDef.description}</p>${optionsHtml}</li>`;
+    }).join('')}</ul></div>`;
 }
 
 /**
  * Renders the character's perks.
- * @param {object} character - The character object with perks.
+ * @param {object} character - The character object.
  * @returns {string} HTML string for perks section.
  */
-function renderPerks(character) { // ADDED: New function to render perks
-    if (!character.perks || character.perks.length === 0) {
-        return '';
-    }
-    return `
-        <div class="character-perks">
-            <h4>Perks</h4>
-            <ul>
-                ${character.perks.map(perkState => {
-                    const perkDef = perkData[perkState.id];
-                    if (!perkDef) {
-                        console.warn(`Perk definition not found for ID: ${perkState.id}`);
-                        return `<li>Unknown Perk (ID: ${perkState.id})</li>`;
-                    }
-                    // Include nested selections if any
-                    let optionsHtml = '';
-                    if (perkDef.options && perkState.selections && perkState.selections.length > 0) {
-                        const selectedOptionNames = perkState.selections.map(selection => {
-                            const option = perkDef.options.find(opt => opt.id === selection.id);
-                            return option ? option.name : selection.id;
-                        }).join(', ');
-                        optionsHtml = `<p class="perk-selections">Selections: ${selectedOptionNames}</p>`;
-                    }
-                    return `
-                        <li class="perk-item">
-                            <strong>${perkDef.name}</strong>
-                            <p>${perkDef.description}</p>
-                            ${optionsHtml}
-                        </li>
-                    `;
-                }).join('')}
-            </ul>
-        </div>
-    `;
+function renderPerks(character) {
+    if (!character.perks || character.perks.length === 0) return '';
+    return `<div class="character-perks"><h4>Perks</h4><ul>${character.perks.map(perkState => {
+        const perkDef = perkData[perkState.id];
+        if (!perkDef) return `<li>Unknown Perk (ID: ${perkState.id})</li>`;
+        let optionsHtml = '';
+        if (perkDef.options && perkState.selections && perkState.selections.length > 0) {
+            optionsHtml = `<p class="perk-selections">Selections: ${perkState.selections.map(s => { const o = perkDef.options.find(opt => opt.id === s.id); return o ? o.name : s.id; }).join(', ')}</p>`;
+        }
+        return `<li class="perk-item"><strong>${perkDef.name}</strong><p>${perkDef.description}</p>${optionsHtml}</li>`;
+    }).join('')}</ul></div>`;
 }
-
 
 // Initialize play page on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', async function() {
-    highlightActiveNav('play.html'); // Highlight "Play" link
-
+    highlightActiveNav('play.html');
     const characterDetails = document.getElementById('characterDetails');
-
-    // Delegated event listener for tooltips on modifier displays
     if (characterDetails) {
         characterDetails.addEventListener('click', function(event) {
             let targetModSpan = event.target.closest('.modifier-display');
-
             if (targetModSpan && !targetModSpan.classList.contains('empty-modifier-cell')) {
-                // Remove any existing tooltips to prevent duplicates
                 targetModSpan.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove());
-
                 const tooltip = document.createElement('div');
                 tooltip.classList.add('modifier-tooltip');
-                const itemName = targetModSpan.dataset.itemName; // MODIFIED: data-ability-name to data-item-name
+                const itemName = targetModSpan.dataset.itemName;
                 const sourceType = targetModSpan.dataset.sourceType;
                 tooltip.textContent = `${itemName} (Source: ${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)})`;
-
                 targetModSpan.appendChild(tooltip);
-
-                setTimeout(() => {
-                    if (targetModSpan.contains(tooltip)) {
-                        targetModSpan.removeChild(tooltip);
-                    }
-                }, 3000);
+                setTimeout(() => { if (targetModSpan.contains(tooltip)) targetModSpan.removeChild(tooltip); }, 3000);
             }
         });
     }
 
-    // Load all game data using the new dataLoader module
     try {
         const loadedData = await loadGameData();
+        // CHANGED: Store module definitions
+        moduleDefinitions = loadedData.moduleSystemData;
         abilityData = loadedData.abilityData;
         flawData = loadedData.flawData;
-        perkData = loadedData.perkData; // ADDED: Assign loaded perkData
+        perkData = loadedData.perkData;
         console.log('play.js: All game data loaded successfully.');
-
-        // Fetch and render the active character
         db.getActiveCharacter().then(function(character) {
             activeCharacter = character;
-            processAndRenderCharacter(activeCharacter); // Initial render
+            processAndRenderCharacter(activeCharacter);
         }).catch(function(err) {
             console.error('Error loading character:', err);
             alerter.show('Failed to load active character.', 'error');
         });
-
     } catch (error) {
         console.error('play.js: Error initializing data:', error);
         alerter.show('Failed to load game data. Please check the console for details.', 'error');
     }
 
-
-    // Event listener for toggling active abilities
     document.getElementById('characterDetails').addEventListener('click', function(event) {
         const button = event.target.closest('.ability-button');
         if (button) {
             const abilityId = button.dataset.abilityId;
-
             if (activeAbilityStates.has(abilityId)) {
                 activeAbilityStates.delete(abilityId);
-                button.classList.remove('toggled-red');
-                console.log(`Ability ${abilityId} turned OFF.`);
             } else {
                 activeAbilityStates.add(abilityId);
-                button.classList.add('toggled-red');
-                console.log(`Ability ${abilityId} turned ON.`);
             }
-            // After toggling, re-process and re-render the character sheet
             processAndRenderCharacter(activeCharacter);
         }
     });
 
-    // Dice roller functionality for D20 (generic for the page)
     document.getElementById('rollD20').addEventListener('click', function() {
         const result = Math.floor(Math.random() * 20) + 1;
         const diceResult = document.getElementById('diceResult');
-
         diceResult.textContent = '...';
-        setTimeout(function() {
-            diceResult.textContent = result;
-        }, 500);
+        setTimeout(() => { diceResult.textContent = result; }, 500);
     });
 
-    // Export single character
     document.getElementById('exportSingleCharacterBtn').addEventListener('click', function() {
         if (!activeCharacter) {
             alerter.show('No character selected to export.', 'info');
             return;
         }
-
         db.exportCharacter(activeCharacter.id, activeCharacter.info.name).then(function(exportData) {
             if (!exportData) {
                 alerter.show('Selected character not found for export.', 'error');
                 return;
             }
-
-            console.log('Exporting character:', exportData.data);
-
             const a = document.createElement('a');
             a.href = exportData.url;
             a.download = exportData.filename;
             document.body.appendChild(a);
-            a.click();
+a.click();
             document.body.removeChild(a);
-            setTimeout(function() {
-                URL.revokeObjectURL(exportData.url);
-            }, 100);
+            setTimeout(() => URL.revokeObjectURL(exportData.url), 100);
         }).catch(function(err) {
             console.error('Export failed:', err);
             alerter.show('Export failed: ' + err, 'error');
