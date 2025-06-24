@@ -127,11 +127,18 @@ class PageNavigator {
         return true;
       case 'destiny':
         return this._validateDestinyCompletion(currentState);
+      // This case now uses the dynamic attribute data from the module.
       case 'attributes': {
         if (!currentState.module) return false;
         const moduleDef = this.stateManager.getModule(currentState.module);
-        if (!moduleDef || !moduleDef.attributes) return false;
-        return moduleDef.attributes.every(attr => currentState.attributes[attr.toLowerCase()]);
+        const attrConfig = moduleDef?.attributes;
+        // The page is complete if the module doesn't define attributes, or if all defined attributes have been assigned.
+        if (!attrConfig || !attrConfig.names) return true;
+        
+        return attrConfig.names.every(attrName => {
+            const assignedValue = currentState.attributes[attrName.toLowerCase()];
+            return assignedValue !== undefined && assignedValue !== null;
+        });
       }
       case 'flaws-and-perks': {
         const allItemDefs = this.stateManager.getItemData();
@@ -227,7 +234,7 @@ class PageNavigator {
     const errorMap = {
       module: 'Please select a module to continue.',
       destiny: 'Please select a Destiny and ensure all choices are complete (including for abilities, flaws, and equipment).',
-      attributes: 'Please assign dice to all attributes.',
+      attributes: 'Please assign a value to all attributes.',
       'flaws-and-perks': 'Please complete all required nested flaw/perk selections and ensure Perk Points do not exceed Flaw Points.',
       info: "Please enter your character's name."
     };

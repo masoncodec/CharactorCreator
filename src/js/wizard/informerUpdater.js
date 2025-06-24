@@ -15,13 +15,9 @@ class InformerUpdater {
       console.warn('InformerUpdater: Informer panel not found. Display updates will not occur.');
     }
 
-    // --- REFACTOR START ---
-    // Add a global listener for state changes to ensure the informer is always up-to-date.
     document.addEventListener('wizard:stateChange', () => {
-      // Re-render the informer with fresh data whenever the state changes.
       this.update(this.currentPage);
     });
-    // --- REFACTOR END ---
 
     console.log('InformerUpdater: Initialized.');
   }
@@ -66,7 +62,6 @@ class InformerUpdater {
           const destiny = this.stateManager.getDestiny(currentState.destiny);
           const destinySelections = currentState.selections.filter(sel => sel.source.startsWith('destiny-'));
           
-          // Helper to generate HTML for a list of items based on type
           const renderItems = (itemType, title) => {
               const items = destinySelections.filter(sel => allItemDefs[sel.id]?.itemType === itemType);
               if (items.length === 0) return '';
@@ -88,21 +83,28 @@ class InformerUpdater {
             </div>`;
         }
         break;
-
+      
+      // This case now dynamically displays attributes from the module config.
       case 'attributes':
         if (currentState.module) {
           const moduleData = this.stateManager.getModule(currentState.module);
-          const attributeList = (moduleData?.attributes || [])
-            .map(attr => `<li><strong>${attr}</strong>: ${currentState.attributes[attr.toLowerCase()] || 'Unassigned'}</li>`)
-            .join('');
+          const attrConfig = moduleData?.attributes;
+          let attributeList = '<li>No attributes configured for this module.</li>';
+
+          if (attrConfig && attrConfig.names) {
+              attributeList = attrConfig.names.map(attrName => {
+                  const assignedValue = currentState.attributes[attrName.toLowerCase()];
+                  const displayValue = (assignedValue !== undefined && assignedValue !== null) ? assignedValue.toString().toUpperCase() : 'Unassigned';
+                  return `<li><strong>${attrName}</strong>: ${displayValue}</li>`;
+              }).join('');
+          }
+          
           htmlContent = `<h3>${moduleData.name} Attributes</h3><ul>${attributeList}</ul>`;
         } else {
           htmlContent = `<h3>Attributes</h3><p>Select a module first to see attributes.</p>`;
         }
         break;
 
-      // --- REFACTOR START ---
-      // This case is completely reworked for the new unified point system.
       case 'flaws-and-perks': {
         const independentSelections = currentState.selections.filter(sel => sel.source.startsWith('independent-'));
         
@@ -115,7 +117,6 @@ class InformerUpdater {
             }).join('');
         };
         
-        // Get the single, unified point total from the state manager.
         const availablePoints = this.stateManager.getAvailableCharacterPoints();
 
         htmlContent = `
@@ -136,7 +137,6 @@ class InformerUpdater {
           </div>`;
         break;
       }
-      // --- REFACTOR END ---
 
       case 'equipment-and-loot': {
         const { spent, total } = this.stateManager.getEquipmentPointsSummary();
