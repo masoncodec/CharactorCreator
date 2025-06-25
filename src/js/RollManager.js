@@ -5,13 +5,12 @@ export class RollManager {
   /**
    * @param {string} attributeName - The name of the attribute being rolled (e.g., "Whimsy").
    * @param {object} modifierData - An object containing processed modifier information.
-   * @param {number} modifierData.totalNumerical - The sum of all numerical modifiers.
-   * @param {number} modifierData.totalDiceNum - The sum of all die_num modifiers.
-   * @param {Array<object>} modifierData.sources - An array of all raw effects contributing to the totals.
+   * @param {number} baseValue - The character's base value for the attribute.
    */
-  constructor(attributeName, modifierData) {
+  constructor(attributeName, modifierData, baseValue) {
     this.attributeName = attributeName;
     this.modifierData = modifierData;
+    this.baseValue = baseValue; // ADDED: Store the base attribute value
     this.modalElement = null;
     this._boundClose = this.close.bind(this);
     this._boundHandleRoll = this._handleRoll.bind(this);
@@ -45,9 +44,7 @@ export class RollManager {
     // Close listeners
     this.modalElement.querySelector('.roll-modal-close').addEventListener('click', this._boundClose);
     this.modalElement.querySelector('.roll-modal-backdrop').addEventListener('click', this._boundClose);
-    this._boundCloseOnEscape = (e) => {
-      if (e.key === "Escape") this._boundClose();
-    };
+    this._boundCloseOnEscape = (e) => { if (e.key === "Escape") this._boundClose(); };
     document.addEventListener('keydown', this._boundCloseOnEscape);
 
     // Roll listener
@@ -59,7 +56,8 @@ export class RollManager {
    * @private
    */
   _handleRoll() {
-    const { totalNumerical, totalDiceNum } = this.modifierData;
+    const { totalNumerical } = this.modifierData;
+    const totalDiceNum = this.modifierData.totalDiceNum || 0; // Default to 0 if undefined
 
     let hopeDiceCount = 1;
     let fearDiceCount = 1;
@@ -78,7 +76,7 @@ export class RollManager {
     const highestHope = Math.max(...hopeRolls);
     const highestFear = Math.max(...fearRolls);
 
-    const finalTotal = highestHope + highestFear + totalNumerical;
+    const finalTotal = highestHope + highestFear + totalNumerical + this.baseValue;
 
     // Update the UI with the results
     this.modalElement.querySelector('#hope-roll-result').textContent = highestHope;
@@ -101,6 +99,9 @@ export class RollManager {
       `<li><strong>${source.itemName}:</strong> ${source.type === 'modifier' ? 'MOD' : 'DICE'} ${source.modifier > 0 ? '+' : ''}${source.modifier}</li>`
     ).join('');
 
+    // A line item to display the base attribute value.
+    const baseValueHTML = `<li><strong>Base Value (${this.attributeName}):</strong> ${this.baseValue >= 0 ? '+' : ''}${this.baseValue}</li>`;
+
     return `
       <div id="roll-manager-modal">
         <div class="roll-modal-backdrop"></div>
@@ -109,13 +110,15 @@ export class RollManager {
           <h2 class="roll-modal-header">${this.attributeName}</h2>
           
           <div class="roll-modal-section modifiers-section">
-            <h4>Modifiers</h4>
+            <h4>Modifiers Breakdown</h4>
             <div class="modifier-totals">
-              <span>Numerical: <strong>${this.modifierData.totalNumerical > 0 ? '+' : ''}${this.modifierData.totalNumerical}</strong></span>
-              <span>Dice Num: <strong>${this.modifierData.totalDiceNum > 0 ? '+' : ''}${this.modifierData.totalDiceNum}</strong></span>
+              <span>Attribute Base: <strong>${this.baseValue >= 0 ? '+' : ''}${this.baseValue}</strong></span>
+              <span>Effect Mods: <strong>${this.modifierData.totalNumerical >= 0 ? '+' : ''}${this.modifierData.totalNumerical}</strong></span>
+              <span>Dice Num: <strong>${this.modifierData.totalDiceNum >= 0 ? '+' : ''}${this.modifierData.totalDiceNum}</strong></span>
             </div>
             <ul class="modifier-sources">
-              ${modifierSourcesHTML || '<li>No modifiers active</li>'}
+              ${baseValueHTML}
+              ${modifierSourcesHTML || ''}
             </ul>
           </div>
 
