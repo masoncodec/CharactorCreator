@@ -1,6 +1,7 @@
 // characterWizard.js
 // This is the main orchestrator for the character creation wizard.
-// This version is fully refactored to work with the new modular components.
+// REFACTORED: This version implements a more modular architecture and re-establishes
+// the central state change listener for dynamic UI updates.
 
 // --- Core Modules ---
 import { loadGameData } from '../dataLoader.js';
@@ -23,38 +24,25 @@ import { EquipmentAndLootPageHandler } from './equipmentAndLootPageHandler.js';
 import { InfoPageHandler } from './infoPageHandler.js';
 
 class CharacterWizard {
-  /**
-   * REFACTORED: The constructor now accepts the separate data arguments
-   * exactly as they are passed from the DOMContentLoaded event listener.
-   */
   constructor(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData, db) {
-    // 1. Initialize the central state manager.
-    // It is passed the separate data arguments and will unify them internally.
     this.stateManager = new WizardStateManager(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData);
-
-    // 2. Define the pages of the wizard in their correct order.
     this.pages = ['module', 'frame', 'destiny', 'attributes', 'flaws-and-perks', 'equipment-and-loot', 'info'];
+    
+    this.pageHandlers = {
+      module: new ModulePageHandler(this.stateManager),
+      frame: new FramePageHandler(this.stateManager),
+      destiny: new DestinyPageHandler(this.stateManager),
+      attributes: new AttributesPageHandler(this.stateManager, alerter),
+      'flaws-and-perks': new FlawsAndPerksPageHandler(this.stateManager),
+      'equipment-and-loot': new EquipmentAndLootPageHandler(this.stateManager),
+      info: new InfoPageHandler(this.stateManager)
+    };
 
-    // 3. Initialize the navigation component.
-    this.pageNavigator = new PageNavigator(this.pages, this.stateManager, {
+    this.pageNavigator = new PageNavigator(this.pages, this.stateManager, this.pageHandlers, {
       loadPage: this.loadPage.bind(this)
     });
 
-    // 4. Initialize the informer panel updater.
     this.informerUpdater = new InformerUpdater(this.stateManager);
-
-    // 5. Instantiate all page-specific handlers.
-    this.pageHandlers = {
-      module: new ModulePageHandler(this.stateManager, this.informerUpdater, this.pageNavigator),
-      frame: new FramePageHandler(this.stateManager, this.informerUpdater),
-      destiny: new DestinyPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator),
-      attributes: new AttributesPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator, alerter),
-      'flaws-and-perks': new FlawsAndPerksPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator),
-      'equipment-and-loot': new EquipmentAndLootPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator, alerter),
-      info: new InfoPageHandler(this.stateManager, this.informerUpdater, this.pageNavigator)
-    };
-
-    // 6. Initialize the character finishing component.
     this.characterFinisher = new CharacterFinisher(this.stateManager, db, alerter, EffectHandler, this.pageNavigator, this.pages);
     this.activePageHandler = null;
 
@@ -68,10 +56,16 @@ class CharacterWizard {
   init() {
     console.log('CharacterWizard.init: Setting up global event listeners and initial page.');
     this.pageNavigator.initNavListeners();
-    this.loadPage(this.pages[0]);
     
-    // IMPORTANT FIX: Validate data AFTER the initial components are set up.
-    // This ensures the state manager is fully ready before we check its contents.
+    // --- FIX: Centralized State Change Listener ---
+    // This single listener ensures that both the navigation and informer panel
+    // react to any state change in the application, restoring dynamic updates.
+    document.addEventListener('wizard:stateChange', () => {
+        this.pageNavigator.updateNav();
+        this.informerUpdater.update(this.activePageHandler);
+    });
+    
+    this.loadPage(this.pages[0]);
     this.validateLoadedData();
   }
 
@@ -79,8 +73,7 @@ class CharacterWizard {
    * Loads the content and sets up events for a given wizard page.
    */
   async loadPage(page) {
-    const currentPageIndex = this.pages.indexOf(page);
-    this.pageNavigator.setCurrentPage(currentPageIndex);
+    this.pageNavigator.setCurrentPage(page);
 
     console.log(`CharacterWizard.loadPage: Loading page: ${page}`);
     const selectorPanel = document.getElementById('selectorPanel');
@@ -108,26 +101,23 @@ class CharacterWizard {
       console.error(`CharacterWizard.loadPage: Error loading partials for ${page}:`, error);
       alerter.show(`Failed to load page content for ${page}.`, 'error');
     } finally {
+      // Manually trigger an update after a page load to ensure the UI is in sync.
       this.pageNavigator.updateNav();
-      this.informerUpdater.update(page);
+      this.informerUpdater.update(this.activePageHandler);
     }
   }
 
   /**
-   * REFACTORED: Validates the loaded game data using the new state manager methods.
+   * Validates the loaded game data using the state manager methods.
    */
   validateLoadedData() {
     console.log('CharacterWizard.validateLoadedData: Running initial data validation.');
-    
-    // This now uses the single, unified item map from the state manager.
     const allItems = this.stateManager.getItemData();
-    
     if (!allItems || Object.keys(allItems).length === 0) {
         console.error("Validation Error: No items were loaded into the state manager's item map.");
-        return; // Stop validation if the map is empty.
+        return;
     }
 
-    // Check that all items referenced in destiny choice groups actually exist in the master item map.
     const destinyData = this.stateManager.data.destinies;
     Object.values(destinyData).forEach(destiny => {
       if (destiny.choiceGroups) {
@@ -158,16 +148,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   console.log('CharacterWizard: DOMContentLoaded event fired. Loading game data...');
   try {
-    // dataLoader returns an object with all the data collections.
     const { moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData } = await loadGameData();
-    
-    // ENHANCED LOGGING: Let's see the data right after it's loaded.
-    console.log("Data successfully loaded by dataLoader:", { moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData });
-    
-    // Pass the separate data collections to the CharacterWizard constructor.
-    // The wizard will then pass these to the state manager, which will process them correctly.
     new CharacterWizard(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData, db);
-    
   } catch (error) {
     console.error('CharacterWizard: A critical error occurred during data loading:', error);
     alerter.show('Failed to load critical character data. The application cannot start.', 'error');
