@@ -125,10 +125,9 @@ class RuleEngine {
    * @private
    */
   _checkEquipmentAffordability(itemDef) {
-    // An already selected item should never be disabled by this rule.
-    if (this.stateManager.itemManager.getSelection(itemDef.id, 'equipment-and-loot')) {
-        return { isDisabled: false, reason: '' };
-    }
+    // The check that returned early if the item was already selected has been removed.
+    // The rule must ALWAYS check the current point total to determine if another
+    // item can be afforded.
 
     const { remaining } = this.stateManager.getEquipmentPointsSummary();
     const itemCost = itemDef.weight || 0;
