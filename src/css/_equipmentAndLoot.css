@@ -283,3 +283,11 @@
   /* Lift it just a tiny bit more */
   transform: translateY(-4px);
 }
+
+/* Add this to _equipmentAndLoot.css */
+
+/* This new class will contain our action buttons */
+.card-buttons {
+  margin-left: auto; /* Pushes the element to the far right in a flex container */
+  padding-left: 0.5rem; /* Ensures a little space if the equip toggle is also present */
+}

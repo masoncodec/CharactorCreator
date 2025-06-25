@@ -132,6 +132,7 @@
     "description": "A simple silver ring that subtly deflects harm.",
     "rarity": "rare",
     "weight": 0.1,
+    "stackable": true,
     "effects": [
       {
         "type": "modifier",

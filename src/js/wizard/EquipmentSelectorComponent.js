@@ -1,7 +1,6 @@
 // public/js/components/wizard/EquipmentSelectorComponent.js
 // A specialized, reusable component that extends ItemSelectorComponent
-// to handle the unique UI needs of equipment and loot, such as
-// quantity inputs and equip toggles.
+// to handle the unique UI needs of equipment and loot.
 
 import { ItemSelectorComponent } from './ItemSelectorComponent.js';
 
@@ -17,7 +16,6 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
     for (const itemId in this.items) {
       const itemDef = this.items[itemId];
       const selectionState = selections.find(s => s.id === itemDef.id && s.source === this.source);
-      // Get the validation state from the now-correct RuleEngine.
       const validationState = this.ruleEngine.getValidationState(itemDef, this.source);
       allCardsHtml += this._createCardHTML(itemDef, selectionState, validationState);
     }
@@ -34,7 +32,6 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
    */
   _createCardHTML(itemDef, selectionState, validationState) {
     const isSelected = !!selectionState;
-    // This logic now works because validationState.isDisabled is accurate.
     const canAddMore = !validationState.isDisabled;
     
     // This prevents the whole card from being disabled if it's already selected,
@@ -60,10 +57,6 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
         <div class="ability-description">${itemDef.description}</div>
         
         <div class="item-card-footer">
-          ${itemDef.stackable
-              ? this._createQuantityControlHTML(itemDef, currentQuantity, canAddMore)
-              : ''
-          }
           
           ${itemDef.itemType === 'equipment' ? `
               <div class="equip-toggle-group">
@@ -75,11 +68,16 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
               </div>` : ''
           }
 
-          ${!itemDef.stackable ? `
-            <button class="add-remove-btn" data-action="toggle-select" data-item-id="${itemDef.id}" ${isDisabledForSelection ? 'disabled' : ''}>
-              ${isSelected ? 'Remove' : 'Add'}
-            </button>` : ''
-          }
+          <div class="card-buttons">
+            ${itemDef.stackable
+                ? this._createQuantityControlHTML(itemDef, currentQuantity, canAddMore)
+                : `
+                  <button class="add-remove-btn" data-action="toggle-select" data-item-id="${itemDef.id}" ${isDisabledForSelection ? 'disabled' : ''}>
+                    ${isSelected ? 'Remove' : 'Add'}
+                  </button>`
+            }
+          </div>
+
         </div>
       </div>
     `;
