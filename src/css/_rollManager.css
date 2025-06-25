@@ -1,0 +1,171 @@
+/* _rollManager.css */
+/* Styles for the RollManager modal popup */
+
+#roll-manager-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.roll-modal-backdrop {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+.roll-modal-content {
+  position: relative;
+  background: #2c2c2c;
+  color: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 550px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  z-index: 1001;
+}
+
+.roll-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 2rem;
+  color: #fff;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.roll-modal-header {
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 2.2rem;
+}
+
+.roll-modal-section {
+  margin-bottom: 1.5rem;
+}
+
+.roll-modal-section h4 {
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.modifier-totals {
+  display: flex;
+  justify-content: space-around;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.modifier-sources {
+  list-style: none;
+  padding: 0;
+  font-size: 0.9rem;
+  max-height: 80px;
+  overflow-y: auto;
+  background: #222;
+  padding: 5px;
+  border-radius: 3px;
+}
+
+.roll-button-section {
+  text-align: center;
+}
+
+.roll-modal-roll-btn {
+  font-size: 1.5rem;
+  padding: 10px 40px;
+  border-radius: 5px;
+  cursor: pointer;
+  background-color: #007bff;
+  color: white;
+  border: 1px solid #007bff;
+}
+
+.roll-modal-roll-btn:disabled {
+  background-color: #555;
+  border-color: #555;
+  cursor: not-allowed;
+}
+
+.results-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.results-grid.two-col {
+  grid-template-columns: 1fr 1fr;
+}
+
+.results-grid.three-col {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.result-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: #3a3a3a;
+  border-radius: 5px;
+  text-align: center;
+  border: 2px solid transparent;
+  /* Base border for smooth transition */
+  transition: border-color 0.3s ease-in-out;
+}
+
+/* Highlighting styles */
+.result-box.hope-win {
+  border-color: #28a745;
+}
+
+.result-box.fear-win {
+  border-color: #dc3545;
+}
+
+.result-box.d6-box {
+  background: #33415c;
+}
+
+.result-box.total-box {
+  grid-column: 1 / -1;
+  background: #4a4a4a;
+  margin-top: 1rem;
+}
+
+.total-box.critical-success {
+  border-color: #ffc107;
+}
+
+.result-label {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.result-value {
+  font-size: 2.5rem;
+  font-weight: bold;
+}
+
+.result-value.critical-text {
+  font-size: 1.8rem;
+  color: #ffc107;
+}
+
+.result-details {
+  font-size: 0.8rem;
+  color: #ccc;
+  min-height: 1.2em;
+}
