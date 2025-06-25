@@ -39,17 +39,15 @@ export class RollManager {
     }
   
     /**
-     * REFACTORED: Handles the dice rolling logic with the new d6 mechanic.
+     * REFACTORED: Handles dice rolling and adds logic for criticals and highlighting.
      * @private
      */
     _handleRoll() {
       const { totalNumerical, totalDiceNum } = this.modifierData;
   
-      // Hope and Fear are now always a single d12 roll each.
       const highestHope = Math.floor(Math.random() * 12) + 1;
       const highestFear = Math.floor(Math.random() * 12) + 1;
   
-      // NEW: Handle the d6 rolls based on dice_num.
       let d6Modifier = 0;
       const d6Rolls = [];
       if (totalDiceNum !== 0) {
@@ -57,41 +55,47 @@ export class RollManager {
         for (let i = 0; i < numD6ToRoll; i++) {
           d6Rolls.push(Math.floor(Math.random() * 6) + 1);
         }
-        
         const d6Sum = d6Rolls.reduce((sum, roll) => sum + roll, 0);
-  
-        if (totalDiceNum > 0) {
-          d6Modifier = d6Sum;
-        } else { // totalDiceNum < 0
-          d6Modifier = -d6Sum;
-        }
+        d6Modifier = totalDiceNum > 0 ? d6Sum : -d6Sum;
       }
   
-      // Update the final total calculation.
-      const finalTotal = highestHope + highestFear + totalNumerical + this.baseValue + d6Modifier;
-  
-      // Update the UI with the results
+      // Update the UI for the base rolls first
       this.modalElement.querySelector('#hope-roll-result').textContent = highestHope;
       this.modalElement.querySelector('#hope-roll-details').textContent = `(Rolled: 1d12)`;
       this.modalElement.querySelector('#fear-roll-result').textContent = highestFear;
       this.modalElement.querySelector('#fear-roll-details').textContent = `(Rolled: 1d12)`;
       
-      // Conditionally update the d6 Dice box if it exists
       if (totalDiceNum !== 0) {
           this.modalElement.querySelector('#d6-roll-result').textContent = `${d6Modifier >= 0 ? '+' : ''}${d6Modifier}`;
           this.modalElement.querySelector('#d6-roll-details').textContent = `(Rolled: ${d6Rolls.join(', ')})`;
       }
   
-      this.modalElement.querySelector('#total-roll-result').textContent = finalTotal;
+      const totalResultEl = this.modalElement.querySelector('#total-roll-result');
+      const totalBoxEl = totalResultEl.closest('.total-box');
+      const hopeBoxEl = this.modalElement.querySelector('#hope-roll-result').closest('.result-box');
+      const fearBoxEl = this.modalElement.querySelector('#fear-roll-result').closest('.result-box');
+  
+      // NEW: Critical Success and Highlighting Logic
+      if (highestHope === highestFear) {
+          // Critical Success
+          totalResultEl.textContent = "CRITICAL SUCCESS!!";
+          totalResultEl.classList.add('critical-text');
+          totalBoxEl.classList.add('critical-success');
+      } else {
+          // Standard Roll
+          const finalTotal = highestHope + highestFear + totalNumerical + this.baseValue + d6Modifier;
+          totalResultEl.textContent = finalTotal;
+  
+          if (highestHope > highestFear) {
+              hopeBoxEl.classList.add('hope-win');
+          } else {
+              fearBoxEl.classList.add('fear-win');
+          }
+      }
       
       this.modalElement.querySelector('.roll-modal-roll-btn').disabled = true;
     }
   
-    /**
-     * REFACTORED: Generates the HTML, conditionally adding the d6 Dice box.
-     * @returns {string} The HTML string for the modal.
-     * @private
-     */
     _createModalHTML() {
       const { totalDiceNum } = this.modifierData;
       const modifierSourcesHTML = this.modifierData.sources.map(source =>
@@ -99,7 +103,6 @@ export class RollManager {
       ).join('');
       const baseValueHTML = `<li><strong>Base Value (${this.attributeName}):</strong> ${this.baseValue >= 0 ? '+' : ''}${this.baseValue}</li>`;
   
-      // NEW: Conditionally create the d6 results box and set the grid class.
       let d6BoxHTML = '';
       let gridClass = 'two-col';
       if (totalDiceNum !== 0) {
@@ -163,7 +166,7 @@ export class RollManager {
     }
   
     /**
-     * REFACTORED: Injects CSS to handle both 2 and 3 column layouts.
+     * REFACTORED: Injects CSS for highlighting states.
      * @private
      */
     _injectCSS() {
@@ -217,15 +220,22 @@ export class RollManager {
         .result-box {
           display: flex; flex-direction: column; align-items: center; justify-content: center;
           padding: 1rem; background: #3a3a3a; border-radius: 5px; text-align: center;
+          border: 2px solid transparent; /* Base border for smooth transition */
+          transition: border-color 0.3s ease-in-out;
         }
+        /* ADDED: Highlighting styles */
+        .result-box.hope-win { border-color: #28a745; }
+        .result-box.fear-win { border-color: #dc3545; }
         .result-box.d6-box { background: #33415c; }
         .result-box.total-box { 
           grid-column: 1 / -1; 
           background: #4a4a4a;
           margin-top: 1rem;
         }
+        .total-box.critical-success { border-color: #ffc107; }
         .result-label { font-size: 1rem; font-weight: bold; margin-bottom: 0.5rem; }
         .result-value { font-size: 2.5rem; font-weight: bold; }
+        .result-value.critical-text { font-size: 1.8rem; color: #ffc107; }
         .result-details { font-size: 0.8rem; color: #ccc; min-height: 1.2em; }
       `;
       const style = document.createElement('style');
