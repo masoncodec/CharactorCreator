@@ -54,6 +54,18 @@ export class RollManager {
       d6Modifier = totalDiceNum > 0 ? d6Sum : -d6Sum;
     }
 
+    // Clear previous highlights and text styles before applying new ones
+    const totalResultEl = this.modalElement.querySelector('#total-roll-result');
+    const totalBoxEl = totalResultEl.closest('.total-box');
+    const hopeBoxEl = this.modalElement.querySelector('#hope-roll-result').closest('.result-box');
+    const fearBoxEl = this.modalElement.querySelector('#fear-roll-result').closest('.result-box');
+    
+    totalResultEl.classList.remove('critical-text');
+    totalBoxEl.classList.remove('critical-success');
+    hopeBoxEl.classList.remove('hope-win');
+    fearBoxEl.classList.remove('fear-win');
+
+    // Update the UI for the base rolls
     this.modalElement.querySelector('#hope-roll-result').textContent = highestHope;
     this.modalElement.querySelector('#hope-roll-details').textContent = `(Rolled: 1d12)`;
     this.modalElement.querySelector('#fear-roll-result').textContent = highestFear;
@@ -63,11 +75,6 @@ export class RollManager {
         this.modalElement.querySelector('#d6-roll-result').textContent = `${d6Modifier >= 0 ? '+' : ''}${d6Modifier}`;
         this.modalElement.querySelector('#d6-roll-details').textContent = `(Rolled: ${d6Rolls.join(', ')})`;
     }
-
-    const totalResultEl = this.modalElement.querySelector('#total-roll-result');
-    const totalBoxEl = totalResultEl.closest('.total-box');
-    const hopeBoxEl = this.modalElement.querySelector('#hope-roll-result').closest('.result-box');
-    const fearBoxEl = this.modalElement.querySelector('#fear-roll-result').closest('.result-box');
 
     if (highestHope === highestFear) {
         totalResultEl.textContent = "CRITICAL SUCCESS!!";
@@ -84,15 +91,25 @@ export class RollManager {
         }
     }
     
-    this.modalElement.querySelector('.roll-modal-roll-btn').disabled = true;
+    // The line to disable the roll button is gone, allowing re-rolls.
   }
 
+  /**
+   * Combines Base and Effect modifiers in the total display.
+   * @returns {string} The HTML string for the modal.
+   * @private
+   */
   _createModalHTML() {
-    const { totalDiceNum } = this.modifierData;
+    const { totalNumerical, totalDiceNum } = this.modifierData;
     const modifierSourcesHTML = this.modifierData.sources.map(source =>
       `<li><strong>${source.itemName}:</strong> ${source.type === 'modifier' ? 'MOD' : 'DICE'} ${source.modifier > 0 ? '+' : ''}${source.modifier}</li>`
     ).join('');
+    
+    // The Base Value is still listed as a source, as requested.
     const baseValueHTML = `<li><strong>Base Value (${this.attributeName}):</strong> ${this.baseValue >= 0 ? '+' : ''}${this.baseValue}</li>`;
+
+    // Calculate the combined numerical modifier for the total display.
+    const combinedNumericalMod = this.baseValue + totalNumerical;
 
     let d6BoxHTML = '';
     let gridClass = 'two-col';
@@ -117,9 +134,8 @@ export class RollManager {
           <div class="roll-modal-section modifiers-section">
             <h4>Modifiers Breakdown</h4>
             <div class="modifier-totals">
-              <span>Attribute Base: <strong>${this.baseValue >= 0 ? '+' : ''}${this.baseValue}</strong></span>
-              <span>Effect Mods: <strong>${this.modifierData.totalNumerical >= 0 ? '+' : ''}${this.modifierData.totalNumerical}</strong></span>
-              <span>Dice Num: <strong>${this.modifierData.totalDiceNum >= 0 ? '+' : ''}${this.modifierData.totalDiceNum}d6</strong></span>
+              <span>Total Numerical Mod: <strong>${combinedNumericalMod >= 0 ? '+' : ''}${combinedNumericalMod}</strong></span>
+              <span>Dice Num: <strong>${totalDiceNum >= 0 ? '+' : ''}${totalDiceNum}d6</strong></span>
             </div>
             <ul class="modifier-sources">
               ${baseValueHTML}
