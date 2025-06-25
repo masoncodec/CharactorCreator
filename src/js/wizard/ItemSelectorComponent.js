@@ -10,10 +10,6 @@ class ItemSelectorComponent {
     this.stateManager = stateManager;
     this.ruleEngine = ruleEngine;
     this._boundHandleClick = this._handleClick.bind(this);
-    // REMOVED: The state change listener is no longer needed in this component,
-    // as the Page Handler is now responsible for triggering re-renders on state change.
-    // This also helps prevent potential redundant render calls.
-    // this._boundHandleStateChange = this._onStateChange.bind(this);
     this._attachEventListeners();
     console.log(`ItemSelectorComponent: Initialized for source '${this.source}'.`);
   }
@@ -32,14 +28,7 @@ class ItemSelectorComponent {
 
   _attachEventListeners() {
     this.container.addEventListener('click', this._boundHandleClick);
-    // The component-level state change listener is removed.
-    // document.addEventListener('wizard:stateChange', this._boundHandleStateChange);
   }
-
-  // This method is no longer needed as the parent handler triggers renders.
-  // _onStateChange() {
-  //   this.render();
-  // }
 
   _createCardHTML(itemDef, selectionState, validationState) {
     const isSelected = !!selectionState;
@@ -104,40 +93,68 @@ class ItemSelectorComponent {
     `;
   }
 
-  // --- REFACTOR START ---
-  // The _handleClick method is now greatly simplified. It no longer needs to
-  // manage the input's checked state manually or decide between select/deselect.
-  // It entrusts the intelligent `selectItem` method in the state manager to handle all logic.
+  // Implements the "Controlled Component" pattern and correctly identifies the
+  // user's intent by looking for a click within the parent '.ability-option' label.
   _handleClick(e) {
     const card = e.target.closest('.ability-card');
     if (!card || card.classList.contains('disabled-for-selection')) {
       return;
     }
+
     const itemId = card.dataset.itemId;
     const itemDef = this.items[itemId];
     if (!itemDef) return;
 
-    // Handle nested options separately (this logic was already correct).
-    if (e.target.closest('.ability-options')) {
-      if (e.target.dataset.action === 'select-option') {
-        if (!this.stateManager.itemManager.getSelection(itemId, this.source)) {
-            this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
-        }
+    // Case 1: The click happened inside an option's label.
+    const optionLabel = e.target.closest('.ability-option');
+    if (optionLabel) {
+      // Find the input within the clicked label to ensure we have the right target.
+      const optionInput = optionLabel.querySelector('input[data-action="select-option"]');
+      if (!optionInput) return;
 
-        const optionsContainer = e.target.closest('.ability-options');
-        const allOptionInputs = optionsContainer.querySelectorAll('input[data-action="select-option"]');
-        const newNestedSelections = Array.from(allOptionInputs)
-          .filter(input => input.checked)
-          .map(input => input.value);
-        
-        this.stateManager.itemManager.updateNestedSelections(itemId, this.source, newNestedSelections);
+      e.preventDefault(); // Take full manual control of the input's state.
+
+      const clickedOptionValue = optionInput.value;
+      const parentSelection = this.stateManager.itemManager.getSelection(itemId, this.source);
+      const isParentSelected = !!parentSelection;
+      const currentNestedSelections = parentSelection?.selections || [];
+
+      // Manually calculate the next state of the nested selections array.
+      const isRadio = itemDef.maxChoices === 1;
+      let nextNestedSelections;
+
+      if (isRadio) {
+        nextNestedSelections = [clickedOptionValue];
+      } else { // Checkbox logic
+        const isAlreadySelected = currentNestedSelections.includes(clickedOptionValue);
+        if (isAlreadySelected) {
+          nextNestedSelections = currentNestedSelections.filter(id => id !== clickedOptionValue);
+        } else {
+          nextNestedSelections = [...currentNestedSelections, clickedOptionValue];
+        }
       }
-      return; 
+
+      // Commit the newly calculated state.
+      if (!isParentSelected) {
+        const payload = { selections: nextNestedSelections };
+        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, payload);
+      } else {
+        this.stateManager.itemManager.updateNestedSelections(itemId, this.source, nextNestedSelections);
+      }
+      return;
     }
-    
-    // The single, authoritative call for any parent item selection/deselection.
-    // The state manager's `selectItem` method now contains all the necessary logic
-    // to determine if the action should be a selection, deselection (toggle), or radio swap.
+
+    // Case 2: The click was in the options box PADDING (but not on an option label).
+    if (e.target.closest('.ability-options')) {
+      // "Sticky select": Select the parent if it's not already selected, but do not deselect.
+      if (!this.stateManager.itemManager.getSelection(itemId, this.source)) {
+        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
+      }
+      return;
+    }
+
+    // Case 3: The click was on the main card body (outside the options box).
+    // Standard toggle (select/deselect) behavior.
     this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
   }
   // --- REFACTOR END ---
@@ -152,8 +169,6 @@ class ItemSelectorComponent {
 
   cleanup() {
     this.container.removeEventListener('click', this._boundHandleClick);
-    // Ensure the event listener is removed upon cleanup.
-    document.removeEventListener('wizard:stateChange', this._boundHandleStateChange);
   }
 }
 
