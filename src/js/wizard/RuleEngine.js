@@ -1,33 +1,27 @@
 // RuleEngine.js
 // This module centralizes the validation logic to determine if an item can be selected.
-// It checks for things like point costs, source conflicts, and maxChoices limits.
+// It is now fully generic and uses a context object for page-specific rules.
 
 class RuleEngine {
-  /**
-   * @param {WizardStateManager} stateManager - The instance of the WizardStateManager.
-   */
   constructor(stateManager) {
     this.stateManager = stateManager;
     console.log('RuleEngine: Initialized.');
   }
 
-  /**
-   * Evaluates an item against all relevant rules to determine its current UI state.
-   * @param {Object} itemDef - The full definition of the item to validate.
-   * @param {string} source - The context/source of the component rendering the item.
-   * @returns {{isDisabled: boolean, reason: string}} The validation state of the item.
-   */
-  getValidationState(itemDef, source) {
+  getValidationState(itemDef, source, context = null) {
     // Rule: Is the item already selected from a different source?
     const sourceConflict = this._checkSourceConflict(itemDef, source);
     if (sourceConflict.isDisabled) {
       return sourceConflict;
     }
-
-    // Rule: Has the max number of choices for this item's group been reached?
-    const maxChoicesConflict = this._checkMaxChoices(itemDef, source);
-    if (maxChoicesConflict.isDisabled) {
-        return maxChoicesConflict;
+    
+    // Only check for max choices if a context is provided
+    if (context) {
+      // Rule: Has the max number of choices for this item's group been reached?
+      const maxChoicesConflict = this._checkMaxChoices(itemDef, source, context);
+      if (maxChoicesConflict.isDisabled) {
+          return maxChoicesConflict;
+      }
     }
 
     // Rule: Can the character afford this perk based on the unified point system?
@@ -62,16 +56,23 @@ class RuleEngine {
     return { isDisabled: false, reason: '' };
   }
 
-  _checkMaxChoices(itemDef, source) {
+  // This method now receives the context object directly
+  _checkMaxChoices(itemDef, source, context) {
     if (this.stateManager.itemManager.getSelection(itemDef.id, source)) {
       return { isDisabled: false, reason: '' };
     }
     
-    const groupDef = this._getGroupDefinition(itemDef, source);
+    // Get the group definition using the context
+    if (!context || !itemDef.groupId) return { isDisabled: false, reason: '' };
+    const mainDefinition = context.getDefinition();
+    const groupDef = mainDefinition?.choiceGroups?.[itemDef.groupId] || null;
+
     if (!groupDef || !groupDef.maxChoices) return { isDisabled: false, reason: '' };
 
     if (groupDef.maxChoices === 1) return { isDisabled: false, reason: '' };
 
+    // The logic to check selections remains the same, but it's now guarded
+    // by the presence of a context and a valid groupDef.
     const selectionsInGroup = this.stateManager.state.selections.filter(
         sel => sel.source === source
     );
@@ -86,29 +87,14 @@ class RuleEngine {
     return { isDisabled: false, reason: '' };
   }
 
-  _getGroupDefinition(itemDef, source) {
-      if (!source.startsWith('destiny-')) return null;
-      const destinyId = this.stateManager.get('destiny');
-      if (!destinyId) return null;
-      const destinyDef = this.stateManager.getDestiny(destinyId);
-      return destinyDef?.choiceGroups?.[itemDef.groupId] || null;
-  }
-
-  /**
-   * REFACTORED: Checks if there are enough "Available Points" to afford a Perk.
-   * @private
-   */
   _checkPerkAffordability(itemDef) {
-    // An already selected perk should never be disabled by this rule.
     if (this.stateManager.itemManager.getSelection(itemDef.id, 'independent-perk')) {
         return { isDisabled: false, reason: '' };
     }
       
-    // Use the new unified point calculation method.
     const availablePoints = this.stateManager.getAvailableCharacterPoints();
     const perkCost = itemDef.weight || 0;
 
-    // Check if the cost of the new perk exceeds the available points.
     if (perkCost > availablePoints) {
       return {
         isDisabled: true,
@@ -118,17 +104,7 @@ class RuleEngine {
     return { isDisabled: false, reason: '' };
   }
 
-  /**
-   * Checks if there are enough Equipment Points to afford an item.
-   * @param {Object} itemDef - The definition of the item to check.
-   * @returns {{isDisabled: boolean, reason: string}}
-   * @private
-   */
   _checkEquipmentAffordability(itemDef) {
-    // The check that returned early if the item was already selected has been removed.
-    // The rule must ALWAYS check the current point total to determine if another
-    // item can be afforded.
-
     const { remaining } = this.stateManager.getEquipmentPointsSummary();
     const itemCost = itemDef.weight || 0;
 

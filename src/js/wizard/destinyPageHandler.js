@@ -90,6 +90,13 @@ class DestinyPageHandler {
     if (!destinyId) return;
     const destiny = this.stateManager.getDestiny(destinyId);
     if (!destiny.choiceGroups) return;
+    
+    // Create the context object for this page type
+    const destinyContext = {
+      sourcePrefix: 'destiny',
+      getDefinition: () => this.stateManager.getDestiny(this.stateManager.get('destiny'))
+    };
+
     const allItemDefs = this.stateManager.getItemData();
     Object.entries(destiny.choiceGroups).forEach(([groupId, groupDef]) => {
       const groupContainer = document.createElement('div');
@@ -106,7 +113,17 @@ class DestinyPageHandler {
         }
         return acc;
       }, {});
-      const selector = new ItemSelectorComponent(componentContainer, itemsForGroup, `destiny-${groupId}`, this.stateManager, this.ruleEngine);
+      
+      // Pass the single context object
+      const selector = new ItemSelectorComponent(
+        componentContainer, 
+        itemsForGroup, 
+        `${destinyContext.sourcePrefix}-${groupId}`, 
+        this.stateManager, 
+        this.ruleEngine,
+        destinyContext
+      );
+
       this.activeItemSelectors.push(selector);
       selector.render();
     });
@@ -116,8 +133,6 @@ class DestinyPageHandler {
     this.activeItemSelectors.forEach(selector => selector.cleanup());
     this.activeItemSelectors = [];
   }
-
-  // --- NEW: Methods for delegated logic ---
 
   getInformerContent() {
     const currentState = this.stateManager.getState();
