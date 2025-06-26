@@ -114,11 +114,11 @@ class DestinyPageHandler {
         return acc;
       }, {});
       
-      // Pass the single context object
+      // *** FIX: The source is now always 'destiny' for all destiny-related choices. ***
       const selector = new ItemSelectorComponent(
         componentContainer, 
         itemsForGroup, 
-        `${destinyContext.sourcePrefix}-${groupId}`, 
+        'destiny', //
         this.stateManager, 
         this.ruleEngine,
         destinyContext
@@ -143,7 +143,8 @@ class DestinyPageHandler {
     }
 
     const destiny = this.stateManager.getDestiny(currentState.destiny);
-    const destinySelections = currentState.selections.filter(sel => sel.source.startsWith('destiny-'));
+    // *** FIX: Filter selections by the new unified 'destiny' source. ***
+    const destinySelections = currentState.selections.filter(sel => sel.source === 'destiny'); //
     
     const renderItems = (itemType, title) => {
         const items = destinySelections.filter(sel => allItemDefs[sel.id]?.itemType === itemType);
@@ -173,9 +174,10 @@ class DestinyPageHandler {
 
     const allItemDefs = this.stateManager.getItemData();
     return Object.entries(destinyDef.choiceGroups).every(([groupId, groupDef]) => {
+      // *** FIX: Filter by the unified 'destiny' source AND the specific groupId to correctly count selections. ***
       const selectionsInGroup = currentState.selections.filter(
-        sel => sel.source === `destiny-${groupId}`
-      );
+        sel => sel.source === 'destiny' && sel.groupId === groupId
+      ); //
       if (selectionsInGroup.length !== groupDef.maxChoices) return false;
       return selectionsInGroup.every(sel => {
         const itemDef = allItemDefs[sel.id];

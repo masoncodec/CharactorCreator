@@ -20,7 +20,8 @@ class ItemManager {
     if (isAlreadySelected) {
       // For equipment page, a re-click always means deselect.
       // The original logic for radio buttons is preserved for other pages.
-      if (groupId && maxChoices === 1 && source.startsWith('destiny-')) {
+      // *** FIX: Changed source.startsWith('destiny-') to source === 'destiny' to support the new unified source name. ***
+      if (groupId && maxChoices === 1 && source === 'destiny') { //
         console.log(`ItemManager: Ignoring re-selection of true radio item '${id}'.`);
         return;
       }

@@ -71,10 +71,9 @@ class RuleEngine {
 
     if (groupDef.maxChoices === 1) return { isDisabled: false, reason: '' };
 
-    // The logic to check selections remains the same, but it's now guarded
-    // by the presence of a context and a valid groupDef.
+    // Filter by groupId in addition to source to correctly isolate selections within their specific group.
     const selectionsInGroup = this.stateManager.state.selections.filter(
-        sel => sel.source === source
+        sel => sel.source === source && sel.groupId === itemDef.groupId
     );
 
     if (selectionsInGroup.length >= groupDef.maxChoices) {
