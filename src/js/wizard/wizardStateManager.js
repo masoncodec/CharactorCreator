@@ -38,14 +38,17 @@ class ItemManager {
       );
     }
     
-    // Add the newly selected item, spreading the payload into the object.
+    // MODIFIED: Conditionally add groupId to prevent null values
     const newSelectionData = { 
         id: id, 
         source: source, 
-        groupId: groupId, 
         selections: [], 
         ...payload 
     };
+    if (groupId) {
+        newSelectionData.groupId = groupId;
+    }
+
     newSelections.push(newSelectionData);
     this.stateManager.set('selections', newSelections);
     console.log(`ItemManager: Selected new item '${id}'.`, newSelectionData);

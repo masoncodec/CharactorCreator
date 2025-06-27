@@ -124,11 +124,20 @@ class CharacterFinisher {
     const finalInventory = [];
     const stackableMap = new Map();
     const allItemDefs = this.stateManager.getItemData();
-    const equipmentSelections = currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'equipment');
+    
+    // Correctly filter for all equipment and loot from any source.
+    const inventorySelections = currentState.selections.filter(sel => {
+        const itemDef = allItemDefs[sel.id];
+        return itemDef && (itemDef.itemType === 'equipment' || itemDef.itemType === 'loot');
+    });
+
+    // Combine selections from the wizard with items added by other means (e.g. effects).
+    // This no longer incorrectly overrides quantity or equipped status.
     const combinedRawInventory = [
         ...currentState.inventory,
-        ...equipmentSelections.map(sel => ({ ...sel, quantity: 1, equipped: true }))
+        ...inventorySelections
     ];
+
     for (const itemState of combinedRawInventory) {
       const itemDef = allItemDefs[itemState.id];
       if (!itemDef) continue;
@@ -137,7 +146,7 @@ class CharacterFinisher {
           stackableMap.set(itemState.id, { id: itemState.id, quantity: 0, sources: new Set() });
         }
         const entry = stackableMap.get(itemState.id);
-        entry.quantity += itemState.quantity;
+        entry.quantity += itemState.quantity || 1; // Default to 1 if quantity isn't set
         if (itemState.source) entry.sources.add(itemState.source);
       } else {
         finalInventory.push(itemState);
@@ -147,7 +156,7 @@ class CharacterFinisher {
       finalInventory.push({
         id: combinedItem.id,
         quantity: combinedItem.quantity,
-        equipped: true,
+        equipped: true, // Stackable items are generally considered "equipped" or active
         source: Array.from(combinedItem.sources).join(', '),
       });
     }
