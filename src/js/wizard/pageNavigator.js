@@ -1,7 +1,4 @@
 // pageNavigator.js
-// REFACTORED: This module manages wizard navigation.
-// It no longer manages the state change listener, as that is now
-// handled by the central CharacterWizard orchestrator.
 
 import { alerter } from '../alerter.js';
 
@@ -19,11 +16,12 @@ class PageNavigator {
     this.currentPageName = '';
     this.loadPageCallback = loadPage;
 
-    // MODIFIED: This selector now specifically targets nav items with a 'data-page'
-    // attribute, correctly excluding the '.nav-item--home' button.
     this.navItems = document.querySelectorAll('.nav-item[data-page]');
     this.prevBtn = document.getElementById('prevBtn');
     this.nextBtn = document.getElementById('nextBtn');
+    
+    // MODIFIED: Get the new wrapper element for the next button.
+    this.nextBtnWrapper = document.getElementById('nextBtnWrapper');
     
     console.log('PageNavigator: Initialized (Refactored).');
   }
@@ -34,7 +32,6 @@ class PageNavigator {
 
   /**
    * Initializes event listeners for the navigation buttons and sidebar items.
-   * The global state change listener has been removed from this component.
    */
   initNavListeners() {
     this.navItems.forEach(item => {
@@ -48,17 +45,25 @@ class PageNavigator {
     });
 
     this.prevBtn?.addEventListener('click', () => this.prevPage());
-    this.nextBtn?.addEventListener('click', () => this.nextPage());
+    
+    // MODIFIED: The click listener now checks the wrapper for the 'is-disabled' class.
+    this.nextBtn?.addEventListener('click', () => {
+      if (this.nextBtnWrapper && this.nextBtnWrapper.classList.contains('is-disabled')) {
+        return; // Do nothing if the button is in a disabled state.
+      }
+      this.nextPage();
+    });
   }
 
   /**
-   * Updates the visual state of all navigation items (sidebar and buttons).
-   * This is now called by the central listener in the CharacterWizard.
+   * MODIFIED: Updates the visual state of all navigation, now using the wrapper
+   * to control the disabled state and tooltip for the Next/Finish button.
    */
   updateNav() {
     const currentState = this.stateManager.getState();
     const currentPageIndex = this.pages.indexOf(this.currentPageName);
 
+    // --- Sidebar Navigation Items ---
     this.navItems.forEach(item => {
       const page = item.dataset.page;
       const index = this.pages.indexOf(page);
@@ -71,8 +76,26 @@ class PageNavigator {
       item.title = canAccess ? '' : "Select a module first";
     });
 
-    if (this.prevBtn) this.prevBtn.disabled = currentPageIndex === 0;
-    if (this.nextBtn) this.nextBtn.textContent = currentPageIndex === this.pages.length - 1 ? 'Finish' : 'Next';
+    // --- Previous/Next Buttons ---
+    const isCurrentPageComplete = this.isPageCompleted(this.currentPageName, currentState);
+    const isLastPage = currentPageIndex === this.pages.length - 1;
+
+    if (this.prevBtn) {
+      this.prevBtn.disabled = currentPageIndex === 0;
+    }
+    
+    if (this.nextBtnWrapper && this.nextBtn) {
+      const isDisabled = !isCurrentPageComplete;
+      
+      // Toggle the 'is-disabled' class on the wrapper element.
+      this.nextBtnWrapper.classList.toggle('is-disabled', isDisabled);
+      
+      // Set the tooltip text on the wrapper, which can always show it.
+      this.nextBtnWrapper.title = isDisabled ? this.getCompletionError(this.currentPageName) : '';
+      
+      // The button's text is still updated directly.
+      this.nextBtn.textContent = isLastPage ? 'Finish' : 'Next';
+    }
   }
 
   _canAccessPage(index, currentState) {

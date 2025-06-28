@@ -139,3 +139,23 @@
     color: white;
     border-color: #B22222;
 }
+
+/* This class will be added to the button's wrapper div. */
+/* It allows the wrapper to show a tooltip even when the button appears disabled. */
+.button-wrapper.is-disabled {
+    cursor: not-allowed; /* Show the 'not-allowed' cursor on hover. */
+}
+  
+/* This targets the button inside the disabled wrapper. */
+.button-wrapper.is-disabled .btn {
+    /* These styles mimic your existing .btn:disabled state */
+    opacity: 0.5;
+    background-color: #555;
+    border-color: #777;
+    color: #999;
+    transform: none;
+    box-shadow: none;
+    
+    /* This is the key: it makes mouse events (like clicks) pass through the button to the wrapper. */
+    pointer-events: none; 
+}
