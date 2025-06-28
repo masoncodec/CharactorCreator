@@ -2,6 +2,7 @@
 // REFACTORED: This module handles the 'destiny' selection page and its own logic.
 
 import { ItemSelectorComponent } from './ItemSelectorComponent.js';
+import { EquipmentSelectorComponent } from './EquipmentSelectorComponent.js'; // MODIFIED: Import added
 import { RuleEngine } from './RuleEngine.js';
 
 class DestinyPageHandler {
@@ -75,6 +76,7 @@ class DestinyPageHandler {
     });
   }
 
+  // MODIFIED: This function now dynamically chooses which component to render.
   _renderAbilityGroupsSection() {
     this._cleanupItemSelectors(); 
     const scrollArea = this.selectorPanel.querySelector('.destiny-content-scroll-area');
@@ -91,7 +93,6 @@ class DestinyPageHandler {
     const destiny = this.stateManager.getDestiny(destinyId);
     if (!destiny.choiceGroups) return;
     
-    // Create the context object for this page type
     const destinyContext = {
       sourcePrefix: 'destiny',
       getDefinition: () => this.stateManager.getDestiny(this.stateManager.get('destiny'))
@@ -114,11 +115,16 @@ class DestinyPageHandler {
         return acc;
       }, {});
       
-      // *** FIX: The source is now always 'destiny' for all destiny-related choices. ***
-      const selector = new ItemSelectorComponent(
+      const containsInventoryItems = Object.values(itemsForGroup).some(
+        item => item.itemType === 'equipment' || item.itemType === 'loot'
+      );
+
+      const SelectorComponent = containsInventoryItems ? EquipmentSelectorComponent : ItemSelectorComponent;
+
+      const selector = new SelectorComponent(
         componentContainer, 
         itemsForGroup, 
-        'destiny', //
+        'destiny',
         this.stateManager, 
         this.ruleEngine,
         destinyContext
@@ -143,8 +149,7 @@ class DestinyPageHandler {
     }
 
     const destiny = this.stateManager.getDestiny(currentState.destiny);
-    // *** FIX: Filter selections by the new unified 'destiny' source. ***
-    const destinySelections = currentState.selections.filter(sel => sel.source === 'destiny'); //
+    const destinySelections = currentState.selections.filter(sel => sel.source === 'destiny');
     
     const renderItems = (itemType, title) => {
         const items = destinySelections.filter(sel => allItemDefs[sel.id]?.itemType === itemType);
@@ -170,14 +175,13 @@ class DestinyPageHandler {
   isComplete(currentState) {
     if (!currentState.destiny) return false;
     const destinyDef = this.stateManager.getDestiny(currentState.destiny);
-    if (!destinyDef || !destinyDef.choiceGroups) return true; // No choices to make
+    if (!destinyDef || !destinyDef.choiceGroups) return true; 
 
     const allItemDefs = this.stateManager.getItemData();
     return Object.entries(destinyDef.choiceGroups).every(([groupId, groupDef]) => {
-      // *** FIX: Filter by the unified 'destiny' source AND the specific groupId to correctly count selections. ***
       const selectionsInGroup = currentState.selections.filter(
         sel => sel.source === 'destiny' && sel.groupId === groupId
-      ); //
+      );
       if (selectionsInGroup.length !== groupDef.maxChoices) return false;
       return selectionsInGroup.every(sel => {
         const itemDef = allItemDefs[sel.id];

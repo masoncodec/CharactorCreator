@@ -16,7 +16,7 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
     for (const itemId in this.items) {
       const itemDef = this.items[itemId];
       const selectionState = selections.find(s => s.id === itemDef.id && s.source === this.source);
-      const validationState = this.ruleEngine.getValidationState(itemDef, this.source);
+      const validationState = this.ruleEngine.getValidationState(itemDef, this.source, this.context);
       allCardsHtml += this._createCardHTML(itemDef, selectionState, validationState);
     }
     this.container.innerHTML = allCardsHtml || '<p>No items available for this section.</p>';
@@ -34,8 +34,6 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
     const isSelected = !!selectionState;
     const canAddMore = !validationState.isDisabled;
     
-    // This prevents the whole card from being disabled if it's already selected,
-    // which allows the "minus" button to remain active.
     const isDisabledForSelection = validationState.isDisabled && !isSelected;
 
     const isEquipped = selectionState?.equipped || false;
@@ -121,17 +119,16 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
     const selection = this.stateManager.itemManager.getSelection(itemId, this.source);
     const currentQuantity = selection?.quantity || 0;
 
+    // MODIFIED: All selectItem calls now pass itemDef.groupId
     switch (action) {
       case 'increment-quantity':
-        // This guard clause is a good defensive measure against race conditions,
-        // ensuring we never commit an invalid state.
-        if (this.ruleEngine.getValidationState(itemDef, this.source).isDisabled) {
+        if (this.ruleEngine.getValidationState(itemDef, this.source, this.context).isDisabled) {
             console.warn(`RuleEngine validation prevented adding another '${itemDef.name}'.`);
             return;
         }
 
         if (currentQuantity === 0) {
-          this.stateManager.itemManager.selectItem(itemDef, this.source, null, {
+          this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, {
               quantity: 1,
               equipped: itemDef.itemType === 'equipment' ? true : undefined
           });
@@ -144,7 +141,7 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
         if (currentQuantity > 1) {
           this.stateManager.itemManager.updateSelection(itemId, this.source, { quantity: currentQuantity - 1 });
         } else if (currentQuantity === 1) {
-          this.stateManager.itemManager.selectItem(itemDef, this.source, null);
+          this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
         }
         break;
 
@@ -154,7 +151,7 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
         break;
         
       case 'toggle-select': // For non-stackable items
-        this.stateManager.itemManager.selectItem(itemDef, this.source, null, {
+        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, {
             quantity: 1,
             equipped: itemDef.itemType === 'equipment' ? true : undefined
         });
