@@ -1,4 +1,5 @@
 {
+    "id": "fire-hunters",
     "name": "Fire Hunters",
     "type": "Hope/Fear",
     "attributes": {
@@ -22,5 +23,11 @@
         "tone": "Playful, Deceptive, Funny, Light-hearted",
         "theme": "Ecological, Cooperation",
         "inspiration": "Smokey Bear, Fae"
+    },
+    "dataFiles": {
+        "abilities": "data/modules/fire-hunters/abilities.json",
+        "flaws": "data/modules/fire-hunters/flaws.json",
+        "perks": "data/modules/fire-hunters/perks.json",
+        "equipmentAndLoot": "data/modules/fire-hunters/equipmentAndLoot.json"
     }
 }

@@ -18,10 +18,7 @@ class ItemManager {
     const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
 
     if (isAlreadySelected) {
-      // For equipment page, a re-click always means deselect.
-      // The original logic for radio buttons is preserved for other pages.
-      // *** FIX: Changed source.startsWith('destiny-') to source === 'destiny' to support the new unified source name. ***
-      if (groupId && maxChoices === 1 && source === 'destiny') { //
+      if (groupId && maxChoices === 1 && source === 'destiny') {
         console.log(`ItemManager: Ignoring re-selection of true radio item '${id}'.`);
         return;
       }
@@ -38,7 +35,6 @@ class ItemManager {
       );
     }
     
-    // MODIFIED: Conditionally add groupId to prevent null values
     const newSelectionData = { 
         id: id, 
         source: source, 
@@ -64,19 +60,11 @@ class ItemManager {
     }
   }
 
-  /**
-   * Updates top-level properties (like quantity or equipped) of an existing selection.
-   * @param {string} itemId - The ID of the item to update.
-   * @param {string} source - The source of the selection.
-   * @param {Object} updates - An object of properties to update (e.g., { quantity: 5 }).
-   */
   updateSelection(itemId, source, updates) {
     const selectionIndex = this.state.selections.findIndex(sel => sel.id === itemId && sel.source === source);
 
     if (selectionIndex > -1) {
-      // Create a new array for immutable update
       const newSelections = [...this.state.selections];
-      // Merge the updates into the existing selection object
       newSelections[selectionIndex] = { ...newSelections[selectionIndex], ...updates };
       
       this.stateManager.set('selections', newSelections);
@@ -119,15 +107,48 @@ class ItemManager {
 
 
 class WizardStateManager {
-  constructor(moduleSystemData, flawData, destinyData, abilityData, perkData, equipmentAndLootData) {
+  constructor(moduleSystemData) {
     this.state = {
       module: null, destiny: null, selections: [], attributes: {},
       inventory: [], info: { name: '', bio: '' }, moduleChanged: false,
     };
+    // Data stores are now initialized empty, waiting for a module selection.
     this.data = {
-      modules: moduleSystemData || {}, destinies: destinyData || {}, abilities: abilityData || {},
-      flaws: flawData || {}, perks: perkData || {}, equipment: equipmentAndLootData || {}, allItems: {}
+      modules: moduleSystemData || {},
+      destinies: {}, abilities: {}, flaws: {},
+      perks: {}, equipment: {}, allItems: {}
     };
+    this.itemManager = new ItemManager(this);
+    console.log('WizardStateManager: Initialized with module definitions.');
+  }
+
+  /**
+   * Clears old module data and loads the newly fetched data into the state.
+   * @param {Object} loadedData - The structured data object from dataLoader.loadDataForModule.
+   */
+  loadModuleData(loadedData) {
+    console.log('WizardStateManager: Clearing old data and loading new module data.');
+    
+    // Clear existing data definitions
+    this.data.destinies = loadedData.destinyData || {};
+    this.data.abilities = loadedData.abilityData || {};
+    this.data.flaws = loadedData.flawData || {};
+    this.data.perks = loadedData.perkData || {};
+    this.data.equipment = loadedData.equipmentAndLootData || {};
+    this.data.allItems = {}; // IMPORTANT: Reset the master item map
+
+    // Re-normalize all data to populate the 'allItems' map
+    this._normalizeData();
+    
+    console.log('WizardStateManager: New module data loaded. Item map now contains', Object.keys(this.data.allItems).length, 'items.');
+    // Trigger a state change to notify UI components that new data is ready
+    document.dispatchEvent(new CustomEvent('wizard:dataLoaded'));
+  }
+
+  /**
+   * Helper function to populate the allItems map from the individual data sources.
+   */
+  _normalizeData() {
     const normalizeAndAdd = (collection, type) => {
       if (!collection || typeof collection !== 'object') return;
       Object.entries(collection).forEach(([id, item]) => {
@@ -142,8 +163,6 @@ class WizardStateManager {
         this.data.allItems[id] = { ...item, id: id, itemType: item.type };
       });
     }
-    this.itemManager = new ItemManager(this);
-    console.log('WizardStateManager: Initialized. Item map now contains', Object.keys(this.data.allItems).length, 'items.');
   }
 
   getState() { return JSON.parse(JSON.stringify(this.state)); }
@@ -156,17 +175,25 @@ class WizardStateManager {
       }));
     }
   }
+  
+  // This function now correctly clears character progress.
+  // The data definition clearing is handled by loadModuleData.
   setState(key, value) {
     if (key === 'module') {
       const oldModule = this.state.module;
       if (oldModule !== value) {
-        this.state.module = value; this.state.moduleChanged = true;
-        this.state.destiny = null; this.state.selections = [];
-        this.state.attributes = {}; this.state.inventory = [];
-        this.set('destiny', null);
+        this.state.module = value;
+        this.state.moduleChanged = true;
+        // Clear all character progress
+        this.state.destiny = null;
+        this.state.selections = [];
+        this.state.attributes = {};
+        this.state.inventory = [];
+        this.set('destiny', null); // Trigger state change for destiny reset
       }
     } else { this.set(key, value); }
   }
+  
   resetModuleChangedFlag() { this.state.moduleChanged = false; }
   getModule(moduleId) { return this.data.modules[moduleId]; }
   getDestiny(destinyId) { return this.data.destinies[destinyId]; }
@@ -182,7 +209,6 @@ class WizardStateManager {
   }
   getEquipmentPointsSummary() {
     const TOTAL_POINTS = 20;
-    // UPDATED: Now reads from the main selections array
     const spentPoints = this.state.selections
       .filter(sel => sel.source === 'equipment-and-loot')
       .reduce((total, sel) => {

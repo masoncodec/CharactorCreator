@@ -1,21 +1,23 @@
 // modulePageHandler.js
 // REFACTORED: This module handles the 'module' selection page.
-// It now provides its own informer content and completion logic.
+// It now triggers the on-demand loading of module data.
 
 class ModulePageHandler {
-  constructor(stateManager) {
+  /**
+   * REFACTORED: The constructor now accepts the `selectModuleCallback`
+   * from the main CharacterWizard.
+   * @param {object} stateManager - The wizard's state manager.
+   * @param {function} selectModuleCallback - The function to call to load module data.
+   */
+  constructor(stateManager, selectModuleCallback) {
     this.stateManager = stateManager;
+    this.selectModule = selectModuleCallback; // Store the callback function
     this.selectorPanel = null;
-    this.pageNavigator = null;
-    this.informerUpdater = null;
     console.log('ModulePageHandler: Initialized (Refactored).');
   }
 
-  setupPage(selectorPanel, informerPanel, pageNavigator, informerUpdater) {
+  setupPage(selectorPanel) {
     this.selectorPanel = selectorPanel;
-    this.pageNavigator = pageNavigator;
-    this.informerUpdater = informerUpdater;
-    
     this._attachEventListeners();
     this._restoreState();
   }
@@ -25,15 +27,29 @@ class ModulePageHandler {
     this.selectorPanel.addEventListener('click', this._boundModuleOptionClickHandler);
   }
 
+  /**
+   * REFACTORED: This handler now calls the `selectModule` callback
+   * instead of setting the state directly. This is the key to triggering
+   * the data loading process.
+   */
   _handleModuleOptionClick(e) {
     const opt = e.target.closest('.module-option');
     if (!opt) return;
 
+    // Visually select the option
     this.selectorPanel.querySelectorAll('.module-option').forEach(o => o.classList.remove('selected'));
     opt.classList.add('selected');
 
     const selectedModuleId = opt.dataset.value;
-    this.stateManager.setState('module', selectedModuleId);
+    
+    // ** THE FIX **
+    // Call the main wizard's method to handle the entire data loading flow.
+    // This will set the state AND fetch all the necessary data.
+    if (this.selectModule) {
+      this.selectModule(selectedModuleId);
+    } else {
+      console.error("ModulePageHandler: 'selectModule' callback is not defined.");
+    }
   }
 
   _restoreState() {
@@ -43,48 +59,20 @@ class ModulePageHandler {
       btn?.classList.add('selected');
     }
   }
-
-  // --- NEW: Methods for delegated logic ---
-
-  /**
-   * Provides the HTML content for the informer panel for this specific page.
-   * @returns {string} HTML content.
-   */
+  
+  // This method is no longer used here, as the informerUpdater handles it centrally.
   getInformerContent() {
-    const currentState = this.stateManager.getState();
-    if (currentState.module) {
-      const moduleData = this.stateManager.getModule(currentState.module);
-      const destiniesForModule = (moduleData?.destinies || [])
-        .map(d => this.stateManager.getDestiny(d)?.displayName || d)
-        .join('</li><li>');
-      return `
-        <h3>${moduleData.name}</h3>
-        <p>${moduleData.descriptions.module}</p>
-        <h4>Available Destinies:</h4><ul><li>${destiniesForModule}</li></ul>`;
-    }
-    return '<p>Select a module to begin your journey</p>';
+    return '<p>Select a module to see its description and begin your journey.</p>';
   }
 
-  /**
-   * Checks if the page is complete.
-   * @param {Object} currentState - The current wizard state.
-   * @returns {boolean} True if a module is selected.
-   */
   isComplete(currentState) {
     return !!currentState.module;
   }
 
-  /**
-   * Returns a user-friendly error message if the page is not complete.
-   * @returns {string} The error message.
-   */
   getCompletionError() {
     return 'Please select a module to continue.';
   }
-
-  /**
-   * Cleans up event listeners.
-   */
+  
   cleanup() {
     this.selectorPanel?.removeEventListener('click', this._boundModuleOptionClickHandler);
   }
