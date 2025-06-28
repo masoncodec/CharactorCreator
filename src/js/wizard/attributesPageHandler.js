@@ -1,317 +1,207 @@
 // attributesPageHandler.js
-// This module handles the UI rendering and event handling for the 'attributes' assignment page.
-// It includes the logic for managing dice assignments to attributes.
+// This module handles the UI for the 'attributes' assignment page
+// and now contains its own completion and informer logic.
 
-import { alerter } from '../alerter.js'; // Assuming alerter.js is available
+import { alerter } from '../alerter.js';
 
 /**
  * @private
- * DiceManager class encapsulates the logic for assigning dice to attributes.
- * It is designed to be used internally by AttributesPageHandler.
+ * This class encapsulates the generic logic for assigning a set of unique values to attributes.
  */
-class DiceManager {
+class AttributeAssignmentManager {
   /**
    * @param {WizardStateManager} stateManager - The instance of the WizardStateManager.
-   * @param {HTMLElement} tableElement - The DOM element representing the dice assignment table.
+   * @param {HTMLElement} tableElement - The DOM element representing the value assignment table.
+   * @param {Array<any>} valuesToAssign - The array of assignable values from the module data.
    */
-  constructor(stateManager, tableElement) {
+  constructor(stateManager, tableElement, valuesToAssign) {
     this.stateManager = stateManager;
-    this.tableElement = tableElement; // Reference to the actual table DOM element
-
-    this.selectedDice = new Map();     // Maps die (e.g., 'd4') to attribute (e.g., 'strength')
-    this.assignedAttributes = new Map(); // Maps attribute to die
-    this.boundProcessSelection = null; // To store bound event listener
-
-    console.log('DiceManager: Initialized.');
+    this.tableElement = tableElement;
+    this.valuesToAssign = valuesToAssign;
+    this.usedValuesByIndex = new Map();
+    this.assignedAttributes = new Map();
+    this.boundProcessSelection = null;
   }
 
   /**
-   * Initializes or re-initializes the dice manager, clearing previous states and
+   * Initializes or re-initializes the manager, clearing previous states and
    * restoring assignments from the wizard's state.
    */
   init() {
-    console.log('DiceManager.init: Initializing/re-initializing dice manager.');
-    this.selectedDice.clear();
+    this.usedValuesByIndex.clear();
     this.assignedAttributes.clear();
-
-    // Reset all buttons visually
-    this.tableElement.querySelectorAll('button').forEach(btn => {
-      btn.classList.remove('selected');
-      btn.disabled = false;
-      btn.textContent = btn.dataset.die.toUpperCase();
-    });
-
-    // Restore previous attribute assignments from wizard state
+    this.tableElement.querySelectorAll('button').forEach(btn => btn.classList.remove('selected'));
     const currentAttributesState = this.stateManager.get('attributes');
-    console.log('DiceManager.init: Restoring previous attribute assignments from wizard state:', currentAttributesState);
-    Object.entries(currentAttributesState).forEach(([attr, die]) => {
-      this.selectedDice.set(die, attr);
-      this.assignedAttributes.set(attr, die);
-      const btn = this.tableElement.querySelector(`tr[data-attribute="${attr}"] button[data-die="${die}"]`);
-      if (btn) {
-        btn.classList.add('selected');
-        console.log(`DiceManager.init: Restored UI selection for ${attr} with ${die}.`);
+    Object.entries(currentAttributesState).forEach(([attr, value]) => {
+      const valueIndex = this.valuesToAssign.findIndex((val, idx) => val == value && !this.usedValuesByIndex.has(idx));
+      if (valueIndex !== -1) {
+        this.usedValuesByIndex.set(valueIndex, attr);
+        this.assignedAttributes.set(attr, value);
+        const btn = this.tableElement.querySelector(`tr[data-attribute="${attr}"] button[data-index="${valueIndex}"]`);
+        if (btn) btn.classList.add('selected');
       }
     });
-
-    // Ensure only one event listener is active on the correct table
     if (this.boundProcessSelection) {
       this.tableElement.removeEventListener('click', this.boundProcessSelection);
     }
-    // Bind 'this' context for the event listener
     this.boundProcessSelection = this._handleTableClick.bind(this);
     this.tableElement.addEventListener('click', this.boundProcessSelection);
-    console.log('DiceManager.init: Event listener attached to dice assignment table.');
-
-    this._updateDieStates(); // Update button disabled states based on current assignments
-    console.log('DiceManager.init: Dice manager initialized.');
+    this._updateButtonStates();
   }
-
-  /**
-   * Handles the click event from the table, delegating to processSelection.
-   * @param {Event} e - The click event.
-   * @private
-   */
   _handleTableClick(e) {
-    const button = e.target.closest('button[data-die]');
+    const button = e.target.closest('button[data-value][data-index]');
     if (!button) return;
-
     const row = button.closest('tr');
     const attribute = row.dataset.attribute;
-    const die = button.dataset.die;
-
-    this._processSelection(attribute, die, button);
+    const value = button.dataset.value;
+    const valueIndex = parseInt(button.dataset.index, 10);
+    this._processSelection(attribute, value, valueIndex, button);
   }
-
-  /**
-   * Processes a die selection for an attribute.
-   * @param {string} attribute - The attribute being assigned.
-   * @param {string} die - The die type (e.g., 'd4').
-   * @param {HTMLElement} button - The clicked button element.
-   * @private
-   */
-  _processSelection(attribute, die, button) {
-    const currentAssignmentForAttribute = this.assignedAttributes.get(attribute);
-    console.log(`DiceManager._processSelection: Processing selection for attribute '${attribute}'. Current assignment: ${currentAssignmentForAttribute || 'None'}. New selection: ${die}.`);
-
-    if (currentAssignmentForAttribute === die) {
-      console.log(`DiceManager._processSelection: Unassigning ${die} from ${attribute}.`);
-      this._clearAssignment(attribute, die);
-      button.classList.remove('selected');
+  _processSelection(attribute, value, valueIndex, button) {
+    const attributeUsingValue = this.usedValuesByIndex.get(valueIndex);
+    if (attributeUsingValue === attribute) {
+      this._clearAssignment(attribute, valueIndex);
+    } else if (this.usedValuesByIndex.has(valueIndex)) {
+      alerter.show(`This value is already assigned to ${attributeUsingValue.charAt(0).toUpperCase() + attributeUsingValue.slice(1)}.`);
+      return;
     } else {
-      if (this.selectedDice.has(die)) {
-        const assignedToAttr = this.selectedDice.get(die);
-        console.warn(`DiceManager._processSelection: Die ${die} is already assigned to ${assignedToAttr}. Blocking selection.`);
-        alerter.show(`This die type (${die.toUpperCase()}) is already assigned to ${assignedToAttr.charAt(0).toUpperCase() + assignedToAttr.slice(1)}`);
-        return;
+      if (this.assignedAttributes.has(attribute)) {
+        const oldIndex = Array.from(this.usedValuesByIndex.entries()).find(([, attr]) => attr === attribute)[0];
+        this._clearAssignment(attribute, oldIndex);
       }
-
-      if (currentAssignmentForAttribute) {
-        console.log(`DiceManager._processSelection: Clearing previous assignment (${currentAssignmentForAttribute}) for attribute ${attribute}.`);
-        this._clearAssignment(attribute, currentAssignmentForAttribute);
-      }
-
-      console.log(`DiceManager._processSelection: Assigning ${die} to ${attribute}.`);
-      this.selectedDice.set(die, attribute);
-      this.assignedAttributes.set(attribute, die);
+      this.usedValuesByIndex.set(valueIndex, attribute);
+      this.assignedAttributes.set(attribute, value);
       button.classList.add('selected');
     }
-
-    this._updateDieStates();
+    this._updateButtonStates();
     this._updateState();
-    // Signal to the parent handler/navigator that state might have changed for UI updates
-    document.dispatchEvent(new CustomEvent('wizard:stateChange', { detail: { page: 'attributes' } }));
   }
-
-  /**
-   * Clears a specific die assignment from an attribute.
-   * @param {string} attribute - The attribute.
-   * @param {string} die - The die to clear.
-   * @private
-   */
-  _clearAssignment(attribute, die) {
-    console.log(`DiceManager._clearAssignment: Clearing assignment of die ${die} from attribute ${attribute}.`);
-    this.selectedDice.delete(die);
+  _clearAssignment(attribute, valueIndex) {
+    this.usedValuesByIndex.delete(valueIndex);
     this.assignedAttributes.delete(attribute);
-    const btn = this.tableElement.querySelector(`tr[data-attribute="${attribute}"] button[data-die="${die}"]`);
+    const btn = this.tableElement.querySelector(`tr[data-attribute="${attribute}"] button[data-index="${valueIndex}"]`);
     if (btn) btn.classList.remove('selected');
   }
-
-  /**
-   * Updates the disabled states of all die buttons based on current assignments.
-   * @private
-   */
-  _updateDieStates() {
-    // console.log('DiceManager._updateDieStates: Updating disabled states of die buttons.');
-    this.tableElement.querySelectorAll('button[data-die]').forEach(button => {
-      const die = button.dataset.die;
+  _updateButtonStates() {
+    this.tableElement.querySelectorAll('button[data-index]').forEach(button => {
+      const index = parseInt(button.dataset.index, 10);
       const rowAttribute = button.closest('tr').dataset.attribute;
-      const currentAssignment = this.assignedAttributes.get(rowAttribute);
-
-      const shouldBeDisabled = !(currentAssignment === die || !this.selectedDice.has(die));
-      button.disabled = shouldBeDisabled;
-      button.textContent = die.toUpperCase();
+      const isUsed = this.usedValuesByIndex.has(index);
+      const usedByCurrentAttribute = this.usedValuesByIndex.get(index) === rowAttribute;
+      button.disabled = isUsed && !usedByCurrentAttribute;
     });
   }
-
-  /**
-   * Updates the wizard's state with the current attribute assignments.
-   * @private
-   */
   _updateState() {
-    this.stateManager.set('attributes', Object.fromEntries(this.assignedAttributes));
-    console.log('DiceManager._updateState: Wizard state attributes updated:', this.stateManager.get('attributes'));
+    const attributesObject = Object.fromEntries(this.assignedAttributes);
+    for (const key in attributesObject) {
+      const num = Number(attributesObject[key]);
+      if (!isNaN(num) && attributesObject[key] !== '') {
+        attributesObject[key] = num;
+      }
+    }
+    this.stateManager.set('attributes', attributesObject);
   }
 }
 
+
 class AttributesPageHandler {
-  /**
-   * @param {WizardStateManager} stateManager - The instance of the WizardStateManager.
-   * @param {InformerUpdater} informerUpdater - The instance of the InformerUpdater.
-   * @param {PageNavigator} pageNavigator - The instance of the PageNavigator.
-   * @param {Object} alerter - The alerter utility for displaying messages.
-   */
-  constructor(stateManager, informerUpdater, pageNavigator, alerter) {
+  constructor(stateManager, alerter) {
     this.stateManager = stateManager;
-    this.informerUpdater = informerUpdater;
-    this.pageNavigator = pageNavigator;
     this.alerter = alerter;
-    this.selectorPanel = null; // Will be set when setupPage is called
-    this.diceManager = null;    // Instance of DiceManager
-
-    console.log('AttributesPageHandler: Initialized.');
+    this.selectorPanel = null;
+    this.assignmentManager = null;
+    console.log('AttributesPageHandler: Initialized (Refactored).');
   }
 
-  /**
-   * Sets up the attributes page by rendering the dice assignment table and attaching event listeners.
-   * This method is called by the main CharacterWizard when the 'attributes' page is loaded.
-   * @param {HTMLElement} selectorPanel - The DOM element for the selector panel.
-   * @param {HTMLElement} informerPanel - The DOM element for the informer panel (not directly used here).
-   */
-  setupPage(selectorPanel, informerPanel) {
+  setupPage(selectorPanel, informerPanel, pageNavigator, informerUpdater) {
     this.selectorPanel = selectorPanel;
-    console.log('AttributesPageHandler.setupPage: Setting up attributes page.');
-
     this._renderAttributeTable();
-    this._initDiceManager(); // Initialize or re-initialize DiceManager after table is rendered
-
-    // Listen for state changes from DiceManager to update navigation
-    this._boundStateChangeHandler = this._handleStateChange.bind(this);
-    document.addEventListener('wizard:stateChange', this._boundStateChangeHandler);
-
-    this.informerUpdater.update('attributes');
-    this.pageNavigator.updateNav();
+    this._initAssignmentManager();
   }
 
-  /**
-   * Renders the attribute assignment table based on the selected module.
-   * @private
-   */
   _renderAttributeTable() {
-    const currentModule = this.stateManager.get('module');
-    // Check if the table needs to be refreshed (e.g., module changed or no table yet)
-    let currentTable = this.selectorPanel.querySelector('.dice-assignment-table');
-    const previouslyRenderedModule = currentTable ? currentTable.dataset.renderedModule : null;
-    const needsTableRefresh = !currentTable || (currentModule && previouslyRenderedModule !== currentModule);
-
-    console.log(`AttributesPageHandler._renderAttributeTable: Needs table refresh: ${needsTableRefresh}. Current Module: ${currentModule}, Previously Rendered: ${previouslyRenderedModule}`);
-
-    if (needsTableRefresh) {
-      console.log('AttributesPageHandler._renderAttributeTable: Re-rendering attribute table.');
-
-      const newTable = document.createElement('table');
-      newTable.classList.add('dice-assignment-table');
-      newTable.dataset.renderedModule = currentModule; // Store the module that rendered this table
-      newTable.innerHTML = `
-        <thead>
-            <tr>
-                <th>Attribute</th>
-                <th colspan="6">Assign Die</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-      `;
-
-      const newTableBody = newTable.querySelector('tbody');
-
-      if (currentModule) {
-        const moduleData = this.stateManager.getModule(currentModule);
-        (moduleData?.attributes || []).forEach(attr => {
-          const row = document.createElement('tr');
-          row.dataset.attribute = attr.toLowerCase();
-          row.innerHTML = `
-            <td>${attr}</td>
-            <td><button type="button" data-die="d4">D4</button></td>
-            <td><button type="button" data-die="d6">D6</button></td>
-            <td><button type="button" data-die="d8">D8</button></td>
-            <td><button type="button" data-die="d10">D10</button></td>
-            <td><button type="button" data-die="d12">D12</button></td>
-            <td><button type="button" data-die="d20">D20</button></td>
-          `;
-          newTableBody.appendChild(row);
+    this.selectorPanel.innerHTML = '';
+    const currentModuleId = this.stateManager.get('module');
+    if (!currentModuleId) {
+      this.selectorPanel.innerHTML = '<p>Select a module first to see available attributes.</p>';
+      return;
+    }
+    const moduleData = this.stateManager.getModule(currentModuleId);
+    const attrConfig = moduleData?.attributes;
+    if (!attrConfig || !attrConfig.names || !attrConfig.values) {
+        this.selectorPanel.innerHTML = '<p>The selected module does not have a valid attribute configuration.</p>';
+        return;
+    }
+    const table = document.createElement('table');
+    table.className = 'dice-assignment-table';
+    const thead = table.createTHead();
+    const headerRow = thead.insertRow();
+    headerRow.innerHTML = `<th>Attribute</th><th colspan="${attrConfig.values.length}">Assign Value</th>`;
+    const tbody = table.createTBody();
+    attrConfig.names.forEach(attrName => {
+        const row = tbody.insertRow();
+        row.dataset.attribute = attrName.toLowerCase();
+        row.insertCell().textContent = attrName;
+        attrConfig.values.forEach((value, index) => {
+            const btnCell = row.insertCell();
+            btnCell.innerHTML = `<button type="button" data-value="${value}" data-index="${index}">${value.toString().toUpperCase()}</button>`;
         });
-        console.log(`AttributesPageHandler._renderAttributeTable: Attribute rows generated for module: ${currentModule}`);
-      } else {
-        console.log('AttributesPageHandler._renderAttributeTable: No module selected, cannot generate attributes table.');
-      }
-
-      if (currentTable) {
-        currentTable.replaceWith(newTable);
-        console.log('AttributesPageHandler._renderAttributeTable: Replaced existing table with new one.');
-      } else {
-        this.selectorPanel.appendChild(newTable);
-        console.log('AttributesPageHandler._renderAttributeTable: Appended new table to selector panel.');
-      }
-      currentTable = newTable; // Update reference to the new table
-    } else {
-      console.log('AttributesPageHandler._renderAttributeTable: Attribute table does not need re-rendering. Module is unchanged or table exists.');
-    }
-
-    // Reset the moduleChanged flag in stateManager after handling its effect on rendering
-    // this specifically is used to reset DOM
-    this.stateManager.resetModuleChangedFlag();
+    });
+    this.selectorPanel.appendChild(table);
   }
 
-  /**
-   * Initializes the DiceManager with the current table element.
-   * @private
-   */
-  _initDiceManager() {
+  _initAssignmentManager() {
     const tableElement = this.selectorPanel.querySelector('.dice-assignment-table');
-    if (tableElement) {
-      if (!this.diceManager) {
-        this.diceManager = new DiceManager(this.stateManager, tableElement);
-      } else {
-        // If diceManager already exists, update its table reference and re-initialize
-        this.diceManager.tableElement = tableElement;
-      }
-      this.diceManager.init();
+    const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
+    const values = moduleData?.attributes?.values;
+    if (tableElement && values) {
+      this.assignmentManager = new AttributeAssignmentManager(this.stateManager, tableElement, values);
+      this.assignmentManager.init();
     } else {
-      console.error('AttributesPageHandler: Dice assignment table not found for DiceManager initialization.');
+      this.assignmentManager = null;
     }
   }
 
-  /**
-   * Handles custom state change events dispatched by DiceManager.
-   * @param {CustomEvent} event - The custom event.
-   * @private
-   */
-  _handleStateChange(event) {
-    if (event.detail.page === 'attributes') {
-      this.informerUpdater.update('attributes');
-      this.pageNavigator.updateNav();
+  // --- NEW: Methods for delegated logic ---
+
+  getInformerContent() {
+    const currentState = this.stateManager.getState();
+    if (currentState.module) {
+      const moduleData = this.stateManager.getModule(currentState.module);
+      const attrConfig = moduleData?.attributes;
+      let attributeList = '<li>No attributes configured for this module.</li>';
+
+      if (attrConfig && attrConfig.names) {
+          attributeList = attrConfig.names.map(attrName => {
+              const assignedValue = currentState.attributes[attrName.toLowerCase()];
+              const displayValue = (assignedValue !== undefined && assignedValue !== null) ? assignedValue.toString().toUpperCase() : 'Unassigned';
+              return `<li><strong>${attrName}</strong>: ${displayValue}</li>`;
+          }).join('');
+      }
+      
+      return `<h3>${moduleData.name} Attributes</h3><ul>${attributeList}</ul>`;
     }
+    return `<h3>Attributes</h3><p>Select a module first to see attributes.</p>`;
   }
 
-  /**
-   * Cleans up event listeners when the page is unloaded (optional, for robustness).
-   */
+  isComplete(currentState) {
+    if (!currentState.module) return false;
+    const moduleDef = this.stateManager.getModule(currentState.module);
+    const attrConfig = moduleDef?.attributes;
+    if (!attrConfig || !attrConfig.names) return true;
+    
+    return attrConfig.names.every(attrName => {
+        const assignedValue = currentState.attributes[attrName.toLowerCase()];
+        return assignedValue !== undefined && assignedValue !== null;
+    });
+  }
+
+  getCompletionError() {
+    return 'Please assign a value to all attributes.';
+  }
+
   cleanup() {
-    console.log('AttributesPageHandler.cleanup: Cleaning up attributes page resources.');
-    if (this.boundStateChangeHandler) {
-      document.removeEventListener('wizard:stateChange', this._boundStateChangeHandler);
-    }
-    // DiceManager itself handles removal of its button listeners when re-initialized
+    // AssignmentManager handles its own listener removal if re-initialized.
   }
 }
 

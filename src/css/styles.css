@@ -23,6 +23,7 @@
  @import './_flawsAndPerks.css';
  @import './_equipmentAndLoot.css';
  @import './_frame.css';
+ @import './_rollManager.css';
  
  /* Any global overrides or very specific styles that don't fit elsewhere could go here */
  /* General typography enhancements for readability */

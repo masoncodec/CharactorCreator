@@ -1,24 +1,15 @@
-// js/wizard/framePageHandler.js
-// Handles rendering the informational "Frame" page.
+// framePageHandler.js
+// REFACTORED: Handles the informational "Frame" page.
+// This page is simple and doesn't require complex validation or informer logic.
 
 class FramePageHandler {
-  /**
-   * @param {WizardStateManager} stateManager - The instance of the WizardStateManager.
-   * @param {InformerUpdater} informerUpdater - The instance of the InformerUpdater.
-   */
-  constructor(stateManager, informerUpdater) {
+  constructor(stateManager) {
     this.stateManager = stateManager;
-    this.informerUpdater = informerUpdater;
     this.container = null;
-    console.log('FramePageHandler: Initialized.');
+    console.log('FramePageHandler: Initialized (Refactored).');
   }
 
-  /**
-   * Sets up the page content based on the selected module.
-   * @param {HTMLElement} selectorPanel - The main panel for content.
-   * @param {HTMLElement} informerPanel - The side panel for extra info.
-   */
-  setupPage(selectorPanel, informerPanel) {
+  setupPage(selectorPanel, informerPanel, pageNavigator, informerUpdater) {
     this.container = selectorPanel.querySelector('#frame-details-content');
     if (!this.container) {
       console.error('FramePageHandler: Could not find container element #frame-details-content.');
@@ -27,9 +18,6 @@ class FramePageHandler {
     this.renderFrameContent();
   }
 
-  /**
-   * Renders the frame content into the container.
-   */
   renderFrameContent() {
     const currentState = this.stateManager.getState();
     const module = this.stateManager.getModule(currentState.module);
@@ -40,71 +28,54 @@ class FramePageHandler {
     }
 
     const frameData = module.frame;
-
     const pitchHtml = frameData.pitch.map(p => `<p>${p}</p>`).join('');
 
-    const html = `
+    this.container.innerHTML = `
       <div class="frame-container">
         <div class="frame-header">
           <h1>${frameData.name}</h1>
           <p class="frame-description">${frameData.description}</p>
         </div>
-
         <div class="frame-meta">
-          <div class="frame-section">
-            <strong>Author:</strong> ${frameData.author}
-          </div>
+          <div class="frame-section"><strong>Author:</strong> ${frameData.author}</div>
           <div class="frame-section">
             <strong>Complexity:</strong>
-            <div class="complexity-rating">
-              ${this.renderComplexity(frameData.complexityRating)}
-            </div>
+            <div class="complexity-rating">${this.renderComplexity(frameData.complexityRating)}</div>
           </div>
         </div>
-
-        <div class="frame-pitch">
-          <h2>Pitch</h2>
-          ${pitchHtml}
-        </div>
-
+        <div class="frame-pitch"><h2>Pitch</h2>${pitchHtml}</div>
         <div class="frame-footer">
-          <div class="frame-section">
-            <strong>Tone:</strong> ${frameData.tone}
-          </div>
-          <div class="frame-section">
-            <strong>Theme:</strong> ${frameData.theme}
-          </div>
-          <div class="frame-section">
-            <strong>Inspiration:</strong> ${frameData.inspiration}
-          </div>
+          <div class="frame-section"><strong>Tone:</strong> ${frameData.tone}</div>
+          <div class="frame-section"><strong>Theme:</strong> ${frameData.theme}</div>
+          <div class="frame-section"><strong>Inspiration:</strong> ${frameData.inspiration}</div>
         </div>
-      </div>
-    `;
-
-    this.container.innerHTML = html;
+      </div>`;
   }
 
-  /**
-   * Generates HTML for the complexity rating circles.
-   * @param {number} rating - The complexity rating from 1 to 5.
-   * @returns {string} HTML string of span elements for the dots.
-   */
   renderComplexity(rating) {
     let dots = '';
     for (let i = 1; i <= 5; i++) {
-      const filledClass = i <= rating ? 'filled' : '';
-      dots += `<span class="dot ${filledClass}"></span>`;
+      dots += `<span class="dot ${i <= rating ? 'filled' : ''}"></span>`;
     }
     return dots;
   }
 
-  /**
-   * Cleans up event listeners if any were added.
-   * (Not needed for this handler, but good practice to include).
-   */
+  // --- NEW: Methods for delegated logic ---
+
+  getInformerContent() {
+    return `<p>This page provides an overview of the campaign setting.</p>`;
+  }
+
+  isComplete(currentState) {
+    return true; // Frame page is always complete.
+  }
+
+  getCompletionError() {
+    return ''; // No error.
+  }
+
   cleanup() {
-    // No listeners to remove for this page.
-    console.log('FramePageHandler: Cleanup called.');
+    // No listeners to remove.
   }
 }
 

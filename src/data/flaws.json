@@ -16,6 +16,13 @@
         "name": "Health",
         "value": -2
       }
+    ],
+    "maxChoices": 1,
+    "options": [
+      { "id": "fireball", "name": "Fireball", "description": "A burst of flame that deals fire damage." },
+      { "id": "shield", "name": "Shield", "description": "Create a magical barrier." },
+      { "id": "mage-hand", "name": "Mage Hand", "description": "A spectral, floating hand." },
+      { "id": "lightning-bolt", "name": "Lightning Bolt", "description": "A streak of lightning that deals lightning damage." }
     ]
   },
   "stranger": {

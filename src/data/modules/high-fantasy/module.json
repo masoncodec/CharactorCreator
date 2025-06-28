@@ -1,6 +1,10 @@
 {
     "name": "High Fantasy",
-    "attributes": ["Strength", "Dexterity", "Constitution", "Wisdom", "Intelligence", "Charisma"],
+    "type": "KOB",
+    "attributes": {
+        "names": ["Strength", "Dexterity", "Constitution", "Wisdom", "Intelligence", "Charisma"],
+        "values": ["d4", "d6", "d8", "d10", "d12", "d20"]
+    },
     "descriptions": {
         "module": "Classic medieval fantasy adventuring with swords, sorcery, and epic quests."
     },

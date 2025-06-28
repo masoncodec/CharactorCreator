@@ -1,6 +1,10 @@
 {
     "name": "Fire Hunters",
-    "attributes": ["Whimsy", "Sturdy", "Charm", "Magic", "Speed", "Nature"],
+    "type": "Hope/Fear",
+    "attributes": {
+        "names": ["Whimsy", "Sturdy", "Charm", "Magic", "Speed", "Nature"],
+        "values": [-4, -2, 0, 0, 2, 4]
+    },
     "descriptions": {
         "module": "A Tale about Fae"
     },

@@ -9,6 +9,13 @@
           "name": "Modifier",
           "attribute": "nature",
           "modifier": 3
+        },
+        {
+            "type": "die_num",
+            "name": "Advantage",
+            "attribute": "speed",
+            "modifier": 1,
+            "cost": { "resource": "mana", "value": 5 }
         }
       ]
     },
