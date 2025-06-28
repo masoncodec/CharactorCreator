@@ -191,7 +191,17 @@ class WizardStateManager {
         this.state.inventory = [];
         this.set('destiny', null); // Trigger state change for destiny reset
       }
-    } else { this.set(key, value); }
+    } else {
+      // Before setting the new state, check if this is a destiny change.
+      if (key === 'destiny' && this.state.destiny !== value) {
+        console.log(`WizardStateManager: Destiny changed. Clearing selections with source 'destiny'.`);
+        this.state.selections = this.state.selections.filter(sel => sel.source !== 'destiny');
+        // The 'selections' array is now updated directly. The subsequent call to 'set'
+        // will update the destiny value and fire a single 'stateChange' event that
+        // reflects both the new destiny and the cleared selections.
+      }
+      this.set(key, value);
+    }
   }
   
   resetModuleChangedFlag() { this.state.moduleChanged = false; }
