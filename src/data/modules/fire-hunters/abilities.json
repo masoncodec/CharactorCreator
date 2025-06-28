@@ -1,4 +1,30 @@
 {
+    "tree-hugger": {
+        "type": "passive",
+        "name": "Tree Hugger",
+        "description": "You do be loving nature",
+        "effect": [
+        {
+          "type": "modifier",
+          "name": "Modifier",
+          "attribute": "nature",
+          "modifier": 3
+        }
+      ]
+    },
+    "animal-friend": {
+      "type": "passive",
+      "name": "Animal Friend",
+      "description": "You are friends with animals.",
+      "effect": [
+        {
+          "type": "modifier",
+          "name": "Modifier",
+          "attribute": "nature",
+          "modifier": 3
+        }
+      ]
+    },
     "natures-gift": {
       "type": "passive",
       "name": "Nature's Gift",

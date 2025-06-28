@@ -1,0 +1,16 @@
+{
+    "id": "mama-bear",
+    "displayName": "Mama Bear",
+    "description": "Savior of a bear cub.",
+    "tags": [
+        { "id": "elemental", "display": "Elemental", "color": "#ff6347", "icon": "🔥" },
+        { "id": "magic", "display": "Magic", "color": "#8A2BE2", "icon": "✨" }
+    ],
+    "choiceGroups": {
+        "initial_abilities": {
+            "name": "Starting Attunement",
+            "maxChoices": 1,
+            "abilities": ["animal-friend"]
+        }
+    }
+}

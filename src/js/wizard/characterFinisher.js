@@ -75,6 +75,8 @@ class CharacterFinisher {
     const character = {
       module: currentState.module,
       destiny: currentState.destiny,
+      purpose: currentState.purpose, // ADD THIS
+      nurture: currentState.nurture, // ADD THIS
       attributes: currentState.attributes,
       info: currentState.info,
       createdAt: new Date().toISOString(),
