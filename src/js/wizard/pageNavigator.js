@@ -19,7 +19,9 @@ class PageNavigator {
     this.currentPageName = '';
     this.loadPageCallback = loadPage;
 
-    this.navItems = document.querySelectorAll('.nav-item');
+    // MODIFIED: This selector now specifically targets nav items with a 'data-page'
+    // attribute, correctly excluding the '.nav-item--home' button.
+    this.navItems = document.querySelectorAll('.nav-item[data-page]');
     this.prevBtn = document.getElementById('prevBtn');
     this.nextBtn = document.getElementById('nextBtn');
     

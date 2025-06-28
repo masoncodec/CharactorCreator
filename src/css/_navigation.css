@@ -39,21 +39,19 @@
 /* Main navigation container - now a Flexbox container */
 .wizard-nav {
     display: flex;
-    align-items: center;
-    /* FIX: Reduced the gap size as requested */
-    gap: 1rem; 
+    /* MODIFIED: Changed from 'center' to 'flex-start' to align items to the top */
+    align-items: flex-start;
+    gap: 0.5rem; 
     width: 100%;
 }
 
-/* The wrapper for the wizard steps - this is the Grid container */
+/* The wrapper for the wizard steps */
 .wizard-nav__steps {
-    display: grid;
-    /* FIX: Added flex-grow to make the container expand and fill available space */
+    display: flex;
+    flex-wrap: wrap;
     flex-grow: 1;
-    width: 100%;
-    grid-template-columns: repeat(auto-fit, 140px);
-    gap: 0.75rem; 
     justify-content: center;
+    gap: 0.75rem; 
 }
 
 .nav-item {
@@ -72,6 +70,11 @@
     cursor: pointer;
     transition: all 0.2s ease;
     font-weight: 500;
+}
+
+/* Set a fixed width for the wizard step buttons */
+.wizard-nav__steps .nav-item {
+    width: 175px;
 }
 
 /* --- Standard states for all other nav-items --- */
@@ -115,7 +118,6 @@
 
 
 /* --- Special styles & OVERRIDES for the Home button --- */
-/* FIX: Moved ALL rules for the Home button to the end to ensure they are applied last */
 .nav-item--home {
     background-color: #2c3e50; 
     border-color: #34495e;
@@ -126,27 +128,12 @@
     border-color: #4e6a85;
 }
 
-.nav-item--home.disabled {
-    opacity: 1;
-    pointer-events: auto;
-    cursor: pointer;
-    background-color: #2c3e50;
-}
-
-.nav-item--home.completed {
-    color: white;
-}
-
-.nav-item--home.completed::before,
-.nav-item--home.disabled::before {
-    content: none;
-}
-
 
 /* --- Final Media Query Update --- */
 @media (max-width: 768px) {
-    .wizard-nav__steps {
-        grid-template-columns: repeat(auto-fit, 120px);
+    /* Set a smaller width for flex items on smaller screens */
+    .wizard-nav__steps .nav-item {
+        width: 150px;
     }
 
     .nav-item {
