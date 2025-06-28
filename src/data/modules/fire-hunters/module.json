@@ -25,9 +25,9 @@
         "inspiration": "Smokey Bear, Fae"
     },
     "dataFiles": {
-        "abilities": "data/modules/fire-hunters/abilities.json",
-        "flaws": "data/modules/fire-hunters/flaws.json",
-        "perks": "data/modules/fire-hunters/perks.json",
-        "equipmentAndLoot": "data/modules/fire-hunters/equipmentAndLoot.json"
+        "abilities": "abilities.json",
+        "flaws": "flaws.json",
+        "perks": "perks.json",
+        "equipmentAndLoot": "equipmentAndLoot.json"
     }
 }
