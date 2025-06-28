@@ -191,8 +191,52 @@ class NurturePageHandler {
     });
   }
 
+  /**
+   * MODIFIED: Generates a detailed list of all remaining choices.
+   * @returns {string} A comprehensive error message.
+   */
   getCompletionError() {
-    return 'Please select a Nurture and ensure all choices are complete.';
+    const currentState = this.stateManager.getState();
+    const errors = [];
+
+    if (!currentState.nurture) {
+      return 'Please select a Nurture to continue.';
+    }
+
+    const nurtureDef = this.stateManager.getNurture(currentState.nurture);
+    if (!nurtureDef || !nurtureDef.choiceGroups) return '';
+
+    const allItemDefs = this.stateManager.getItemData();
+
+    Object.entries(nurtureDef.choiceGroups).forEach(([groupId, groupDef]) => {
+      const selectionsInGroup = currentState.selections.filter(
+        sel => sel.source === 'nurture' && sel.groupId === groupId
+      );
+      
+      const needed = groupDef.maxChoices;
+      const chosen = selectionsInGroup.length;
+
+      if (chosen < needed) {
+        const remaining = needed - chosen;
+        const itemLabel = remaining === 1 ? 'item' : 'items';
+        errors.push(`From "${groupDef.name}", you must choose ${remaining} more ${itemLabel}.`);
+      }
+
+      selectionsInGroup.forEach(sel => {
+        const itemDef = allItemDefs[sel.id];
+        if (itemDef?.options && itemDef.maxChoices) {
+          if (sel.selections.length < itemDef.maxChoices) {
+            errors.push(`The item "${itemDef.name}" requires a selection. Please make a choice.`);
+          }
+        }
+      });
+    });
+
+    if (errors.length > 0) {
+      return errors.join('\n');
+    }
+
+    return 'Please ensure all choices for your Nurture are complete.';
   }
 
   cleanup() {

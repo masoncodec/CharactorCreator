@@ -21,16 +21,14 @@ class PageNavigator {
     this.nextBtn = document.getElementById('nextBtn');
     this.nextBtnWrapper = document.getElementById('nextBtnWrapper');
     
-    // MODIFIED: Create and manage a custom tooltip element.
     this.tooltipElement = null;
     this._createTooltip();
     
     console.log('PageNavigator: Initialized (Refactored).');
   }
 
-  // --- NEW: Method to create the tooltip element dynamically ---
   _createTooltip() {
-    if (document.getElementById('custom-tooltip')) return; // Ensure only one is created
+    if (document.getElementById('custom-tooltip')) return;
     this.tooltipElement = document.createElement('div');
     this.tooltipElement.id = 'custom-tooltip';
     this.tooltipElement.className = 'custom-tooltip';
@@ -64,21 +62,23 @@ class PageNavigator {
       this.nextPage();
     });
 
-    // MODIFIED: Add event listeners to the wrapper for the custom tooltip.
     this.nextBtnWrapper?.addEventListener('mouseover', () => this._showTooltip());
     this.nextBtnWrapper?.addEventListener('mouseout', () => this._hideTooltip());
   }
 
-  // --- NEW: Method to show and position the tooltip ---
+  /**
+   * MODIFIED: Formats the message with line breaks for proper display in HTML.
+   */
   _showTooltip() {
     if (this.nextBtnWrapper && this.nextBtnWrapper.classList.contains('is-disabled') && this.tooltipElement) {
       const message = this.getCompletionError(this.currentPageName);
-      this.tooltipElement.textContent = message;
+      
+      // MODIFICATION HERE: Replace newline characters with <br> tags for HTML rendering.
+      this.tooltipElement.innerHTML = message.replace(/\n/g, '<br>');
 
       const rect = this.nextBtnWrapper.getBoundingClientRect();
       
-      // Position tooltip to be centered above the button wrapper
-      const topPos = rect.top + window.scrollY - this.tooltipElement.offsetHeight - 8; // 8px spacing
+      const topPos = rect.top + window.scrollY - this.tooltipElement.offsetHeight - 8;
       const leftPos = rect.left + (rect.width / 2) - (this.tooltipElement.offsetWidth / 2);
 
       this.tooltipElement.style.top = `${topPos}px`;
@@ -88,7 +88,6 @@ class PageNavigator {
     }
   }
 
-  // --- NEW: Method to hide the tooltip ---
   _hideTooltip() {
     if (this.tooltipElement) {
       this.tooltipElement.classList.remove('visible');
@@ -123,8 +122,6 @@ class PageNavigator {
       
       this.nextBtnWrapper.classList.toggle('is-disabled', isDisabled);
       this.nextBtn.textContent = isLastPage ? 'Finish' : 'Next';
-      
-      // MODIFIED: The 'title' attribute is no longer set here.
     }
   }
 
@@ -182,7 +179,6 @@ class PageNavigator {
   }
   
   cleanup() {
-    // MODIFIED: Clean up the tooltip when it's no longer needed.
     this.tooltipElement?.remove();
   }
 }

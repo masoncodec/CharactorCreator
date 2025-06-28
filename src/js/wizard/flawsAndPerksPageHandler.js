@@ -49,8 +49,6 @@ class FlawsAndPerksPageHandler {
     }
   }
   
-  // --- NEW: Methods for delegated logic ---
-
   getInformerContent() {
     const currentState = this.stateManager.getState();
     const allItemDefs = this.stateManager.getItemData();
@@ -96,12 +94,36 @@ class FlawsAndPerksPageHandler {
     return choicesComplete && pointsValid;
   }
 
+  /**
+   * MODIFIED: Generates a detailed list of point deficits and incomplete choices.
+   * @returns {string} A comprehensive error message.
+   */
   getCompletionError() {
+    const currentState = this.stateManager.getState();
+    const allItemDefs = this.stateManager.getItemData();
+    const errors = [];
+
+    // Check for point balance
     const points = this.stateManager.getAvailableCharacterPoints();
     if (points < 0) {
-      return 'Perk Point cost cannot exceed Flaw Point value.';
+      errors.push(`You have overspent by ${Math.abs(points)} point(s). Please add Flaws or remove Perks.`);
     }
-    return 'Please complete all required nested flaw/perk selections.';
+
+    // Check for incomplete nested choices
+    currentState.selections
+      .filter(sel => sel.source.startsWith('independent-'))
+      .forEach(sel => {
+        const itemDef = allItemDefs[sel.id];
+        if (itemDef?.options && itemDef.maxChoices && sel.selections.length < itemDef.maxChoices) {
+          errors.push(`The ${itemDef.itemType} "${itemDef.name}" requires a selection. Please make a choice.`);
+        }
+      });
+    
+    if (errors.length > 0) {
+      return errors.join('\n');
+    }
+
+    return 'An unknown validation error occurred.';
   }
 
   cleanup() {

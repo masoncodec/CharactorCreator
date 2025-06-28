@@ -27,6 +27,7 @@ class CharacterFinisher {
   /**
    * Performs final validation by iterating through all pages.
    * @private
+   * MODIFIED: Joins errors with double newlines for better spacing.
    */
   _validateAllPages() {
     console.log('CharacterFinisher._validateAllPages: Running centralized validation via PageNavigator.');
@@ -37,13 +38,14 @@ class CharacterFinisher {
     for (const page of this.pages) {
       if (!this.pageNavigator.isPageCompleted(page, currentState)) {
         const errorMessage = this.pageNavigator.getCompletionError(page);
-        errors.push(`• ${errorMessage}`);
+        errors.push(`${errorMessage}`);
       }
     }
 
     return {
       isValid: errors.length === 0,
-      message: errors.join("\n")
+      // MODIFICATION HERE: Using '\n\n' to add a blank line between entries.
+      message: errors.join("\n\n")
     };
   }
   
@@ -75,8 +77,8 @@ class CharacterFinisher {
     const character = {
       module: currentState.module,
       destiny: currentState.destiny,
-      purpose: currentState.purpose, // ADD THIS
-      nurture: currentState.nurture, // ADD THIS
+      purpose: currentState.purpose,
+      nurture: currentState.nurture,
       attributes: currentState.attributes,
       info: currentState.info,
       createdAt: new Date().toISOString(),
@@ -145,7 +147,6 @@ class CharacterFinisher {
   }
 
   /**
-   * MODIFIED: Now accepts pre-categorized selections.
    * @private
    */
   _calculateCharacterEffects(categorizedSelections, currentState, allItemDefs) {
@@ -168,14 +169,12 @@ class CharacterFinisher {
   }
 
   /**
-   * MODIFIED: Now accepts a pre-categorized list of raw inventory selections.
    * @private
    */
   _processFinalInventory(rawInventorySelections, stateInventory, allItemDefs) {
     const finalInventory = [];
     const stackableMap = new Map();
     
-    // Combine the pre-filtered selections with items from other sources (e.g., effects).
     const combinedRawInventory = [
         ...stateInventory,
         ...rawInventorySelections
@@ -189,7 +188,7 @@ class CharacterFinisher {
           stackableMap.set(itemState.id, { id: itemState.id, quantity: 0, sources: new Set() });
         }
         const entry = stackableMap.get(itemState.id);
-        entry.quantity += itemState.quantity || 1; // Default to 1 if quantity isn't set
+        entry.quantity += itemState.quantity || 1; 
         if (itemState.source) entry.sources.add(itemState.source);
       } else {
         finalInventory.push(itemState);
@@ -199,7 +198,7 @@ class CharacterFinisher {
       finalInventory.push({
         id: combinedItem.id,
         quantity: combinedItem.quantity,
-        equipped: true, // Stackable items are generally considered "equipped" or active
+        equipped: true,
         source: Array.from(combinedItem.sources).join(', '),
       });
     }

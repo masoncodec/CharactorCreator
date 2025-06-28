@@ -76,7 +76,6 @@ class DestinyPageHandler {
     });
   }
 
-  // MODIFIED: This function now dynamically chooses which component to render.
   _renderAbilityGroupsSection() {
     this._cleanupItemSelectors(); 
     const scrollArea = this.selectorPanel.querySelector('.destiny-content-scroll-area');
@@ -193,8 +192,52 @@ class DestinyPageHandler {
     });
   }
 
+  /**
+   * MODIFIED: Generates a detailed list of all remaining choices.
+   * @returns {string} A comprehensive error message.
+   */
   getCompletionError() {
-    return 'Please select a Destiny and ensure all choices are complete.';
+    const currentState = this.stateManager.getState();
+    const errors = [];
+
+    if (!currentState.destiny) {
+      return 'Please select a Destiny to continue.';
+    }
+
+    const destinyDef = this.stateManager.getDestiny(currentState.destiny);
+    if (!destinyDef || !destinyDef.choiceGroups) return '';
+
+    const allItemDefs = this.stateManager.getItemData();
+
+    Object.entries(destinyDef.choiceGroups).forEach(([groupId, groupDef]) => {
+      const selectionsInGroup = currentState.selections.filter(
+        sel => sel.source === 'destiny' && sel.groupId === groupId
+      );
+      
+      const needed = groupDef.maxChoices;
+      const chosen = selectionsInGroup.length;
+
+      if (chosen < needed) {
+        const remaining = needed - chosen;
+        const itemLabel = remaining === 1 ? 'item' : 'items';
+        errors.push(`From "${groupDef.name}", you must choose ${remaining} more ${itemLabel}.`);
+      }
+
+      selectionsInGroup.forEach(sel => {
+        const itemDef = allItemDefs[sel.id];
+        if (itemDef?.options && itemDef.maxChoices) {
+          if (sel.selections.length < itemDef.maxChoices) {
+            errors.push(`The item "${itemDef.name}" requires a selection. Please make a choice.`);
+          }
+        }
+      });
+    });
+
+    if (errors.length > 0) {
+      return errors.join('\n');
+    }
+
+    return 'Please ensure all choices for your Destiny are complete.';
   }
 
   cleanup() {
