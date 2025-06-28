@@ -1,9 +1,11 @@
 // play.js (Updated)
 // This file handles the main character display and interaction on the play page.
+// REFACTORED: To use the new on-demand, module-based data loading system.
 
 // Import shared modules
 import { EffectHandler } from './effectHandler.js';
-import { loadGameData } from './dataLoader.js';
+// UPDATED: Importing the new data loader functions.
+import { loadGameModules, loadDataForModule } from './dataLoader.js';
 import { alerter } from './alerter.js';
 import { RollManager } from './RollManager.js';
 
@@ -17,6 +19,7 @@ let perkData = {};
 let activeAbilityStates = new Set();
 let activeCharacter = null;
 
+// This function remains the same, but now depends on the data loaded on-demand.
 function processAndRenderCharacter(character) {
     if (!character) {
         document.getElementById('characterDetails').innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
@@ -69,7 +72,6 @@ function processAndRenderCharacter(character) {
     renderHealthDisplay(effectedCharacter);
 
     if (systemType === 'Hope/Fear') {
-        // CHANGED: Pass the character object to the listener function
         attachHopeFearRollListeners(effectedCharacter);
     } else {
         attachAttributeRollListeners();
@@ -83,7 +85,6 @@ function renderHopeFearUI(effectedCharacter) {
     const attributeStyle = "display: flex; flex-direction: column; align-items: center; gap: 0.5rem;";
     const valueStyle = "font-size: 1.2rem; font-weight: bold; color: #a0c4ff;";
 
-    // CHANGED: Added a span to display the base attribute value on the main page.
     const attributeButtons = Object.keys(effectedCharacter.attributes).map(attr => {
         const baseValue = effectedCharacter.attributes[attr];
         return `
@@ -98,7 +99,6 @@ function renderHopeFearUI(effectedCharacter) {
     return `<div class="hope-fear-container" style="${containerStyle}">${attributeButtons}</div>`;
 }
 
-// CHANGED: Function now accepts the character object to access base attribute values.
 function attachHopeFearRollListeners(effectedCharacter) {
     document.querySelectorAll('.hope-fear-roll-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -107,7 +107,6 @@ function attachHopeFearRollListeners(effectedCharacter) {
             const numericalEffects = EffectHandler.getEffectsForAttribute(attributeName, 'modifier');
             const diceNumEffects = EffectHandler.getEffectsForAttribute(attributeName, 'die_num');
             
-            // ADDED: Get the base attribute value from the character object.
             const baseValue = effectedCharacter.attributes[attributeName] || 0;
 
             const modifierData = {
@@ -116,15 +115,13 @@ function attachHopeFearRollListeners(effectedCharacter) {
                 sources: [...numericalEffects, ...diceNumEffects]
             };
 
-            // CHANGED: Pass the new baseValue to the RollManager.
             const rollManager = new RollManager(attributeName.charAt(0).toUpperCase() + attributeName.slice(1), modifierData, baseValue);
             rollManager.show();
         });
     });
 }
 
-// The rest of the file (renderKOBUI, attachAttributeRollListeners, and all other helper functions) remains unchanged.
-// ... (All other functions from your original file go here) ...
+// ... All other render and helper functions (renderKOBUI, renderAbilities, etc.) remain unchanged ...
 function renderKOBUI(effectedCharacter) {
     let attributesHtml = '';
     if (effectedCharacter.attributes) {
@@ -384,8 +381,10 @@ function renderPerks(character) {
     }).join('')}</ul></div>`;
 }
 
+// ** ENTIRE DOMCONTENTLOADED LISTENER IS REFACTORED **
 document.addEventListener('DOMContentLoaded', async function() {
     highlightActiveNav('play.html');
+
     const characterDetails = document.getElementById('characterDetails');
     if (characterDetails) {
         characterDetails.addEventListener('click', function(event) {
@@ -404,22 +403,45 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     try {
-        const loadedData = await loadGameData();
-        moduleDefinitions = loadedData.moduleSystemData;
-        abilityData = loadedData.abilityData;
-        flawData = loadedData.flawData;
-        perkData = loadedData.perkData;
-        console.log('play.js: All game data loaded successfully.');
-        db.getActiveCharacter().then(function(character) {
-            activeCharacter = character;
-            processAndRenderCharacter(activeCharacter);
-        }).catch(function(err) {
-            console.error('Error loading character:', err);
-            alerter.show('Failed to load active character.', 'error');
-        });
+        // Step 1: Load all module definitions first. This is always needed.
+        const { moduleSystemData } = await loadGameModules();
+        moduleDefinitions = moduleSystemData;
+        console.log('play.js: All module definitions loaded.');
+
+        // Step 2: Get the currently active character from the database.
+        activeCharacter = await db.getActiveCharacter();
+        if (!activeCharacter) {
+            alerter.show('No active character found.', 'info');
+            characterDetails.innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
+            return;
+        }
+
+        // Step 3: Check if the character has a module. If not, stop and show an error.
+        if (!activeCharacter.module) {
+            console.error('Active character is missing the required "module" property.');
+            alerter.show('Character is from an older version and is missing a module definition.', 'error');
+            characterDetails.innerHTML = `<p><strong>Error:</strong> This character cannot be loaded because it's from an older version of the game. It must be updated with a module assignment.</p>`;
+            return; // Stop execution
+        }
+
+        // Step 4: Load the specific data for that character's module.
+        console.log(`play.js: Loading data for module: ${activeCharacter.module}`);
+        const moduleDef = moduleDefinitions[activeCharacter.module];
+        const moduleSpecificData = await loadDataForModule(moduleDef);
+
+        // Step 5: Populate the global data variables.
+        abilityData = moduleSpecificData.abilityData || {};
+        flawData = moduleSpecificData.flawData || {};
+        perkData = moduleSpecificData.perkData || {};
+        // Note: equipmentAndLootData is also available in moduleSpecificData if needed later.
+        console.log('play.js: Module-specific data loaded successfully.');
+        
+        // Step 6: Now that all data is loaded, render the character.
+        processAndRenderCharacter(activeCharacter);
+
     } catch (error) {
-        console.error('play.js: Error initializing data:', error);
-        alerter.show('Failed to load game data. Please check the console for details.', 'error');
+        console.error('play.js: A critical error occurred during initialization:', error);
+        alerter.show('Failed to load game or character data. Please check the console.', 'error');
     }
 
     document.getElementById('characterDetails').addEventListener('click', function(event) {
