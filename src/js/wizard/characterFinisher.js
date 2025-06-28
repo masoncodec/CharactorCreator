@@ -1,6 +1,5 @@
 // characterFinisher.js
 // This module handles the final validation of the character data and the saving process.
-// REFACTORED: Now relies entirely on the PageNavigator to orchestrate validation.
 
 class CharacterFinisher {
   /**
@@ -26,8 +25,7 @@ class CharacterFinisher {
   }
 
   /**
-   * REFACTORED: Performs final validation by iterating through all pages
-   * and using the PageNavigator's delegated validation methods.
+   * Performs final validation by iterating through all pages.
    * @private
    */
   _validateAllPages() {
@@ -64,18 +62,25 @@ class CharacterFinisher {
     const currentState = this.stateManager.getState();
     const allItemDefs = this.stateManager.getItemData();
     
-    const characterEffects = this._calculateCharacterEffects(currentState, allItemDefs);
-    const finalInventory = this._processFinalInventory(currentState);
+    // 1. Categorize all selections in a single pass.
+    const categorizedSelections = this._categorizeSelections(currentState.selections, allItemDefs);
 
+    // 2. Calculate effects using the pre-categorized lists.
+    const characterEffects = this._calculateCharacterEffects(categorizedSelections, currentState, allItemDefs);
+
+    // 3. Process the pre-categorized inventory list for stacking.
+    const finalInventory = this._processFinalInventory(categorizedSelections.inventory, currentState.inventory, allItemDefs);
+
+    // 4. Assemble the final character object from the clean, categorized data.
     const character = {
       module: currentState.module,
       destiny: currentState.destiny,
       attributes: currentState.attributes,
       info: currentState.info,
       createdAt: new Date().toISOString(),
-      flaws: currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'flaw'),
-      perks: currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'perk'),
-      abilities: currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'ability'),
+      flaws: categorizedSelections.flaws,
+      perks: categorizedSelections.perks,
+      abilities: categorizedSelections.abilities,
       inventory: finalInventory,
       health: {
         current: characterEffects.calculatedHealth.currentMax,
@@ -99,10 +104,50 @@ class CharacterFinisher {
     }
   }
 
-  _calculateCharacterEffects(currentState, allItemDefs) {
-    const abilities = currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'ability');
-    const flaws = currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'flaw');
-    const perks = currentState.selections.filter(sel => allItemDefs[sel.id]?.itemType === 'perk');
+  /**
+   * Centralized helper to sort all selections into their respective categories.
+   * @param {Array} selections - The character's current selections.
+   * @param {Object} allItemDefs - A map of all item definitions.
+   * @returns {Object} An object containing arrays of categorized selections.
+   * @private
+   */
+  _categorizeSelections(selections, allItemDefs) {
+    const categorized = {
+      flaws: [],
+      perks: [],
+      abilities: [],
+      inventory: [],
+    };
+
+    for (const sel of selections) {
+      const itemDef = allItemDefs[sel.id];
+      if (!itemDef) continue;
+
+      switch (itemDef.itemType) {
+        case 'flaw':
+          categorized.flaws.push(sel);
+          break;
+        case 'perk':
+          categorized.perks.push(sel);
+          break;
+        case 'ability':
+          categorized.abilities.push(sel);
+          break;
+        case 'equipment':
+        case 'loot':
+          categorized.inventory.push(sel);
+          break;
+      }
+    }
+    return categorized;
+  }
+
+  /**
+   * MODIFIED: Now accepts pre-categorized selections.
+   * @private
+   */
+  _calculateCharacterEffects(categorizedSelections, currentState, allItemDefs) {
+    const { abilities, flaws, perks } = categorizedSelections;
     const activeAbilityStates = new Set(
       abilities.filter(a => allItemDefs[a.id]?.type === 'active').map(a => a.id)
     );
@@ -120,22 +165,18 @@ class CharacterFinisher {
     return this.EffectHandler.applyEffectsToCharacter(characterStateForEffects, 'wizard');
   }
 
-  _processFinalInventory(currentState) {
+  /**
+   * MODIFIED: Now accepts a pre-categorized list of raw inventory selections.
+   * @private
+   */
+  _processFinalInventory(rawInventorySelections, stateInventory, allItemDefs) {
     const finalInventory = [];
     const stackableMap = new Map();
-    const allItemDefs = this.stateManager.getItemData();
     
-    // Correctly filter for all equipment and loot from any source.
-    const inventorySelections = currentState.selections.filter(sel => {
-        const itemDef = allItemDefs[sel.id];
-        return itemDef && (itemDef.itemType === 'equipment' || itemDef.itemType === 'loot');
-    });
-
-    // Combine selections from the wizard with items added by other means (e.g. effects).
-    // This no longer incorrectly overrides quantity or equipped status.
+    // Combine the pre-filtered selections with items from other sources (e.g., effects).
     const combinedRawInventory = [
-        ...currentState.inventory,
-        ...inventorySelections
+        ...stateInventory,
+        ...rawInventorySelections
     ];
 
     for (const itemState of combinedRawInventory) {
