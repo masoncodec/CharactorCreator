@@ -23,6 +23,34 @@
     color: white;
 }
 
+.custom-tooltip {
+  /* Positioning */
+  position: absolute; /* Allows placement relative to the viewport */
+  z-index: 1070;    /* High z-index to ensure it appears above other elements */
+
+  /* Appearance (to match your theme) */
+  background-color: #2a2a2a; /* Matches wizard controls background */
+  color: #ffffff;           /* Gold accent color for text */
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;        /* Matches button corner roundness */
+  font-size: 0.9em;
+  font-weight: 500;
+  text-align: center;
+  max-width: 250px; /* Prevents the tooltip from becoming too wide */
+
+  /* Animation & Default State */
+  opacity: 0;
+  visibility: hidden; /* Hidden by default */
+  pointer-events: none; /* The tooltip itself shouldn't be interactive */
+  transition: opacity 0.15s ease-in-out; /* Fast fade transition */
+}
+
+/* This class makes the tooltip visible */
+.custom-tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
 /* Animations */
 @keyframes pulseError {
     0% { opacity: 0.5; }

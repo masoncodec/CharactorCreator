@@ -19,11 +19,22 @@ class PageNavigator {
     this.navItems = document.querySelectorAll('.nav-item[data-page]');
     this.prevBtn = document.getElementById('prevBtn');
     this.nextBtn = document.getElementById('nextBtn');
-    
-    // MODIFIED: Get the new wrapper element for the next button.
     this.nextBtnWrapper = document.getElementById('nextBtnWrapper');
     
+    // MODIFIED: Create and manage a custom tooltip element.
+    this.tooltipElement = null;
+    this._createTooltip();
+    
     console.log('PageNavigator: Initialized (Refactored).');
+  }
+
+  // --- NEW: Method to create the tooltip element dynamically ---
+  _createTooltip() {
+    if (document.getElementById('custom-tooltip')) return; // Ensure only one is created
+    this.tooltipElement = document.createElement('div');
+    this.tooltipElement.id = 'custom-tooltip';
+    this.tooltipElement.className = 'custom-tooltip';
+    document.body.appendChild(this.tooltipElement);
   }
 
   setCurrentPage(pageName) {
@@ -46,24 +57,48 @@ class PageNavigator {
 
     this.prevBtn?.addEventListener('click', () => this.prevPage());
     
-    // MODIFIED: The click listener now checks the wrapper for the 'is-disabled' class.
     this.nextBtn?.addEventListener('click', () => {
       if (this.nextBtnWrapper && this.nextBtnWrapper.classList.contains('is-disabled')) {
-        return; // Do nothing if the button is in a disabled state.
+        return;
       }
       this.nextPage();
     });
+
+    // MODIFIED: Add event listeners to the wrapper for the custom tooltip.
+    this.nextBtnWrapper?.addEventListener('mouseover', () => this._showTooltip());
+    this.nextBtnWrapper?.addEventListener('mouseout', () => this._hideTooltip());
   }
 
-  /**
-   * MODIFIED: Updates the visual state of all navigation, now using the wrapper
-   * to control the disabled state and tooltip for the Next/Finish button.
-   */
+  // --- NEW: Method to show and position the tooltip ---
+  _showTooltip() {
+    if (this.nextBtnWrapper && this.nextBtnWrapper.classList.contains('is-disabled') && this.tooltipElement) {
+      const message = this.getCompletionError(this.currentPageName);
+      this.tooltipElement.textContent = message;
+
+      const rect = this.nextBtnWrapper.getBoundingClientRect();
+      
+      // Position tooltip to be centered above the button wrapper
+      const topPos = rect.top + window.scrollY - this.tooltipElement.offsetHeight - 8; // 8px spacing
+      const leftPos = rect.left + (rect.width / 2) - (this.tooltipElement.offsetWidth / 2);
+
+      this.tooltipElement.style.top = `${topPos}px`;
+      this.tooltipElement.style.left = `${leftPos}px`;
+
+      this.tooltipElement.classList.add('visible');
+    }
+  }
+
+  // --- NEW: Method to hide the tooltip ---
+  _hideTooltip() {
+    if (this.tooltipElement) {
+      this.tooltipElement.classList.remove('visible');
+    }
+  }
+
   updateNav() {
     const currentState = this.stateManager.getState();
     const currentPageIndex = this.pages.indexOf(this.currentPageName);
 
-    // --- Sidebar Navigation Items ---
     this.navItems.forEach(item => {
       const page = item.dataset.page;
       const index = this.pages.indexOf(page);
@@ -76,7 +111,6 @@ class PageNavigator {
       item.title = canAccess ? '' : "Select a module first";
     });
 
-    // --- Previous/Next Buttons ---
     const isCurrentPageComplete = this.isPageCompleted(this.currentPageName, currentState);
     const isLastPage = currentPageIndex === this.pages.length - 1;
 
@@ -87,14 +121,10 @@ class PageNavigator {
     if (this.nextBtnWrapper && this.nextBtn) {
       const isDisabled = !isCurrentPageComplete;
       
-      // Toggle the 'is-disabled' class on the wrapper element.
       this.nextBtnWrapper.classList.toggle('is-disabled', isDisabled);
-      
-      // Set the tooltip text on the wrapper, which can always show it.
-      this.nextBtnWrapper.title = isDisabled ? this.getCompletionError(this.currentPageName) : '';
-      
-      // The button's text is still updated directly.
       this.nextBtn.textContent = isLastPage ? 'Finish' : 'Next';
+      
+      // MODIFIED: The 'title' attribute is no longer set here.
     }
   }
 
@@ -152,7 +182,8 @@ class PageNavigator {
   }
   
   cleanup() {
-    // No global listeners to remove from this component anymore.
+    // MODIFIED: Clean up the tooltip when it's no longer needed.
+    this.tooltipElement?.remove();
   }
 }
 
