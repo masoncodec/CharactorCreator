@@ -145,12 +145,14 @@
     flex-direction: row; /* Panels side-by-side */
     gap: 2rem; /* Spacing between panels */
     flex-grow: 1; /* Allows content to fill available space */
-    min-height: 0;
+    min-height: 0; /* */
     margin-top: 1.5rem; /* Space below the home link */
+    height: 100%; /* ADD THIS LINE */
 }
 
 .character-sheet {
     flex: 2; /* Character sheet takes more space */
+    overflow: auto;
 }
 
 .tools-panel {
