@@ -94,19 +94,26 @@
     background: #c23232;
 }
 
+/* MODIFICATION: Removed 'pointer-events: none;' and added 'cursor: not-allowed;' */
 .nav-item.disabled {
     opacity: 0.6;
-    pointer-events: none;
     background-color: #333;
+    cursor: not-allowed;
 }
 
-/* MODIFICATION: The ::before pseudo-element for the disabled state (lock icon) has been removed. */
+.nav-item.disabled::before {
+    margin-right: 0.5em;
+    visibility: visible;
+}
 
 .nav-item.completed {
     color: #FFD700;
 }
 
-/* MODIFICATION: The ::before pseudo-element for the completed state (checkmark icon) has been removed. */
+.nav-item.completed::before {
+    margin-right: 0.5em;
+    visibility: visible;
+}
 
 
 /* --- Special styles & OVERRIDES for the Home button --- */
