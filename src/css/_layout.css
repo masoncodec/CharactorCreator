@@ -72,14 +72,36 @@
 
 
 /* Specific panel sizing */
+/* Specific panel sizing */
 .selector-panel {
     flex: 2;
     /* Make selector-panel a flex container for its children */
     display: flex;
     flex-direction: column;
-    height: 100%; /* Ensure it takes full height from its parent (.wizard-content) */
+    /* REMOVED: height: 100%; */
+    min-height: 0; /* ADD THIS: Crucial for allowing the panel to shrink and scroll within a flex container */
+    overflow-y: auto; /* ADD THIS: Enables vertical scrolling when content exceeds panel height */
+
+    /* Custom scrollbar styling (Optional, but recommended for consistency) */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #FFD700 #252525; /* Thumb and Track color for Firefox */
 }
 
+/* ADD THIS ENTIRE BLOCK for Webkit (Chrome, Safari) scrollbar styling */
+.selector-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+.selector-panel::-webkit-scrollbar-track {
+    background: #252525; /* Track color */
+    border-radius: 10px;
+}
+
+.selector-panel::-webkit-scrollbar-thumb {
+    background-color: #FFD700; /* Thumb color */
+    border-radius: 10px;
+    border: 2px solid #252525; /* Padding around thumb */
+}
 .informer-panel {
     flex: 1;
     max-width: 175px;
@@ -123,12 +145,14 @@
     flex-direction: row; /* Panels side-by-side */
     gap: 2rem; /* Spacing between panels */
     flex-grow: 1; /* Allows content to fill available space */
-    min-height: 0;
+    min-height: 0; /* */
     margin-top: 1.5rem; /* Space below the home link */
+    height: 100%; /* ADD THIS LINE */
 }
 
 .character-sheet {
     flex: 2; /* Character sheet takes more space */
+    overflow: auto;
 }
 
 .tools-panel {

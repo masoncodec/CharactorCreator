@@ -17,10 +17,8 @@ import { CharacterFinisher } from './characterFinisher.js';
 import { ModulePageHandler } from './modulePageHandler.js';
 import { FramePageHandler } from './framePageHandler.js';
 import { DestinyPageHandler } from './destinyPageHandler.js';
-// MODIFIED START
 import { PurposePageHandler } from './purposePageHandler.js';
 import { NurturePageHandler } from './nurturePageHandler.js';
-// MODIFIED END
 import { AttributesPageHandler } from './attributesPageHandler.js';
 import { FlawsAndPerksPageHandler } from './flawsAndPerksPageHandler.js';
 import { EquipmentAndLootPageHandler } from './equipmentAndLootPageHandler.js';
@@ -29,7 +27,6 @@ import { InfoPageHandler } from './infoPageHandler.js';
 class CharacterWizard {
   constructor(moduleSystemData, db) {
     this.stateManager = new WizardStateManager(moduleSystemData);
-    // MODIFIED START
     this.pages = ['module', 'frame', 'destiny', 'purpose', 'nurture', 'attributes', 'flaws-and-perks', 'equipment-and-loot', 'info'];
     
     this.pageHandlers = {
@@ -43,7 +40,6 @@ class CharacterWizard {
       'equipment-and-loot': new EquipmentAndLootPageHandler(this.stateManager),
       info: new InfoPageHandler(this.stateManager)
     };
-    // MODIFIED END
 
     this.pageNavigator = new PageNavigator(this.pages, this.stateManager, this.pageHandlers, {
       loadPage: this.loadPage.bind(this)
@@ -121,7 +117,7 @@ class CharacterWizard {
     const informerPanel = document.getElementById('informerPanel');
 
     try {
-      if (page !== 'module' && !this.stateManager.get('module')) {
+      if (page !== 'module' && page !== 'info' && !this.stateManager.get('module')) {
         selectorPanel.innerHTML = `<div class="wizard-panel-placeholder">Please select a game module to continue.</div>`;
         informerPanel.innerHTML = '';
         this.pageNavigator.updateNav();

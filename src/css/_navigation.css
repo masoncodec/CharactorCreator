@@ -94,14 +94,14 @@
     background: #c23232;
 }
 
+/* MODIFICATION: Removed 'pointer-events: none;' and added 'cursor: not-allowed;' */
 .nav-item.disabled {
     opacity: 0.6;
-    pointer-events: none;
     background-color: #333;
+    cursor: not-allowed;
 }
 
 .nav-item.disabled::before {
-    content: "🔒";
     margin-right: 0.5em;
     visibility: visible;
 }
@@ -111,7 +111,6 @@
 }
 
 .nav-item.completed::before {
-    content: "✓";
     margin-right: 0.5em;
     visibility: visible;
 }
