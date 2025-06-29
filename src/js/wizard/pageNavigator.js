@@ -114,7 +114,11 @@ class PageNavigator {
     const isLastPage = currentPageIndex === this.pages.length - 1;
 
     if (this.prevBtn) {
-      this.prevBtn.disabled = currentPageIndex === 0;
+      const onFirstPage = currentPageIndex === 0;
+      // The Previous button should be disabled if we are on the first page
+      // OR if the page we would go back to is not accessible.
+      const prevPageIsAccessible = onFirstPage ? false : this._canAccessPage(currentPageIndex - 1, currentState);
+      this.prevBtn.disabled = onFirstPage || !prevPageIsAccessible;
     }
     
     if (this.nextBtnWrapper && this.nextBtn) {
@@ -127,7 +131,7 @@ class PageNavigator {
 
   _canAccessPage(index, currentState) {
     if (index === 0) return true;
-    return !!currentState.module;
+    return index === 0 || this.pages[index] === 'info' || !!currentState.module;
   }
   
   isPageCompleted(page, currentState) {
@@ -161,7 +165,9 @@ class PageNavigator {
   prevPage() {
     const currentPageIndex = this.pages.indexOf(this.currentPageName);
     if (currentPageIndex > 0) {
-      this.loadPageCallback(this.pages[currentPageIndex - 1]);
+      if (this._canAccessPage(currentPageIndex - 1, this.stateManager.getState())) {
+        this.loadPageCallback(this.pages[currentPageIndex - 1]);
+      }
     }
   }
 

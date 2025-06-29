@@ -100,21 +100,13 @@
     background-color: #333;
 }
 
-.nav-item.disabled::before {
-    content: "🔒";
-    margin-right: 0.5em;
-    visibility: visible;
-}
+/* MODIFICATION: The ::before pseudo-element for the disabled state (lock icon) has been removed. */
 
 .nav-item.completed {
     color: #FFD700;
 }
 
-.nav-item.completed::before {
-    content: "✓";
-    margin-right: 0.5em;
-    visibility: visible;
-}
+/* MODIFICATION: The ::before pseudo-element for the completed state (checkmark icon) has been removed. */
 
 
 /* --- Special styles & OVERRIDES for the Home button --- */
