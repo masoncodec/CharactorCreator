@@ -17,6 +17,10 @@ import { CharacterFinisher } from './characterFinisher.js';
 import { ModulePageHandler } from './modulePageHandler.js';
 import { FramePageHandler } from './framePageHandler.js';
 import { DestinyPageHandler } from './destinyPageHandler.js';
+// MODIFIED START
+import { PurposePageHandler } from './purposePageHandler.js';
+import { NurturePageHandler } from './nurturePageHandler.js';
+// MODIFIED END
 import { AttributesPageHandler } from './attributesPageHandler.js';
 import { FlawsAndPerksPageHandler } from './flawsAndPerksPageHandler.js';
 import { EquipmentAndLootPageHandler } from './equipmentAndLootPageHandler.js';
@@ -25,17 +29,21 @@ import { InfoPageHandler } from './infoPageHandler.js';
 class CharacterWizard {
   constructor(moduleSystemData, db) {
     this.stateManager = new WizardStateManager(moduleSystemData);
-    this.pages = ['module', 'frame', 'destiny', 'attributes', 'flaws-and-perks', 'equipment-and-loot', 'info'];
+    // MODIFIED START
+    this.pages = ['module', 'frame', 'destiny', 'purpose', 'nurture', 'attributes', 'flaws-and-perks', 'equipment-and-loot', 'info'];
     
     this.pageHandlers = {
       module: new ModulePageHandler(this.stateManager, this.selectModule.bind(this)),
       frame: new FramePageHandler(this.stateManager),
       destiny: new DestinyPageHandler(this.stateManager),
+      purpose: new PurposePageHandler(this.stateManager),
+      nurture: new NurturePageHandler(this.stateManager),
       attributes: new AttributesPageHandler(this.stateManager, alerter),
       'flaws-and-perks': new FlawsAndPerksPageHandler(this.stateManager),
       'equipment-and-loot': new EquipmentAndLootPageHandler(this.stateManager),
       info: new InfoPageHandler(this.stateManager)
     };
+    // MODIFIED END
 
     this.pageNavigator = new PageNavigator(this.pages, this.stateManager, this.pageHandlers, {
       loadPage: this.loadPage.bind(this)

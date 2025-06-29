@@ -9,7 +9,9 @@
     "descriptions": {
         "module": "A Tale about Fae"
     },
-    "destinies": ["whisperer"],
+    "destinies": ["whisperer", "ranger"],
+    "purposes": ["mama-bear"],
+    "nurtures": ["hippie"],
     "frame": {
         "name": "Not using Module Name",
         "description": "Not using Module description either",

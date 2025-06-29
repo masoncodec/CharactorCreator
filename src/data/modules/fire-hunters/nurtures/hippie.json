@@ -1,0 +1,16 @@
+{
+    "id": "hippie",
+    "displayName": "Hippie",
+    "description": "Your parents like loves nature.",
+    "tags": [
+        { "id": "elemental", "display": "Elemental", "color": "#ff6347", "icon": "🔥" },
+        { "id": "magic", "display": "Magic", "color": "#8A2BE2", "icon": "✨" }
+    ],
+    "choiceGroups": {
+        "initial_abilities": {
+            "name": "Starting Attunement",
+            "maxChoices": 1,
+            "abilities": ["tree-hugger"]
+        }
+    }
+}

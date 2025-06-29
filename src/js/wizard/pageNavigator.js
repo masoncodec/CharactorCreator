@@ -1,7 +1,4 @@
 // pageNavigator.js
-// REFACTORED: This module manages wizard navigation.
-// It no longer manages the state change listener, as that is now
-// handled by the central CharacterWizard orchestrator.
 
 import { alerter } from '../alerter.js';
 
@@ -19,11 +16,23 @@ class PageNavigator {
     this.currentPageName = '';
     this.loadPageCallback = loadPage;
 
-    this.navItems = document.querySelectorAll('.nav-item');
+    this.navItems = document.querySelectorAll('.nav-item[data-page]');
     this.prevBtn = document.getElementById('prevBtn');
     this.nextBtn = document.getElementById('nextBtn');
+    this.nextBtnWrapper = document.getElementById('nextBtnWrapper');
+    
+    this.tooltipElement = null;
+    this._createTooltip();
     
     console.log('PageNavigator: Initialized (Refactored).');
+  }
+
+  _createTooltip() {
+    if (document.getElementById('custom-tooltip')) return;
+    this.tooltipElement = document.createElement('div');
+    this.tooltipElement.id = 'custom-tooltip';
+    this.tooltipElement.className = 'custom-tooltip';
+    document.body.appendChild(this.tooltipElement);
   }
 
   setCurrentPage(pageName) {
@@ -32,7 +41,6 @@ class PageNavigator {
 
   /**
    * Initializes event listeners for the navigation buttons and sidebar items.
-   * The global state change listener has been removed from this component.
    */
   initNavListeners() {
     this.navItems.forEach(item => {
@@ -46,13 +54,46 @@ class PageNavigator {
     });
 
     this.prevBtn?.addEventListener('click', () => this.prevPage());
-    this.nextBtn?.addEventListener('click', () => this.nextPage());
+    
+    this.nextBtn?.addEventListener('click', () => {
+      if (this.nextBtnWrapper && this.nextBtnWrapper.classList.contains('is-disabled')) {
+        return;
+      }
+      this.nextPage();
+    });
+
+    this.nextBtnWrapper?.addEventListener('mouseover', () => this._showTooltip());
+    this.nextBtnWrapper?.addEventListener('mouseout', () => this._hideTooltip());
   }
 
   /**
-   * Updates the visual state of all navigation items (sidebar and buttons).
-   * This is now called by the central listener in the CharacterWizard.
+   * MODIFIED: Formats the message with line breaks for proper display in HTML.
    */
+  _showTooltip() {
+    if (this.nextBtnWrapper && this.nextBtnWrapper.classList.contains('is-disabled') && this.tooltipElement) {
+      const message = this.getCompletionError(this.currentPageName);
+      
+      // MODIFICATION HERE: Replace newline characters with <br> tags for HTML rendering.
+      this.tooltipElement.innerHTML = message.replace(/\n/g, '<br>');
+
+      const rect = this.nextBtnWrapper.getBoundingClientRect();
+      
+      const topPos = rect.top + window.scrollY - this.tooltipElement.offsetHeight - 8;
+      const leftPos = rect.left + (rect.width / 2) - (this.tooltipElement.offsetWidth / 2);
+
+      this.tooltipElement.style.top = `${topPos}px`;
+      this.tooltipElement.style.left = `${leftPos}px`;
+
+      this.tooltipElement.classList.add('visible');
+    }
+  }
+
+  _hideTooltip() {
+    if (this.tooltipElement) {
+      this.tooltipElement.classList.remove('visible');
+    }
+  }
+
   updateNav() {
     const currentState = this.stateManager.getState();
     const currentPageIndex = this.pages.indexOf(this.currentPageName);
@@ -69,8 +110,19 @@ class PageNavigator {
       item.title = canAccess ? '' : "Select a module first";
     });
 
-    if (this.prevBtn) this.prevBtn.disabled = currentPageIndex === 0;
-    if (this.nextBtn) this.nextBtn.textContent = currentPageIndex === this.pages.length - 1 ? 'Finish' : 'Next';
+    const isCurrentPageComplete = this.isPageCompleted(this.currentPageName, currentState);
+    const isLastPage = currentPageIndex === this.pages.length - 1;
+
+    if (this.prevBtn) {
+      this.prevBtn.disabled = currentPageIndex === 0;
+    }
+    
+    if (this.nextBtnWrapper && this.nextBtn) {
+      const isDisabled = !isCurrentPageComplete;
+      
+      this.nextBtnWrapper.classList.toggle('is-disabled', isDisabled);
+      this.nextBtn.textContent = isLastPage ? 'Finish' : 'Next';
+    }
   }
 
   _canAccessPage(index, currentState) {
@@ -127,7 +179,7 @@ class PageNavigator {
   }
   
   cleanup() {
-    // No global listeners to remove from this component anymore.
+    this.tooltipElement?.remove();
   }
 }
 

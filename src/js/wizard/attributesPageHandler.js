@@ -162,8 +162,6 @@ class AttributesPageHandler {
     }
   }
 
-  // --- NEW: Methods for delegated logic ---
-
   getInformerContent() {
     const currentState = this.stateManager.getState();
     if (currentState.module) {
@@ -196,8 +194,31 @@ class AttributesPageHandler {
     });
   }
 
+  /**
+   * MODIFIED: Generates a detailed list of all unassigned attributes.
+   * @returns {string} A comprehensive error message.
+   */
   getCompletionError() {
-    return 'Please assign a value to all attributes.';
+    const currentState = this.stateManager.getState();
+    const moduleDef = this.stateManager.getModule(currentState.module);
+    const attrConfig = moduleDef?.attributes;
+
+    if (!attrConfig || !attrConfig.names) {
+      // This page is complete if there are no attributes to assign.
+      return '';
+    }
+
+    const unassigned = attrConfig.names.filter(attrName => {
+      const assignedValue = currentState.attributes[attrName.toLowerCase()];
+      return assignedValue === undefined || assignedValue === null;
+    });
+
+    if (unassigned.length > 0) {
+      const errorList = unassigned.map(name => `- ${name}`);
+      return `Please assign a value to the following attributes:\n${errorList.join('\n')}`;
+    }
+
+    return 'An unknown validation error occurred on the Attributes page.';
   }
 
   cleanup() {

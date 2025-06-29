@@ -20,6 +20,10 @@
  @import './_hero.css';
  @import './_flaw.css';
  @import './_destiny.css';
+ /* ADD THESE LINES */
+ @import './_purpose.css';
+ @import './_nurture.css';
+ /* END ADDED LINES */
  @import './_flawsAndPerks.css';
  @import './_equipmentAndLoot.css';
  @import './_frame.css';

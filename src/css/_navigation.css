@@ -34,57 +34,75 @@
     box-shadow: 0 0 8px rgba(178, 34, 34, 0.5);
 }
 
-/* Wizard Navigation - Modified for Horizontal Layout and No Wrap */
+/* ----------------- FINAL CORRECTED STYLES START HERE ----------------- */
+
+/* Main navigation container - now a Flexbox container */
 .wizard-nav {
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-end; /* Push nav items to the right by default */
-    gap: 1rem; /* Adjust gap between nav items */
-    flex-wrap: wrap; /* Allow nav items to wrap if needed */
+    /* MODIFIED: Changed from 'center' to 'flex-start' to align items to the top */
+    align-items: flex-start;
+    gap: 0.5rem; 
+    width: 100%;
+}
+
+/* The wrapper for the wizard steps */
+.wizard-nav__steps {
+    display: flex;
+    flex-wrap: wrap;
+    flex-grow: 1;
+    justify-content: center;
+    gap: 0.75rem; 
 }
 
 .nav-item {
-    cursor: pointer;
-    transition: all 0.2s;
-    border-radius: 4px;
-    min-width: 100px; /* Ensure minimum width to prevent inner text wrap */
-    box-sizing: border-box;
-    position: relative;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    display: flex;
+    display: flex; 
     align-items: center;
     justify-content: center;
+    padding: 0.75rem 1rem;
+    box-sizing: border-box;
     border: 1px solid #555;
+    border-radius: 4px;
+    background-color: #3e3e3e;
+    color: white;
+    text-decoration: none;
     text-align: center;
-    white-space: nowrap; /* Prevent text inside nav items from wrapping */
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
 }
 
-.nav-item:hover {
-    background-color: #444;
+/* Set a fixed width for the wizard step buttons */
+.wizard-nav__steps .nav-item {
+    width: 175px;
+}
+
+/* --- Standard states for all other nav-items --- */
+.nav-item:not(.nav-item--home):hover {
+    background-color: #4f4f4f;
     border-color: #777;
 }
 
 .nav-item.active {
     background: #B22222;
     color: white;
+    border-color: #B22222;
+    font-weight: bold;
 }
 
 .nav-item.active:hover {
     background: #c23232;
-    border-color: #B22222;
 }
 
 .nav-item.disabled {
     opacity: 0.6;
     pointer-events: none;
+    background-color: #333;
 }
 
 .nav-item.disabled::before {
     content: "🔒";
+    margin-right: 0.5em;
     visibility: visible;
 }
 
@@ -93,27 +111,33 @@
 }
 
 .nav-item.completed::before {
-    content: "✓ ";
+    content: "✓";
+    margin-right: 0.5em;
     visibility: visible;
 }
 
-/* Consolidated and updated wizard-controls styles */
-.wizard-controls {
-    display: flex;
-    justify-content: space-between;
-    background: #2D2D2D;
-    border-top: 1px solid #444;
-    padding: 1rem 2rem;
+
+/* --- Special styles & OVERRIDES for the Home button --- */
+.nav-item--home {
+    background-color: #2c3e50; 
+    border-color: #34495e;
 }
 
+.nav-item--home:hover {
+    background-color: #34495e;
+    border-color: #4e6a85;
+}
+
+
+/* --- Final Media Query Update --- */
 @media (max-width: 768px) {
-    .wizard-nav {
-        justify-content: center; /* Center the nav items on small screens */
+    /* Set a smaller width for flex items on smaller screens */
+    .wizard-nav__steps .nav-item {
+        width: 150px;
     }
-    
+
     .nav-item {
-        /* This ensures nav items are a bit smaller but still readable */
         font-size: 0.9em;
-        padding: 0.5rem 0.75rem;
+        padding: 0.6rem 0.75rem;
     }
 }

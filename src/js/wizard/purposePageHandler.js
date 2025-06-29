@@ -1,31 +1,31 @@
-// destinyPageHandler.js
-// REFACTORED: This module handles the 'destiny' selection page and its own logic.
+// js/wizard/purposePageHandler.js
+// This module handles the 'purpose' selection page.
 
 import { ItemSelectorComponent } from './ItemSelectorComponent.js';
-import { EquipmentSelectorComponent } from './EquipmentSelectorComponent.js'; // MODIFIED: Import added
+import { EquipmentSelectorComponent } from './EquipmentSelectorComponent.js';
 import { RuleEngine } from './RuleEngine.js';
 
-class DestinyPageHandler {
+class PurposePageHandler {
   constructor(stateManager) {
     this.stateManager = stateManager;
     this.selectorPanel = null;
     this.ruleEngine = new RuleEngine(this.stateManager);
     this.activeItemSelectors = [];
 
-    this._boundDestinyOptionClickHandler = this._handleDestinyOptionClick.bind(this);
+    this._boundPurposeOptionClickHandler = this._handlePurposeOptionClick.bind(this);
     this._boundHandleStateChange = this._handleStateChange.bind(this);
-    console.log('DestinyPageHandler: Initialized (Refactored).');
+    console.log('PurposePageHandler: Initialized.');
   }
 
   setupPage(selectorPanel, informerPanel, pageNavigator, informerUpdater) {
     this.selectorPanel = selectorPanel;
     this._attachEventListeners();
-    this._renderDestinyOptions();
+    this._renderPurposeOptions();
     this._restoreState();
   }
 
   _attachEventListeners() {
-    this.selectorPanel.querySelector('#destiny-options-container')?.addEventListener('click', this._boundDestinyOptionClickHandler);
+    this.selectorPanel.querySelector('#purpose-options-container')?.addEventListener('click', this._boundPurposeOptionClickHandler);
     document.addEventListener('wizard:stateChange', this._boundHandleStateChange);
   }
 
@@ -35,70 +35,70 @@ class DestinyPageHandler {
     }
   }
   
-  _handleDestinyOptionClick(e) {
-    const destinyOptionDiv = e.target.closest('.destiny-option');
-    if (!destinyOptionDiv) return;
+  _handlePurposeOptionClick(e) {
+    const purposeOptionDiv = e.target.closest('.purpose-option');
+    if (!purposeOptionDiv) return;
 
-    const selectedDestinyId = destinyOptionDiv.dataset.destinyId;
-    if (this.stateManager.get('destiny') === selectedDestinyId) return;
+    const selectedPurposeId = purposeOptionDiv.dataset.purposeId;
+    if (this.stateManager.get('purpose') === selectedPurposeId) return;
     
-    this.selectorPanel.querySelectorAll('.destiny-option').forEach(opt => opt.classList.remove('selected'));
-    destinyOptionDiv.classList.add('selected');
-    this.stateManager.setState('destiny', selectedDestinyId);
-    this._renderAbilityGroupsSection();
+    this.selectorPanel.querySelectorAll('.purpose-option').forEach(opt => opt.classList.remove('selected'));
+    purposeOptionDiv.classList.add('selected');
+    this.stateManager.setState('purpose', selectedPurposeId);
+    this._renderChoiceGroupsSection();
   }
 
   _restoreState() {
-    const currentDestinyId = this.stateManager.get('destiny');
-    if (currentDestinyId) {
-      const destinyOptionDiv = this.selectorPanel.querySelector(`.destiny-option[data-destiny-id="${currentDestinyId}"]`);
-      if (destinyOptionDiv) {
-        destinyOptionDiv.classList.add('selected');
-        this._renderAbilityGroupsSection();
+    const currentPurposeId = this.stateManager.get('purpose');
+    if (currentPurposeId) {
+      const purposeOptionDiv = this.selectorPanel.querySelector(`.purpose-option[data-purpose-id="${currentPurposeId}"]`);
+      if (purposeOptionDiv) {
+        purposeOptionDiv.classList.add('selected');
+        this._renderChoiceGroupsSection();
       }
     }
   }
 
-  _renderDestinyOptions() {
-    const container = this.selectorPanel.querySelector('#destiny-options-container');
+  _renderPurposeOptions() {
+    const container = this.selectorPanel.querySelector('#purpose-options-container');
     if (!container) return;
     container.innerHTML = '';
     const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
-    if (!moduleData || !moduleData.destinies) {
-      container.innerHTML = '<p>Please select a Module first to see available Destinies.</p>';
+    if (!moduleData || !moduleData.purposes) {
+      container.innerHTML = '<p>No Purposes available for this module.</p>';
       return;
     }
-    moduleData.destinies.forEach(destinyId => {
-      const destiny = this.stateManager.getDestiny(destinyId);
-      if (destiny) {
-        container.innerHTML += `<div class="destiny-option" data-destiny-id="${destinyId}"><span class="destiny-name">${destiny.displayName}</span></div>`;
+    moduleData.purposes.forEach(purposeId => {
+      const purpose = this.stateManager.getPurpose(purposeId);
+      if (purpose) {
+        container.innerHTML += `<div class="purpose-option" data-purpose-id="${purposeId}"><span class="purpose-name">${purpose.displayName}</span></div>`;
       }
     });
   }
 
-  _renderAbilityGroupsSection() {
+  _renderChoiceGroupsSection() {
     this._cleanupItemSelectors(); 
-    const scrollArea = this.selectorPanel.querySelector('.destiny-content-scroll-area');
+    const scrollArea = this.selectorPanel.querySelector('.purpose-content-scroll-area');
     if (!scrollArea) return;
-    let abilitiesSectionContainer = scrollArea.querySelector('.abilities-section');
-    if (!abilitiesSectionContainer) {
-        abilitiesSectionContainer = document.createElement('div');
-        abilitiesSectionContainer.className = 'abilities-section';
-        scrollArea.appendChild(abilitiesSectionContainer);
+    let choiceGroupsContainer = scrollArea.querySelector('.choice-groups-section');
+    if (!choiceGroupsContainer) {
+        choiceGroupsContainer = document.createElement('div');
+        choiceGroupsContainer.className = 'choice-groups-section';
+        scrollArea.appendChild(choiceGroupsContainer);
     }
-    abilitiesSectionContainer.innerHTML = ''; 
-    const destinyId = this.stateManager.get('destiny');
-    if (!destinyId) return;
-    const destiny = this.stateManager.getDestiny(destinyId);
-    if (!destiny.choiceGroups) return;
+    choiceGroupsContainer.innerHTML = ''; 
+    const purposeId = this.stateManager.get('purpose');
+    if (!purposeId) return;
+    const purpose = this.stateManager.getPurpose(purposeId);
+    if (!purpose.choiceGroups) return;
     
-    const destinyContext = {
-      sourcePrefix: 'destiny',
-      getDefinition: () => this.stateManager.getDestiny(this.stateManager.get('destiny'))
+    const purposeContext = {
+      sourcePrefix: 'purpose',
+      getDefinition: () => this.stateManager.getPurpose(this.stateManager.get('purpose'))
     };
 
     const allItemDefs = this.stateManager.getItemData();
-    Object.entries(destiny.choiceGroups).forEach(([groupId, groupDef]) => {
+    Object.entries(purpose.choiceGroups).forEach(([groupId, groupDef]) => {
       const groupContainer = document.createElement('div');
       groupContainer.className = 'ability-group-container';
       const maxChoicesText = groupDef.maxChoices === 1 ? 'Choose 1' : `Choose up to ${groupDef.maxChoices}`;
@@ -106,7 +106,7 @@ class DestinyPageHandler {
       const componentContainer = document.createElement('div');
       componentContainer.className = 'abilities-grid-container';
       groupContainer.appendChild(componentContainer);
-      abilitiesSectionContainer.appendChild(groupContainer);
+      choiceGroupsContainer.appendChild(groupContainer);
       const itemsForGroup = groupDef.abilities.reduce((acc, itemId) => {
         if (allItemDefs[itemId]) {
           acc[itemId] = { ...allItemDefs[itemId], groupId: groupId };
@@ -123,10 +123,10 @@ class DestinyPageHandler {
       const selector = new SelectorComponent(
         componentContainer, 
         itemsForGroup, 
-        'destiny',
+        'purpose',
         this.stateManager, 
         this.ruleEngine,
-        destinyContext
+        purposeContext
       );
 
       this.activeItemSelectors.push(selector);
@@ -143,15 +143,15 @@ class DestinyPageHandler {
     const currentState = this.stateManager.getState();
     const allItemDefs = this.stateManager.getItemData();
 
-    if (!currentState.destiny) {
-      return '<p>Select your destiny</p>';
+    if (!currentState.purpose) {
+      return '<p>Select your purpose</p>';
     }
 
-    const destiny = this.stateManager.getDestiny(currentState.destiny);
-    const destinySelections = currentState.selections.filter(sel => sel.source === 'destiny');
+    const purpose = this.stateManager.getPurpose(currentState.purpose);
+    const purposeSelections = currentState.selections.filter(sel => sel.source === 'purpose');
     
     const renderItems = (itemType, title) => {
-        const items = destinySelections.filter(sel => allItemDefs[sel.id]?.itemType === itemType);
+        const items = purposeSelections.filter(sel => allItemDefs[sel.id]?.itemType === itemType);
         if (items.length === 0) return '';
         return `<h4>${title}</h4>` + items.map(sel => {
             const itemDef = allItemDefs[sel.id];
@@ -160,9 +160,8 @@ class DestinyPageHandler {
     };
 
     return `
-      <h3>${destiny.displayName}</h3>
-      <p>${destiny.description}</p>
-      <div class="stats"><strong>Health:</strong> ${destiny.health.title} (${destiny.health.value})</div>
+      <h3>${purpose.displayName}</h3>
+      <p>${purpose.description}</p>
       <div class="selected-items-summary">
         ${renderItems('flaw', 'Chosen Flaws')}
         ${renderItems('perk', 'Chosen Perks')}
@@ -172,14 +171,14 @@ class DestinyPageHandler {
   }
 
   isComplete(currentState) {
-    if (!currentState.destiny) return false;
-    const destinyDef = this.stateManager.getDestiny(currentState.destiny);
-    if (!destinyDef || !destinyDef.choiceGroups) return true; 
+    if (!currentState.purpose) return false;
+    const purposeDef = this.stateManager.getPurpose(currentState.purpose);
+    if (!purposeDef || !purposeDef.choiceGroups) return true; 
 
     const allItemDefs = this.stateManager.getItemData();
-    return Object.entries(destinyDef.choiceGroups).every(([groupId, groupDef]) => {
+    return Object.entries(purposeDef.choiceGroups).every(([groupId, groupDef]) => {
       const selectionsInGroup = currentState.selections.filter(
-        sel => sel.source === 'destiny' && sel.groupId === groupId
+        sel => sel.source === 'purpose' && sel.groupId === groupId
       );
       if (selectionsInGroup.length !== groupDef.maxChoices) return false;
       return selectionsInGroup.every(sel => {
@@ -200,18 +199,18 @@ class DestinyPageHandler {
     const currentState = this.stateManager.getState();
     const errors = [];
 
-    if (!currentState.destiny) {
-      return 'Please select a Destiny to continue.';
+    if (!currentState.purpose) {
+      return 'Please select a Purpose to continue.';
     }
 
-    const destinyDef = this.stateManager.getDestiny(currentState.destiny);
-    if (!destinyDef || !destinyDef.choiceGroups) return '';
+    const purposeDef = this.stateManager.getPurpose(currentState.purpose);
+    if (!purposeDef || !purposeDef.choiceGroups) return '';
 
     const allItemDefs = this.stateManager.getItemData();
 
-    Object.entries(destinyDef.choiceGroups).forEach(([groupId, groupDef]) => {
+    Object.entries(purposeDef.choiceGroups).forEach(([groupId, groupDef]) => {
       const selectionsInGroup = currentState.selections.filter(
-        sel => sel.source === 'destiny' && sel.groupId === groupId
+        sel => sel.source === 'purpose' && sel.groupId === groupId
       );
       
       const needed = groupDef.maxChoices;
@@ -237,14 +236,14 @@ class DestinyPageHandler {
       return errors.join('\n');
     }
 
-    return 'Please ensure all choices for your Destiny are complete.';
+    return 'Please ensure all choices for your Purpose are complete.';
   }
 
   cleanup() {
-    this.selectorPanel.querySelector('#destiny-options-container')?.removeEventListener('click', this._boundDestinyOptionClickHandler);
+    this.selectorPanel.querySelector('#purpose-options-container')?.removeEventListener('click', this._boundPurposeOptionClickHandler);
     document.removeEventListener('wizard:stateChange', this._boundHandleStateChange);
     this._cleanupItemSelectors();
   }
 }
 
-export { DestinyPageHandler };
+export { PurposePageHandler };

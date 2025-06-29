@@ -47,55 +47,66 @@ export async function loadDataForModule(moduleDef) {
     const dataTypes = ["abilities", "flaws", "perks", "equipmentAndLoot"];
     const fetchPromises = {};
 
-    // Create fetch promises for abilities, flaws, perks, and equipment
-    // by dynamically building the path.
     dataTypes.forEach(type => {
       if (dataFileMap[type]) {
         const path = `data/modules/${moduleId}/${dataFileMap[type]}`;
         fetchPromises[type] = fetch(path).then(res => res.json());
       } else {
-        // If the key doesn't exist, gracefully resolve to an empty object.
         fetchPromises[type] = Promise.resolve({});
       }
     });
 
-    // Create fetch promises for all destinies within the module
     const destinyPromises = (moduleDef.destinies || []).map(destinyId =>
       fetch(`data/modules/${moduleId}/destinies/${destinyId}.json`).then(r => r.json())
     );
+    const purposePromises = (moduleDef.purposes || []).map(purposeId =>
+      fetch(`data/modules/${moduleId}/purposes/${purposeId}.json`).then(r => r.json())
+    );
+    const nurturePromises = (moduleDef.nurtures || []).map(nurtureId =>
+      fetch(`data/modules/${moduleId}/nurtures/${nurtureId}.json`).then(r => r.json())
+    );
 
-    // Run all fetches concurrently
     const [
       abilityData,
       flawData,
       perkData,
       equipmentAndLootData,
-      destinyResults
+      destinyResults,
+      purposeResults,
+      nurtureResults
     ] = await Promise.all([
       fetchPromises.abilities,
       fetchPromises.flaws,
       fetchPromises.perks,
       fetchPromises.equipmentAndLoot,
-      Promise.all(destinyPromises) // Wait for all destinies to load
+      Promise.all(destinyPromises),
+      Promise.all(purposePromises),
+      Promise.all(nurturePromises)
     ]);
 
-    // Consolidate destiny data into a single object, keyed by destiny ID
     const destinyData = destinyResults.reduce((acc, destiny) => {
-      if (destiny && destiny.id) {
-        acc[destiny.id] = destiny;
-      }
+      if (destiny && destiny.id) acc[destiny.id] = destiny;
+      return acc;
+    }, {});
+    const purposeData = purposeResults.reduce((acc, purpose) => {
+      if (purpose && purpose.id) acc[purpose.id] = purpose;
+      return acc;
+    }, {});
+    const nurtureData = nurtureResults.reduce((acc, nurture) => {
+      if (nurture && nurture.id) acc[nurture.id] = nurture;
       return acc;
     }, {});
 
     console.log(`dataLoader: All data for module '${moduleId}' loaded successfully.`);
 
-    // Return a single, structured object
     return {
       abilityData,
       flawData,
       perkData,
       equipmentAndLootData,
-      destinyData
+      destinyData,
+      purposeData,
+      nurtureData
     };
 
   } catch (error) {

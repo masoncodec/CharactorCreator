@@ -3,6 +3,7 @@
 // and provides access to all loaded game data.
 
 class ItemManager {
+  // ... (No changes needed in ItemManager)
   constructor(stateManager) {
     this.stateManager = stateManager;
     this.state = stateManager.state;
@@ -13,12 +14,17 @@ class ItemManager {
     const { id } = itemDef;
     const isAlreadySelected = this.state.selections.some(sel => sel.id === id && sel.source === source);
 
-    const destiny = this.stateManager.getDestiny(this.state.destiny);
-    const groupDef = groupId ? destiny?.choiceGroups?.[groupId] : null; 
+    const parentDef = {
+        'destiny': this.stateManager.getDestiny(this.state.destiny),
+        'purpose': this.stateManager.getPurpose(this.state.purpose),
+        'nurture': this.stateManager.getNurture(this.state.nurture)
+    }[source] || {};
+    const groupDef = groupId ? parentDef?.choiceGroups?.[groupId] : null; 
+
     const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
 
     if (isAlreadySelected) {
-      if (groupId && maxChoices === 1 && source === 'destiny') {
+      if (groupId && maxChoices === 1 && ['destiny', 'purpose', 'nurture'].includes(source)) {
         console.log(`ItemManager: Ignoring re-selection of true radio item '${id}'.`);
         return;
       }
@@ -109,45 +115,36 @@ class ItemManager {
 class WizardStateManager {
   constructor(moduleSystemData) {
     this.state = {
-      module: null, destiny: null, selections: [], attributes: {},
+      module: null, destiny: null, purpose: null, nurture: null, selections: [], attributes: {},
       inventory: [], info: { name: '', bio: '' }, moduleChanged: false,
     };
-    // Data stores are now initialized empty, waiting for a module selection.
     this.data = {
       modules: moduleSystemData || {},
-      destinies: {}, abilities: {}, flaws: {},
+      destinies: {}, purposes: {}, nurtures: {}, abilities: {}, flaws: {},
       perks: {}, equipment: {}, allItems: {}
     };
     this.itemManager = new ItemManager(this);
     console.log('WizardStateManager: Initialized with module definitions.');
   }
 
-  /**
-   * Clears old module data and loads the newly fetched data into the state.
-   * @param {Object} loadedData - The structured data object from dataLoader.loadDataForModule.
-   */
   loadModuleData(loadedData) {
     console.log('WizardStateManager: Clearing old data and loading new module data.');
     
-    // Clear existing data definitions
     this.data.destinies = loadedData.destinyData || {};
+    this.data.purposes = loadedData.purposeData || {};
+    this.data.nurtures = loadedData.nurtureData || {};
     this.data.abilities = loadedData.abilityData || {};
     this.data.flaws = loadedData.flawData || {};
     this.data.perks = loadedData.perkData || {};
     this.data.equipment = loadedData.equipmentAndLootData || {};
-    this.data.allItems = {}; // IMPORTANT: Reset the master item map
+    this.data.allItems = {};
 
-    // Re-normalize all data to populate the 'allItems' map
     this._normalizeData();
     
     console.log('WizardStateManager: New module data loaded. Item map now contains', Object.keys(this.data.allItems).length, 'items.');
-    // Trigger a state change to notify UI components that new data is ready
     document.dispatchEvent(new CustomEvent('wizard:dataLoaded'));
   }
 
-  /**
-   * Helper function to populate the allItems map from the individual data sources.
-   */
   _normalizeData() {
     const normalizeAndAdd = (collection, type) => {
       if (!collection || typeof collection !== 'object') return;
@@ -176,27 +173,41 @@ class WizardStateManager {
     }
   }
   
-  // This function now correctly clears character progress.
-  // The data definition clearing is handled by loadModuleData.
   setState(key, value) {
     if (key === 'module') {
       const oldModule = this.state.module;
       if (oldModule !== value) {
         this.state.module = value;
         this.state.moduleChanged = true;
-        // Clear all character progress
         this.state.destiny = null;
+        this.state.purpose = null;
+        this.state.nurture = null;
         this.state.selections = [];
         this.state.attributes = {};
         this.state.inventory = [];
-        this.set('destiny', null); // Trigger state change for destiny reset
+        this.set('destiny', null);
       }
-    } else { this.set(key, value); }
+    } else {
+      const sourcesToClear = {
+          'destiny': 'destiny',
+          'purpose': 'purpose',
+          'nurture': 'nurture'
+      };
+      
+      const sourceKey = sourcesToClear[key];
+      if (sourceKey && this.state[sourceKey] !== value) {
+          console.log(`WizardStateManager: ${key} changed. Clearing selections with source '${sourceKey}'.`);
+          this.state.selections = this.state.selections.filter(sel => sel.source !== sourceKey);
+      }
+      this.set(key, value);
+    }
   }
   
   resetModuleChangedFlag() { this.state.moduleChanged = false; }
   getModule(moduleId) { return this.data.modules[moduleId]; }
   getDestiny(destinyId) { return this.data.destinies[destinyId]; }
+  getPurpose(purposeId) { return this.data.purposes[purposeId]; }
+  getNurture(nurtureId) { return this.data.nurtures[nurtureId]; }
   getItemData() { return this.data.allItems; }
   getItemDefinition(itemId) { return this.data.allItems[itemId] || null;
   }
