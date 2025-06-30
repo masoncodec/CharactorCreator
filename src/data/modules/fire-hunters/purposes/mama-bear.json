@@ -8,9 +8,10 @@
     ],
     "choiceGroups": {
         "initial_abilities": {
+            "type": "abilities",
             "name": "Starting Attunement",
             "maxChoices": 1,
-            "abilities": ["animal-friend"]
+            "items": ["animal-friend"]
         }
     }
 }

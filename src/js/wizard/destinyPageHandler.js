@@ -98,27 +98,38 @@ class DestinyPageHandler {
     };
 
     const allItemDefs = this.stateManager.getItemData();
+
     Object.entries(destiny.choiceGroups).forEach(([groupId, groupDef]) => {
+      // Validate the group definition
+      if (!groupDef.type) {
+        console.error(`Destiny choice group '${groupId}' is missing the required 'type' property. Skipping.`);
+        return; // Use return instead of continue in forEach
+      }
+      if (!Array.isArray(groupDef.items)) {
+        console.error(`Destiny choice group '${groupId}' is missing a valid 'items' array. Skipping.`);
+        return;
+      }
+
       const groupContainer = document.createElement('div');
       groupContainer.className = 'ability-group-container';
       const maxChoicesText = groupDef.maxChoices === 1 ? 'Choose 1' : `Choose up to ${groupDef.maxChoices}`;
       groupContainer.innerHTML = `<h5 class="group-header">${groupDef.name} (${maxChoicesText})</h5>`;
+      
       const componentContainer = document.createElement('div');
       componentContainer.className = 'abilities-grid-container';
       groupContainer.appendChild(componentContainer);
       abilitiesSectionContainer.appendChild(groupContainer);
-      const itemsForGroup = groupDef.abilities.reduce((acc, itemId) => {
+      
+      // Use the generic "items" property
+      const itemsForGroup = groupDef.items.reduce((acc, itemId) => {
         if (allItemDefs[itemId]) {
           acc[itemId] = { ...allItemDefs[itemId], groupId: groupId };
         }
         return acc;
       }, {});
       
-      const containsInventoryItems = Object.values(itemsForGroup).some(
-        item => item.itemType === 'equipment' || item.itemType === 'loot'
-      );
-
-      const SelectorComponent = containsInventoryItems ? EquipmentSelectorComponent : ItemSelectorComponent;
+      // Use the group's "type" to determine the component
+      const SelectorComponent = groupDef.type === 'inventory' ? EquipmentSelectorComponent : ItemSelectorComponent;
 
       const selector = new SelectorComponent(
         componentContainer, 
@@ -168,6 +179,7 @@ class DestinyPageHandler {
         ${renderItems('perk', 'Chosen Perks')}
         ${renderItems('ability', 'Chosen Abilities')}
         ${renderItems('equipment', 'Chosen Equipment')}
+        ${renderItems('loot', 'Chosen Loot')}
       </div>`;
   }
 
@@ -178,10 +190,14 @@ class DestinyPageHandler {
 
     const allItemDefs = this.stateManager.getItemData();
     return Object.entries(destinyDef.choiceGroups).every(([groupId, groupDef]) => {
+      // Add guard clauses to prevent errors on incomplete definitions
+      if (!groupDef.type || !Array.isArray(groupDef.items)) return true; // Skip validation for invalid groups
+
       const selectionsInGroup = currentState.selections.filter(
         sel => sel.source === 'destiny' && sel.groupId === groupId
       );
       if (selectionsInGroup.length !== groupDef.maxChoices) return false;
+      
       return selectionsInGroup.every(sel => {
         const itemDef = allItemDefs[sel.id];
         if (itemDef?.options && itemDef.maxChoices) {
@@ -210,6 +226,9 @@ class DestinyPageHandler {
     const allItemDefs = this.stateManager.getItemData();
 
     Object.entries(destinyDef.choiceGroups).forEach(([groupId, groupDef]) => {
+      // Add guard clauses to prevent errors on incomplete definitions
+      if (!groupDef.type || !Array.isArray(groupDef.items)) return;
+
       const selectionsInGroup = currentState.selections.filter(
         sel => sel.source === 'destiny' && sel.groupId === groupId
       );
