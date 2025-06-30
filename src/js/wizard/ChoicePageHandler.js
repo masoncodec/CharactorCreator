@@ -63,7 +63,41 @@ class ChoicePageHandler {
     optionDiv.classList.add('selected');
     
     this.stateManager.setState(this.config.stateKey, selectedId);
+    
+    // Call the new auto-selection method
+    this._autoSelectChoiceGroups(selectedId);
+
     this._renderChoiceGroupsSection();
+  }
+
+  /**
+   * Automatically selects items from choice groups where no choice is necessary.
+   * This runs when a parent item (like a Destiny) is selected.
+   * @param {string} selectedId - The ID of the parent item (e.g., a destiny ID).
+   * @private
+   */
+  _autoSelectChoiceGroups(selectedId) {
+    const mainDefinition = this.stateManager[this.config.getDataMethodName](selectedId);
+    if (!mainDefinition || !mainDefinition.choiceGroups) return;
+
+    const allItemDefs = this.stateManager.getItemData();
+
+    Object.entries(mainDefinition.choiceGroups).forEach(([groupId, groupDef]) => {
+      // Condition for auto-selection: number of items equals max choices.
+      if (groupDef.items && groupDef.items.length === groupDef.maxChoices) {
+        console.log(`Auto-selecting items for group: "${groupDef.name}"`);
+        
+        groupDef.items.forEach(itemId => {
+          const itemDef = allItemDefs[itemId];
+          // As per user request, only select if not already selected from another source.
+          if (itemDef && !this.stateManager.itemManager.isItemSelected(itemId)) {
+            // The payload for inventory items needs a default quantity.
+            const payload = groupDef.type === 'inventory' ? { quantity: 1 } : {};
+            this.stateManager.itemManager.selectItem(itemDef, this.config.stateKey, groupId, payload);
+          }
+        });
+      }
+    });
   }
 
   _restoreState() {
@@ -134,6 +168,13 @@ class ChoicePageHandler {
         return;
       }
 
+      // Do not render the group if it was auto-selected.
+      // This keeps the UI clean by hiding choices the user didn't have to make.
+      // Re-add this block if you want to show the auto-selected items.
+      // if (groupDef.items.length === groupDef.maxChoices) {
+      //   return; 
+      // }
+
       const groupContainer = document.createElement('div');
       groupContainer.className = 'ability-group-container';
       const maxChoicesText = groupDef.maxChoices === 1 ? 'Choose 1' : `Choose up to ${groupDef.maxChoices}`;
@@ -190,7 +231,6 @@ class ChoicePageHandler {
 
     let content = `<h3>${mainDefinition.displayName}</h3><p>${mainDefinition.description}</p>`;
     
-    // This part can be extended by child classes
     content += this._getAdditionalInformerContent(mainDefinition);
 
     content += `
@@ -205,7 +245,6 @@ class ChoicePageHandler {
     return content;
   }
 
-  // Hook for child classes to add unique content to the informer panel.
   _getAdditionalInformerContent(mainDefinition) {
     return '';
   }

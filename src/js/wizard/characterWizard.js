@@ -1,6 +1,5 @@
 // characterWizard.js
 // This is the main orchestrator for the character creation wizard.
-// REFACTORED: Final version with corrected event handling for module selection.
 
 // --- Core Modules ---
 import { loadGameModules, loadDataForModule } from '../dataLoader.js';
@@ -16,7 +15,7 @@ import { CharacterFinisher } from './characterFinisher.js';
 // --- Page-Specific Handlers ---
 import { ModulePageHandler } from './modulePageHandler.js';
 import { FramePageHandler } from './framePageHandler.js';
-// MODIFICATION: Import the new refactored handlers
+// Import the new refactored handlers
 import { DestinyPageHandler } from './destinyPageHandler.js';
 import { PurposePageHandler } from './purposePageHandler.js';
 import { NurturePageHandler } from './nurturePageHandler.js';
