@@ -16,6 +16,7 @@ import { CharacterFinisher } from './characterFinisher.js';
 // --- Page-Specific Handlers ---
 import { ModulePageHandler } from './modulePageHandler.js';
 import { FramePageHandler } from './framePageHandler.js';
+// MODIFICATION: Import the new refactored handlers
 import { DestinyPageHandler } from './destinyPageHandler.js';
 import { PurposePageHandler } from './purposePageHandler.js';
 import { NurturePageHandler } from './nurturePageHandler.js';
@@ -67,10 +68,6 @@ class CharacterWizard {
         this.informerUpdater.update(this.activePageHandler);
     });
     
-    // ** THE FIX **
-    // The 'wizard:dataLoaded' event listener has been removed entirely.
-    // It was causing the 'loadPage: undefined' error and was not needed.
-    
     this.loadPage(this.pages[0]);
   }
   
@@ -86,23 +83,18 @@ class CharacterWizard {
     // You can add a loading spinner to the UI here
 
     try {
-      // Set the module in the state. This will fire the 'wizard:stateChange'
-      // event, which will immediately update the informer panel.
       this.stateManager.setState('module', moduleId);
       
       const moduleDef = this.stateManager.getModule(moduleId);
       const newModuleData = await loadDataForModule(moduleDef);
       
-      // Load the new data. This does NOT fire an event anymore.
       this.stateManager.loadModuleData(newModuleData);
 
     } catch (error) {
       console.error(`CharacterWizard: Failed to load module '${moduleId}'.`, error);
       alerter.show(`Failed to load data for module: ${moduleId}.`, 'error');
-      this.stateManager.setState('module', null); // Revert selection on failure
+      this.stateManager.setState('module', null);
     } finally {
-      // Once data is loaded, the 'stateChange' event will fire again (if needed)
-      // or the user can just proceed. Let's explicitly update the nav to be sure.
       this.pageNavigator.updateNav();
       // You can remove the loading spinner from the UI here
       console.log(`CharacterWizard: Finished processing module selection.`);
