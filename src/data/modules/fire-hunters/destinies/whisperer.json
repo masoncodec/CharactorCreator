@@ -12,38 +12,45 @@
     ],
     "choiceGroups": {
         "flaws": {
+            "type": "flaws",
             "name": "Flaws",
             "maxChoices": 1,
-            "abilities": ["frail", "stranger"]
+            "items": ["frail", "stranger"]
         },
         "initial_abilities": {
+            "type": "abilities",
             "name": "Starting Abilities",
             "maxChoices": 1,
-            "abilities": ["speak-with-animals", "easter-egg"]
+            "items": ["speak-with-animals", "easter-egg"]
         },
         "natures_blessing": {
+            "type": "abilities",
             "name": "Nature's Blessing",
             "maxChoices": 2,
-            "abilities": ["forest-feet", "natures-gift"]
+            "items": ["forest-feet", "natures-gift"]
         },
         "birdseed": {
+            "type": "abilities",
             "name": "Birdseed",
             "maxChoices": 1,
-            "abilities": ["birdseed"]
+            "items": ["birdseed"]
         },
         "domain_abilities": {
+            "type": "abilities",
             "name": "Domain Abilities",
             "maxChoices": 2,
-            "abilities": ["small-domain", "medium-domain", "large-domain"]
+            "items": ["small-domain", "medium-domain", "large-domain"]
         },
         "equipment": {
+            "type": "inventory",
             "name": "Fae-Touched Gift",
             "maxChoices": 1,
-            "abilities": [
+            "items": [
                 "staff-of-moon-whispers",
                 "mothwing-cloak",
                 "pixie-call-whistle",
-                "example-ring-of-protection"
+                "example-ring-of-protection",
+                "example-iron-ore"
             ]
         }
     }
