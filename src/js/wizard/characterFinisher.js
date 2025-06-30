@@ -85,6 +85,8 @@ class CharacterFinisher {
       flaws: categorizedSelections.flaws,
       perks: categorizedSelections.perks,
       abilities: categorizedSelections.abilities,
+      communities: categorizedSelections.communities,
+      relationships: categorizedSelections.relationships,
       inventory: finalInventory,
       health: {
         current: characterEffects.calculatedHealth.currentMax,
@@ -120,6 +122,8 @@ class CharacterFinisher {
       flaws: [],
       perks: [],
       abilities: [],
+      communities: [],
+      relationships: [],
       inventory: [],
     };
 
@@ -136,6 +140,12 @@ class CharacterFinisher {
           break;
         case 'ability':
           categorized.abilities.push(sel);
+          break;
+        case 'community':
+          categorized.communities.push(sel);
+          break;
+        case 'relationship':
+          categorized.relationships.push(sel);
           break;
         case 'equipment':
         case 'loot':

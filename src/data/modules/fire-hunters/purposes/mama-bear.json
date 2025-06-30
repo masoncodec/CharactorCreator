@@ -12,6 +12,12 @@
             "name": "Starting Attunement",
             "maxChoices": 1,
             "items": ["animal-friend"]
+        },
+        "commms": {
+            "type": "communities",
+            "name": "Clerb",
+            "maxChoices": 1,
+            "items": ["fire-hunters"]
         }
     }
 }
