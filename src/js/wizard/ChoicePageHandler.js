@@ -168,13 +168,6 @@ class ChoicePageHandler {
         return;
       }
 
-      // Do not render the group if it was auto-selected.
-      // This keeps the UI clean by hiding choices the user didn't have to make.
-      // Re-add this block if you want to show the auto-selected items.
-      // if (groupDef.items.length === groupDef.maxChoices) {
-      //   return; 
-      // }
-
       const groupContainer = document.createElement('div');
       groupContainer.className = 'ability-group-container';
       const maxChoicesText = groupDef.maxChoices === 1 ? 'Choose 1' : `Choose up to ${groupDef.maxChoices}`;
