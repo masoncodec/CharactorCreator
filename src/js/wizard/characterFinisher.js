@@ -27,7 +27,6 @@ class CharacterFinisher {
   /**
    * Performs final validation by iterating through all pages.
    * @private
-   * MODIFIED: Joins errors with double newlines for better spacing.
    */
   _validateAllPages() {
     console.log('CharacterFinisher._validateAllPages: Running centralized validation via PageNavigator.');
@@ -44,7 +43,6 @@ class CharacterFinisher {
 
     return {
       isValid: errors.length === 0,
-      // MODIFICATION HERE: Using '\n\n' to add a blank line between entries.
       message: errors.join("\n\n")
     };
   }
@@ -131,25 +129,33 @@ class CharacterFinisher {
       const itemDef = allItemDefs[sel.id];
       if (!itemDef) continue;
 
+      // Create a clean copy of the selection object.
+      const cleanedSel = { ...sel };
+
+      // Prune the 'selections' property if it's an empty array.
+      if (Array.isArray(cleanedSel.selections) && cleanedSel.selections.length === 0) {
+        delete cleanedSel.selections;
+      }
+
       switch (itemDef.itemType) {
         case 'flaw':
-          categorized.flaws.push(sel);
+          categorized.flaws.push(cleanedSel);
           break;
         case 'perk':
-          categorized.perks.push(sel);
+          categorized.perks.push(cleanedSel);
           break;
         case 'ability':
-          categorized.abilities.push(sel);
+          categorized.abilities.push(cleanedSel);
           break;
         case 'community':
-          categorized.communities.push(sel);
+          categorized.communities.push(cleanedSel);
           break;
         case 'relationship':
-          categorized.relationships.push(sel);
+          categorized.relationships.push(cleanedSel);
           break;
         case 'equipment':
         case 'loot':
-          categorized.inventory.push(sel);
+          categorized.inventory.push(cleanedSel);
           break;
       }
     }
