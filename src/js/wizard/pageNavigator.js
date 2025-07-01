@@ -125,7 +125,12 @@ class PageNavigator {
       const isDisabled = !isCurrentPageComplete;
       
       this.nextBtnWrapper.classList.toggle('is-disabled', isDisabled);
-      this.nextBtn.textContent = isLastPage ? 'Finish' : 'Next';
+      // --- UPDATED: Use custom finish button text if it exists ---
+      if (isLastPage) {
+        this.nextBtn.textContent = this.finishButtonText || 'Finish';
+      } else {
+        this.nextBtn.textContent = 'Next';
+      }
     }
   }
 
@@ -187,6 +192,12 @@ class PageNavigator {
   cleanup() {
     this.tooltipElement?.remove();
   }
+
+  // --- NEW: Method to change the text of the final button. ---
+  setFinishButtonText(text) {
+    this.finishButtonText = text; // Store the custom text
+    this.updateNav(); // Call updateNav to apply it immediately if on the last page
+}
 }
 
 export { PageNavigator };

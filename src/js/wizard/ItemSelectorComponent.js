@@ -1,15 +1,16 @@
 // ItemSelectorComponent.js
 // A reusable component to render and manage a grid of selectable items.
-// This version is refactored to be generic via a context object.
+// UPDATED: Now supports a locked/disabled state for level-up mode.
 
 class ItemSelectorComponent {
-  constructor(containerElement, itemsToRender, source, stateManager, ruleEngine, context = null) {
+  constructor(containerElement, itemsToRender, source, stateManager, ruleEngine, context = null, isLocked = false) {
     this.container = containerElement;
     this.items = itemsToRender;
     this.source = source;
     this.stateManager = stateManager;
     this.ruleEngine = ruleEngine;
-    this.context = context; // A context object, if provided, indicates a complex page
+    this.context = context;
+    this.isLocked = isLocked; // NEW: Flag for read-only mode
     this._boundHandleClick = this._handleClick.bind(this);
     this._attachEventListeners();
     console.log(`ItemSelectorComponent: Initialized for source '${this.source}'.`);
@@ -38,9 +39,14 @@ class ItemSelectorComponent {
     return mainDefinition?.choiceGroups?.[itemDef.groupId] || null;
   }
 
+  /**
+   * --- UPDATED: Now disables inputs if the component is in a locked state. ---
+   */
   _createCardHTML(itemDef, selectionState, validationState) {
     const isSelected = !!selectionState;
-    const isDisabled = validationState.isDisabled;
+    // --- NEW: The card is disabled if validation fails OR if it's locked ---
+    const isDisabled = validationState.isDisabled || this.isLocked;
+    const lockedClass = this.isLocked ? 'locked' : ''; // For styling locked cards
     const disabledClass = isDisabled ? 'disabled-for-selection' : '';
     const selectedClass = isSelected ? 'selected' : '';
     
@@ -53,9 +59,9 @@ class ItemSelectorComponent {
 
     return `
       <div class="item-container">
-        <div class="ability-card ${selectedClass} ${disabledClass}" 
+        <div class="ability-card ${selectedClass} ${disabledClass} ${lockedClass}" 
              data-item-id="${itemDef.id}"
-             title="${validationState.reason}">
+             title="${this.isLocked ? 'This choice is locked from a previous level.' : validationState.reason}">
           <div class="ability-header">
             <label>
               <input type="${inputType}" name="${inputName}"
@@ -87,7 +93,8 @@ class ItemSelectorComponent {
         <p>Choose ${parentItemDef.maxChoices || 'any'}:</p>
         ${parentItemDef.options.map(option => {
           const isChecked = currentSelections.includes(option.id);
-          const isDisabled = !isParentSelected || (limitReached && !isChecked);
+          // --- NEW: Nested options are also disabled if the component is locked ---
+          const isDisabled = !isParentSelected || (limitReached && !isChecked) || this.isLocked;
 
           return `
             <label class="ability-option">
@@ -105,6 +112,13 @@ class ItemSelectorComponent {
   }
 
   _handleClick(e) {
+    // --- NEW: Prevent all clicks if the component is locked ---
+    if (this.isLocked) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
+    
     const card = e.target.closest('.ability-card');
     if (!card || card.classList.contains('disabled-for-selection')) {
       return;
@@ -114,17 +128,15 @@ class ItemSelectorComponent {
     const itemDef = this.items[itemId];
     if (!itemDef) return;
 
-    // Case 1: The click happened inside an option's label.
+    // Case 1: Clicked inside an option's label.
     const optionLabel = e.target.closest('.ability-option');
     if (optionLabel) {
       const optionInput = optionLabel.querySelector('input[data-action="select-option"]');
       if (!optionInput) return;
 
-      const parentSelection = this.stateManager.itemManager.getSelection(itemId, this.source); //
-      const isParentSelected = !!parentSelection; //
+      const parentSelection = this.stateManager.itemManager.getSelection(itemId, this.source);
+      const isParentSelected = !!parentSelection;
       
-      // Only block clicks on disabled options if the parent is already selected.
-      // This allows an initial click on an option to select the parent item.
       if (isParentSelected && optionInput.disabled) {
           return;
       }
@@ -149,25 +161,24 @@ class ItemSelectorComponent {
       }
 
       if (!isParentSelected) {
-        // This block now correctly runs on the first click of an option.
         const payload = { selections: nextNestedSelections };
-        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, payload); //
+        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, payload);
       } else {
-        this.stateManager.itemManager.updateNestedSelections(itemId, this.source, nextNestedSelections); //
+        this.stateManager.itemManager.updateNestedSelections(itemId, this.source, nextNestedSelections);
       }
       return;
     }
 
-    // Case 2: The click was in the options box PADDING (but not on an option label).
+    // Case 2: Clicked in the options box padding.
     if (e.target.closest('.ability-options')) {
       if (!this.stateManager.itemManager.getSelection(itemId, this.source)) {
-        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId); //
+        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
       }
       return;
     }
 
-    // Case 3: The click was on the main card body (outside the options box).
-    this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId); //
+    // Case 3: Clicked on the main card body.
+    this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
   }
 
   cleanup() {

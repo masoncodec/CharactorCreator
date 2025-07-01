@@ -33,9 +33,10 @@ function processAndRenderCharacter(character) {
     const characterNameHeader = document.getElementById('characterNameHeader');
 
     if (characterNameHeader) {
+        // --- UPDATED: Now includes character's level ---
         characterNameHeader.innerHTML = `
             ${effectedCharacter.info.name}
-            <span class="character-subheader">Destiny: ${effectedCharacter.destiny} | Class: ${effectedCharacter.module || 'Crescendo'}</span>
+            <span class="character-subheader">Level ${effectedCharacter.level || 1} | Destiny: ${effectedCharacter.destiny} | Class: ${effectedCharacter.module || 'Crescendo'}</span>
         `;
     }
 
@@ -78,6 +79,7 @@ function processAndRenderCharacter(character) {
     }
 }
 
+// ... All other functions (renderHopeFearUI, attachHopeFearRollListeners, renderKOBUI, etc.) remain the same ...
 function renderHopeFearUI(effectedCharacter) {
     if (!effectedCharacter.attributes) return '';
     
@@ -121,7 +123,6 @@ function attachHopeFearRollListeners(effectedCharacter) {
     });
 }
 
-// ... All other render and helper functions (renderKOBUI, renderAbilities, etc.) remain unchanged ...
 function renderKOBUI(effectedCharacter) {
     let attributesHtml = '';
     if (effectedCharacter.attributes) {
@@ -381,7 +382,7 @@ function renderPerks(character) {
     }).join('')}</ul></div>`;
 }
 
-// ** ENTIRE DOMCONTENTLOADED LISTENER IS REFACTORED **
+
 document.addEventListener('DOMContentLoaded', async function() {
     highlightActiveNav('play.html');
 
@@ -403,12 +404,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     try {
-        // Step 1: Load all module definitions first. This is always needed.
         const { moduleSystemData } = await loadGameModules();
         moduleDefinitions = moduleSystemData;
         console.log('play.js: All module definitions loaded.');
 
-        // Step 2: Get the currently active character from the database.
         activeCharacter = await db.getActiveCharacter();
         if (!activeCharacter) {
             alerter.show('No active character found.', 'info');
@@ -416,27 +415,22 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        // Step 3: Check if the character has a module. If not, stop and show an error.
         if (!activeCharacter.module) {
             console.error('Active character is missing the required "module" property.');
             alerter.show('Character is from an older version and is missing a module definition.', 'error');
             characterDetails.innerHTML = `<p><strong>Error:</strong> This character cannot be loaded because it's from an older version of the game. It must be updated with a module assignment.</p>`;
-            return; // Stop execution
+            return;
         }
 
-        // Step 4: Load the specific data for that character's module.
         console.log(`play.js: Loading data for module: ${activeCharacter.module}`);
         const moduleDef = moduleDefinitions[activeCharacter.module];
         const moduleSpecificData = await loadDataForModule(moduleDef);
 
-        // Step 5: Populate the global data variables.
         abilityData = moduleSpecificData.abilityData || {};
         flawData = moduleSpecificData.flawData || {};
         perkData = moduleSpecificData.perkData || {};
-        // Note: equipmentAndLootData is also available in moduleSpecificData if needed later.
         console.log('play.js: Module-specific data loaded successfully.');
         
-        // Step 6: Now that all data is loaded, render the character.
         processAndRenderCharacter(activeCharacter);
 
     } catch (error) {
@@ -456,6 +450,20 @@ document.addEventListener('DOMContentLoaded', async function() {
             processAndRenderCharacter(activeCharacter);
         }
     });
+
+    // --- NEW: Event listener for the Level Up button ---
+    document.getElementById('levelUpBtn')?.addEventListener('click', function() {
+        if (!activeCharacter) {
+            alerter.show('No active character to level up.', 'error');
+            return;
+        }
+        // Save the character ID to sessionStorage to trigger level-up mode in the wizard
+        sessionStorage.setItem('levelUpCharacterId', activeCharacter.id);
+        
+        // Redirect to the character wizard
+        window.location.href = 'character-creator.html';
+    });
+    // --- END NEW ---
 
     document.getElementById('rollD20').addEventListener('click', function() {
         const result = Math.floor(Math.random() * 20) + 1;

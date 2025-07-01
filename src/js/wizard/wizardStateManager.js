@@ -132,9 +132,14 @@ class ItemManager {
 class WizardStateManager {
   constructor(moduleSystemData) {
     this.state = {
+      // --- NEW: Properties to manage level-up state ---
+      isLevelUpMode: false,
+      levelUpCharacterId: null,
+      originalLevel: 1,
+      // --- End New ---
       module: null, destiny: null, purpose: null, nurture: null, selections: [], attributes: {},
       inventory: [], info: { name: '', bio: '' }, moduleChanged: false,
-      creationLevel: 1,
+      creationLevel: 1, // Will be used as the target level
     };
     this.data = {
       modules: moduleSystemData || {},
@@ -145,6 +150,29 @@ class WizardStateManager {
     };
     this.itemManager = new ItemManager(this);
     console.log('WizardStateManager: Initialized with module definitions.');
+  }
+
+  /**
+   * --- NEW: Populates the wizard's state from a loaded character object. ---
+   */
+  populateFromCharacter(characterData, characterId) {
+    this.state.isLevelUpMode = true;
+    this.state.levelUpCharacterId = characterId;
+
+    this.state.module = characterData.module;
+    this.state.destiny = characterData.destiny;
+    this.state.purpose = characterData.purpose;
+    this.state.nurture = characterData.nurture;
+    this.state.selections = characterData.selections || [];
+    this.state.attributes = characterData.attributes || {};
+    this.state.inventory = characterData.inventory || [];
+    this.state.info = characterData.info || { name: '', bio: '' };
+    
+    // Store the character's starting level and set the current target level to match.
+    this.state.originalLevel = characterData.level || 1;
+    this.state.creationLevel = characterData.level || 1; 
+
+    console.log('WizardStateManager: State populated for level-up mode.', this.getState());
   }
 
   loadModuleData(loadedData) {

@@ -1,6 +1,6 @@
 // attributesPageHandler.js
-// This module handles the UI for the 'attributes' assignment page
-// UPDATED: Now displays attribute bonuses from leveling and calculates totals.
+// This module handles the UI for the 'attributes' assignment page.
+// UPDATED: Now displays a read-only view when in level-up mode.
 
 import { alerter } from '../alerter.js';
 
@@ -107,23 +107,59 @@ class AttributesPageHandler {
     this.alerter = alerter;
     this.selectorPanel = null;
     this.assignmentManager = null;
-    // --- NEW: Bound listener for state changes ---
     this._boundStateChangeHandler = this._updateTotals.bind(this);
     console.log('AttributesPageHandler: Initialized (Refactored).');
   }
 
+  /**
+   * --- UPDATED: Now has a conditional path for level-up mode. ---
+   */
   setupPage(selectorPanel, informerPanel, pageNavigator, informerUpdater) {
     this.selectorPanel = selectorPanel;
-    this._renderAttributeTable();
-    this._initAssignmentManager();
-    // --- NEW: Listen for state changes to update totals ---
-    document.addEventListener('wizard:stateChange', this._boundStateChangeHandler);
-    this._updateTotals(); // Initial call to set totals
+    const isLevelUpMode = this.stateManager.get('isLevelUpMode');
+
+    if (isLevelUpMode) {
+      // --- LEVEL-UP MODE: Render a read-only view and do nothing else. ---
+      this._renderReadOnlyAttributeView();
+    } else {
+      // --- CREATION MODE: Render the interactive table as before. ---
+      this._renderAttributeTable();
+      this._initAssignmentManager();
+      document.addEventListener('wizard:stateChange', this._boundStateChangeHandler);
+      this._updateTotals(); // Initial call to set totals
+    }
   }
 
   /**
-   * --- REPLACED: Now renders a table with Bonus and Total columns. ---
+   * --- NEW: Renders a non-interactive summary of attributes for level-up mode. ---
    */
+  _renderReadOnlyAttributeView() {
+    this.selectorPanel.innerHTML = '';
+    const currentState = this.stateManager.getState();
+    const moduleData = this.stateManager.getModule(currentState.module);
+    const attrConfig = moduleData?.attributes;
+    const bonuses = this.stateManager.getCombinedAttributeBonuses();
+    const originalAttributes = currentState.attributes;
+
+    let content = '<h3>Attribute Summary</h3>';
+    content += '<p>This page is read-only. Attribute bonuses from leveling up have been applied.</p>';
+    
+    if (attrConfig && attrConfig.names) {
+        let attributeList = attrConfig.names.map(attrName => {
+            const attrKey = attrName.toLowerCase();
+            const baseValue = originalAttributes[attrKey] || 0;
+            const bonusValue = bonuses[attrKey] || 0;
+            const total = baseValue + bonusValue;
+            return `<li><strong>${attrName}</strong>: ${baseValue} + ${bonusValue} (Bonus) = <strong>${total}</strong></li>`;
+        }).join('');
+        content += `<ul class="attribute-summary-list">${attributeList}</ul>`;
+    } else {
+        content += '<p>No attributes configured for this module.</p>';
+    }
+
+    this.selectorPanel.innerHTML = content;
+  }
+
   _renderAttributeTable() {
     this.selectorPanel.innerHTML = '';
     const currentModuleId = this.stateManager.get('module');
@@ -138,14 +174,12 @@ class AttributesPageHandler {
         return;
     }
 
-    // --- NEW: Get level-up bonuses ---
     const bonuses = this.stateManager.getCombinedAttributeBonuses();
 
     const table = document.createElement('table');
     table.className = 'dice-assignment-table';
     const thead = table.createTHead();
     const headerRow = thead.insertRow();
-    // --- NEW: Updated header row ---
     headerRow.innerHTML = `<th>Attribute</th><th>Bonus</th><th colspan="${attrConfig.values.length}">Assign Value</th><th>Total</th>`;
 
     const tbody = table.createTBody();
@@ -155,32 +189,28 @@ class AttributesPageHandler {
         const row = tbody.insertRow();
         row.dataset.attribute = attrKey;
         
-        row.insertCell().textContent = attrName; // Attribute Name
+        row.insertCell().textContent = attrName;
         
-        const bonusCell = row.insertCell(); // Bonus
+        const bonusCell = row.insertCell();
         bonusCell.textContent = `+${bonusValue}`;
         bonusCell.className = 'bonus-cell';
 
-        attrConfig.values.forEach((value, index) => { // Assignment Buttons
+        attrConfig.values.forEach((value, index) => {
             const btnCell = row.insertCell();
             btnCell.innerHTML = `<button type="button" data-value="${value}" data-index="${index}">${value.toString().toUpperCase()}</button>`;
         });
 
-        const totalCell = row.insertCell(); // Total
-        totalCell.id = `${attrKey}-total`; // ID for easy updating
+        const totalCell = row.insertCell();
+        totalCell.id = `${attrKey}-total`;
         totalCell.className = 'total-cell';
         totalCell.textContent = '...';
     });
     this.selectorPanel.appendChild(table);
   }
 
-  /**
-   * --- NEW: Updates the 'Total' column for all attributes. ---
-   */
   _updateTotals() {
       const bonuses = this.stateManager.getCombinedAttributeBonuses();
       const assigned = this.stateManager.get('attributes');
-      
       const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
       const attrNames = moduleData?.attributes?.names || [];
 
@@ -208,9 +238,6 @@ class AttributesPageHandler {
     }
   }
 
-  /**
-   * --- REPLACED: Informer now shows the full breakdown of attribute values. ---
-   */
   getInformerContent() {
     const currentState = this.stateManager.getState();
     const moduleData = this.stateManager.getModule(currentState.module);
@@ -231,16 +258,21 @@ class AttributesPageHandler {
             }
             
             const total = assignedValue + bonusValue;
-            return `<li><strong>${attrName}</strong>: <strong>${total}</strong></li>`;
-
+            return `<li><strong>${attrName}</strong>: ${assignedValue} + ${bonusValue} (Bonus) = <strong>${total}</strong></li>`;
         }).join('');
     }
     
     return `<h3>${moduleData.name} Attributes</h3><ul>${attributeList}</ul>`;
   }
 
-
+  /**
+   * --- UPDATED: Is always complete in level-up mode. ---
+   */
   isComplete(currentState) {
+    if (currentState.isLevelUpMode) {
+      return true; // No action is required from the user on this page in level-up mode.
+    }
+    
     if (!currentState.module) return false;
     const moduleDef = this.stateManager.getModule(currentState.module);
     const attrConfig = moduleDef?.attributes;
@@ -253,8 +285,11 @@ class AttributesPageHandler {
   }
 
   getCompletionError() {
-    // This method remains the same and is still correct.
     const currentState = this.stateManager.getState();
+    if (currentState.isLevelUpMode) {
+      return ''; // No errors possible in read-only mode.
+    }
+
     const moduleDef = this.stateManager.getModule(currentState.module);
     const attrConfig = moduleDef?.attributes;
 
@@ -274,12 +309,12 @@ class AttributesPageHandler {
 
     return 'An unknown validation error occurred on the Attributes page.';
   }
-  
-  /**
-   * --- UPDATED: Removes the state change listener on cleanup. ---
-   */
+
   cleanup() {
-    document.removeEventListener('wizard:stateChange', this._boundStateChangeHandler);
+    // Only remove the listener if it was added (i.e., not in level-up mode)
+    if (!this.stateManager.get('isLevelUpMode')) {
+      document.removeEventListener('wizard:stateChange', this._boundStateChangeHandler);
+    }
   }
 }
 

@@ -28,7 +28,6 @@ function saveCharacter(character) {
             const transaction = db.transaction(STORE_NAME, 'readwrite');
             const store = transaction.objectStore(STORE_NAME);
             
-            // Changed from store.add(character) to store.put(character)
             const request = store.put(character); 
             
             request.onsuccess = () => resolve(request.result);
@@ -44,7 +43,7 @@ function getCurrentCharacter() {
             const transaction = db.transaction(STORE_NAME, 'readonly');
             const store = transaction.objectStore(STORE_NAME);
             
-            const request = store.openCursor(null, 'prev'); // Get the last (most recent) character
+            const request = store.openCursor(null, 'prev');
             let character = null;
             
             request.onsuccess = (event) => {
@@ -69,7 +68,7 @@ function exportAllCharacters() {
 
             getAllRequest.onsuccess = () => {
                 if (getAllRequest.result.length === 0) {
-                    resolve(null); // No characters to export
+                    resolve(null);
                     return;
                 }
                 const dataStr = JSON.stringify(getAllRequest.result, null, 2);
@@ -94,13 +93,12 @@ function exportCharacter(id, characterName) {
             getRequest.onsuccess = () => {
                 const character = getRequest.result;
                 if (!character) {
-                    resolve(null); // Character not found
+                    resolve(null);
                     return;
                 }
                 const dataStr = JSON.stringify(character, null, 2);
                 const blob = new Blob([dataStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
-                // Sanitize character name for filename and then capitalize the first letter
                 let safeCharacterName = (characterName || 'character').replace(/[^a-z0-9]/gi, '_').toLowerCase();
                 if (safeCharacterName.length > 0) {
                     safeCharacterName = safeCharacterName.charAt(0).toUpperCase() + safeCharacterName.slice(1);
@@ -120,7 +118,6 @@ function importCharacter(file) {
         reader.onload = (event) => {
             try {
                 const importedData = JSON.parse(event.target.result);
-                // Ensure importedData is always an array, even if a single object is imported
                 const charactersToImport = Array.isArray(importedData) ? importedData : [importedData];
 
                 openDB().then(db => {
@@ -131,7 +128,7 @@ function importCharacter(file) {
                     let errorCount = 0;
 
                     charactersToImport.forEach(char => {
-                        const request = store.put(char); // Use put for import (upsert)
+                        const request = store.put(char);
                         request.onsuccess = () => importCount++;
                         request.onerror = (e) => {
                             console.error('Error importing character:', char, e);
@@ -166,6 +163,27 @@ function getAllCharacters() {
     });
 }
 
+// --- NEW FUNCTION TO GET A CHARACTER BY ID ---
+function getCharacterById(id) {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.get(id);
+            
+            request.onsuccess = () => {
+                if (request.result) {
+                    resolve(request.result);
+                } else {
+                    reject(new Error(`Character with id ${id} not found.`));
+                }
+            };
+            request.onerror = () => reject('Error getting character by ID: ' + request.error);
+        });
+    });
+}
+// --- END NEW FUNCTION ---
+
 // Delete a character by ID
 function deleteCharacter(id) {
     return openDB().then(db => {
@@ -190,19 +208,10 @@ function setActiveCharacter(id) {
 function getActiveCharacter() {
     const activeId = parseInt(localStorage.getItem('activeCharacterId'));
     if (isNaN(activeId)) {
-        return Promise.resolve(null); // No active character set
+        return Promise.resolve(null);
     }
-
-    return openDB().then(db => {
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(STORE_NAME, 'readonly');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.get(activeId);
-            
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject('Error getting active character');
-        });
-    });
+    // Use the new getCharacterById function to avoid code duplication
+    return getCharacterById(activeId);
 }
 
 function updateCharacterHealth(id, healthUpdate) {
@@ -238,16 +247,14 @@ function updateCharacterHealth(id, healthUpdate) {
 
 function updateCharacterResources(characterId, newResources) {
     return new Promise((resolve, reject) => {
-        // Implement IndexedDB or other storage update logic here
-        // Find the character, update its 'resources' array, and save.
-        // For example, if using local storage or a simple object:
-        db.getCharacter(characterId).then(character => {
+        getCharacterById(characterId).then(character => {
             if (character) {
                 character.resources = newResources;
-                // Save character back to storage
-                // db.saveCharacter(character); // Assuming such a method exists
-                console.log(`Character ${character.id} resources updated:`, newResources);
-                resolve(character); // Resolve with the updated character object
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.put(character);
+                request.onsuccess = () => resolve(character);
+                request.onerror = (e) => reject(new Error("Failed to save updated character resources."));
             } else {
                 reject(new Error("Character not found for resource update."));
             }
@@ -270,11 +277,13 @@ function updateCharacter(id, updates) {
                     return;
                 }
 
-                // Merge the updates into the character object
+                // This is a shallow merge. For nested objects, you might need a deep merge utility.
                 const updatedCharacter = {
                     ...character,
                     ...updates
                 };
+                // Ensure ID is not lost if updates object contains an ID
+                updatedCharacter.id = id;
 
                 const putRequest = store.put(updatedCharacter);
 
@@ -291,10 +300,11 @@ function updateCharacter(id, updates) {
 window.db = {
     saveCharacter,
     getCurrentCharacter,
-    exportAllCharacters, // Changed this
-    exportCharacter,     // Added this
+    exportAllCharacters,
+    exportCharacter,
     importCharacter,
     getAllCharacters,
+    getCharacterById,
     deleteCharacter,
     setActiveCharacter,
     getActiveCharacter,
