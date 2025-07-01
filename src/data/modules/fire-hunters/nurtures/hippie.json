@@ -12,6 +12,12 @@
             "name": "Starting Attunement",
             "maxChoices": 1,
             "items": ["tree-hugger"]
+        },
+        "gwirlfriend": {
+            "type": "relationships",
+            "name": "Pretty Girl",
+            "maxChoices": 1,
+            "items": ["girlfriend"]
         }
     }
 }

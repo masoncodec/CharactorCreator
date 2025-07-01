@@ -64,7 +64,6 @@ class ChoicePageHandler {
     
     this.stateManager.setState(this.config.stateKey, selectedId);
     
-    // Call the new auto-selection method
     this._autoSelectChoiceGroups(selectedId);
 
     this._renderChoiceGroupsSection();
@@ -89,7 +88,7 @@ class ChoicePageHandler {
         
         groupDef.items.forEach(itemId => {
           const itemDef = allItemDefs[itemId];
-          // As per user request, only select if not already selected from another source.
+          // only select if not already selected from another source.
           if (itemDef && !this.stateManager.itemManager.isItemSelected(itemId)) {
             // The payload for inventory items needs a default quantity.
             const payload = groupDef.type === 'inventory' ? { quantity: 1 } : {};
@@ -231,6 +230,8 @@ class ChoicePageHandler {
         ${renderItems('flaw', 'Chosen Flaws')}
         ${renderItems('perk', 'Chosen Perks')}
         ${renderItems('ability', 'Chosen Abilities')}
+        ${renderItems('community', 'Chosen Communities')}
+        ${renderItems('relationship', 'Chosen Relationships')}
         ${renderItems('equipment', 'Chosen Equipment')}
         ${renderItems('loot', 'Chosen Loot')}
       </div>`;

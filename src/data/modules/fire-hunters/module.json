@@ -30,6 +30,8 @@
         "abilities": "abilities.json",
         "flaws": "flaws.json",
         "perks": "perks.json",
-        "equipmentAndLoot": "equipmentAndLoot.json"
+        "equipmentAndLoot": "equipmentAndLoot.json",
+        "relationships": "relationships.json",
+        "communities": "communities.json"
     }
 }

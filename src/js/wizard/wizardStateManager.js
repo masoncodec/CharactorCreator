@@ -3,7 +3,6 @@
 // and provides access to all loaded game data.
 
 class ItemManager {
-  // ... (No changes needed in ItemManager)
   constructor(stateManager) {
     this.stateManager = stateManager;
     this.state = stateManager.state;
@@ -121,7 +120,9 @@ class WizardStateManager {
     this.data = {
       modules: moduleSystemData || {},
       destinies: {}, purposes: {}, nurtures: {}, abilities: {}, flaws: {},
-      perks: {}, equipment: {}, allItems: {}
+      perks: {}, equipment: {}, 
+      communities: {}, relationships: {},
+      allItems: {}
     };
     this.itemManager = new ItemManager(this);
     console.log('WizardStateManager: Initialized with module definitions.');
@@ -137,6 +138,8 @@ class WizardStateManager {
     this.data.flaws = loadedData.flawData || {};
     this.data.perks = loadedData.perkData || {};
     this.data.equipment = loadedData.equipmentAndLootData || {};
+    this.data.communities = loadedData.communityData || {};
+    this.data.relationships = loadedData.relationshipData || {};
     this.data.allItems = {};
 
     this._normalizeData();
@@ -155,6 +158,9 @@ class WizardStateManager {
     normalizeAndAdd(this.data.abilities, 'ability');
     normalizeAndAdd(this.data.flaws, 'flaw');
     normalizeAndAdd(this.data.perks, 'perk');
+    normalizeAndAdd(this.data.communities, 'community');
+    normalizeAndAdd(this.data.relationships, 'relationship');
+    
     if (this.data.equipment) {
       Object.entries(this.data.equipment).forEach(([id, item]) => {
         this.data.allItems[id] = { ...item, id: id, itemType: item.type };
