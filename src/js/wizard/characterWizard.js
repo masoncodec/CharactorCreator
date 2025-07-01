@@ -1,6 +1,6 @@
 // characterWizard.js
 // This is the main orchestrator for the character creation wizard.
-// UPDATED: Now supports a "creation mode" and a "level-up mode".
+// FINAL VERSION: Includes level-up mode and all state cleanup logic.
 
 // --- Core Modules ---
 import { loadGameModules, loadDataForModule } from '../dataLoader.js';
@@ -25,15 +25,11 @@ import { EquipmentAndLootPageHandler } from './equipmentAndLootPageHandler.js';
 import { InfoPageHandler } from './infoPageHandler.js';
 
 class CharacterWizard {
-  /**
-   * --- UPDATED: The constructor now accepts an optional character object to load. ---
-   */
   constructor(moduleSystemData, db, characterToLoad = null) {
     this.db = db;
     this.stateManager = new WizardStateManager(moduleSystemData);
     this.pages = ['module', 'frame', 'destiny', 'purpose', 'nurture', 'attributes', 'flaws-and-perks', 'equipment-and-loot', 'info'];
     
-    // If a character is passed in, populate the state immediately.
     if (characterToLoad) {
       this.stateManager.populateFromCharacter(characterToLoad, characterToLoad.id);
     }
@@ -54,7 +50,6 @@ class CharacterWizard {
       loadPage: this.loadPage.bind(this)
     });
     
-    // Pass the character's ID to the finisher if in level-up mode.
     const characterId = this.stateManager.get('levelUpCharacterId');
     this.informerUpdater = new InformerUpdater(this.stateManager);
     this.characterFinisher = new CharacterFinisher(this.stateManager, this.db, alerter, EffectHandler, this.pageNavigator, this.pages, characterId);
@@ -63,9 +58,6 @@ class CharacterWizard {
     console.log('CharacterWizard: Initializing main wizard application.');
   }
 
-  /**
-   * Sets up global event listeners and loads the initial page.
-   */
   init() {
     console.log('CharacterWizard.init: Setting up global event listeners and initial page.');
     this.pageNavigator.initNavListeners();
@@ -77,14 +69,12 @@ class CharacterWizard {
     
     this.loadPage(this.pages[0]);
 
-    // If in level up mode, set the button text.
     if (this.stateManager.get('isLevelUpMode')) {
       this.pageNavigator.setFinishButtonText('Complete Level Up');
     }
   }
   
   async selectModule(moduleId) {
-    // This logic doesn't need to change, but it will only be callable in creation mode.
     if (!moduleId || this.stateManager.get('isLevelUpMode')) return;
     
     console.log(`CharacterWizard: Module selection changed to '${moduleId}'.`);
@@ -114,7 +104,6 @@ class CharacterWizard {
     const informerPanel = document.getElementById('informerPanel');
 
     try {
-      // In creation mode, if module isn't selected, show placeholder. This is now safe.
       if (!this.stateManager.get('isLevelUpMode') && page !== 'module' && page !== 'info' && !this.stateManager.get('module')) {
         selectorPanel.innerHTML = `<div class="wizard-panel-placeholder">Please select a game module to continue.</div>`;
         informerPanel.innerHTML = '';
@@ -149,7 +138,7 @@ class CharacterWizard {
   }
 }
 
-// --- RESTRUCTURED: Application Entry Point ---
+// --- Application Entry Point ---
 document.addEventListener('DOMContentLoaded', async () => {
   if (typeof db === 'undefined') {
     console.error("CharacterWizard: Database module 'db' not found.");
@@ -157,13 +146,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
   
-  // Add listener to home link to clean up session storage
-  const homeLink = document.querySelector('.home-link'); // Assumes a .home-link exists on the wizard page
-   if (homeLink) {
-       homeLink.addEventListener('click', () => {
-           sessionStorage.removeItem('levelUpCharacterId');
-       });
-   }
+  // --- NEW: Add listener to the home button to clean up the level-up state. ---
+  const homeButton = document.querySelector('.nav-item--home');
+  if (homeButton) {
+      homeButton.addEventListener('click', () => {
+          console.log('Home button clicked, clearing level-up state.');
+          sessionStorage.removeItem('levelUpCharacterId');
+      });
+  }
 
   console.log('CharacterWizard: DOMContentLoaded. Checking for mode...');
   
@@ -171,7 +161,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const characterIdToLoad = sessionStorage.getItem('levelUpCharacterId');
 
   try {
-    // Always load the base module definitions
     const { moduleSystemData } = await loadGameModules();
 
     if (characterIdToLoad) {
@@ -180,11 +169,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       characterToLoad = await db.getCharacterById(parseInt(characterIdToLoad));
       
       if (!characterToLoad) throw new Error(`Character with ID ${characterIdToLoad} not found.`);
-  
-      // --- NEW: Reconstruct the selections array from categorized lists ---
+
       const reconstructSelections = (char) => {
           const selections = [];
-          // These are the arrays on your saved character object that hold selection data
           const sources = ['abilities', 'perks', 'flaws', 'communities', 'relationships'];
           sources.forEach(sourceKey => {
               if (char[sourceKey] && Array.isArray(char[sourceKey])) {
@@ -196,20 +183,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
       characterToLoad.selections = reconstructSelections(characterToLoad);
 
-      // For level-up, we must also load the specific module data associated with that character
       const moduleDef = moduleSystemData[characterToLoad.module];
       if (!moduleDef) throw new Error(`Module '${characterToLoad.module}' not found for loaded character.`);
       
       const moduleSpecificData = await loadDataForModule(moduleDef);
       
-      // Manually attach the module-specific data to the state manager's data object before initializing
-      // This is a bit of a workaround to ensure the data is there before the state manager is populated.
-      const tempStateManager = new WizardStateManager(moduleSystemData);
-      tempStateManager.loadModuleData(moduleSpecificData);
-      
-      // Now, initialize the wizard, passing in the loaded character and pre-loaded data
       const wizard = new CharacterWizard(moduleSystemData, db, characterToLoad);
-      wizard.stateManager.data = tempStateManager.data; // Overwrite data with fully loaded set
+      wizard.stateManager.loadModuleData(moduleSpecificData);
       wizard.init();
 
     } else {
@@ -222,6 +202,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (error) {
     console.error('CharacterWizard: A critical error occurred during initialization:', error);
     alerter.show(`Failed to load critical data: ${error.message}. The application cannot start.`, 'error');
-    sessionStorage.removeItem('levelUpCharacterId'); // Clean up on failure
+    sessionStorage.removeItem('levelUpCharacterId');
   }
 });
