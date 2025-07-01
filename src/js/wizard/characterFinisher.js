@@ -1,5 +1,6 @@
 // characterFinisher.js
 // This module handles the final validation of the character data and the saving process.
+// UPDATED: Now uses the EffectHandler as the source of truth for stat calculations.
 
 class CharacterFinisher {
   /**
@@ -48,12 +49,11 @@ class CharacterFinisher {
   }
   
   /**
-   * Initiates the wizard finishing process.
+   * --- REWRITTEN: Uses EffectHandler to calculate final stats. ---
    */
   async finishWizard() {
     console.log('CharacterFinisher.finishWizard: Attempting to finish wizard.');
     const validation = this._validateAllPages();
-
     if (!validation.isValid) {
       this.alerter.show("Please complete the following:\n\n" + validation.message, 'error');
       return;
@@ -61,34 +61,52 @@ class CharacterFinisher {
 
     const currentState = this.stateManager.getState();
     const allItemDefs = this.stateManager.getItemData();
+    const data = this.stateManager.data;
     
-    // 1. Categorize all selections in a single pass.
+    // 1. Prepare a temporary character object for the EffectHandler
     const categorizedSelections = this._categorizeSelections(currentState.selections, allItemDefs);
+    const tempCharForEffects = {
+        ...categorizedSelections,
+        health: { max: this._getBaseHealth(currentState) }
+    };
+    
+    // 2. Process all effects from abilities, perks, and flaws
+    this.EffectHandler.processActiveAbilities(
+        tempCharForEffects,
+        data.abilities, data.flaws, data.perks,
+        new Set(), // No active abilities are toggled in the wizard
+        'wizard'
+    );
+    
+    // 3. Convert level-up rewards into standard effect objects and add them
+    this._addLevelRewardsToEffects(currentState);
+    
+    // 4. Apply all compiled effects
+    const modifiedCharacter = this.EffectHandler.applyEffectsToCharacter(tempCharForEffects, 'wizard');
 
-    // 2. Calculate effects using the pre-categorized lists.
-    const characterEffects = this._calculateCharacterEffects(categorizedSelections, currentState, allItemDefs);
-
-    // 3. Process the pre-categorized inventory list for stacking.
+    // 5. Combine base attributes with level-up bonuses
+    const attributeBonuses = this.stateManager.getCombinedAttributeBonuses();
+    const finalAttributes = { ...currentState.attributes };
+    for (const attr in attributeBonuses) {
+        finalAttributes[attr] = (finalAttributes[attr] || 0) + attributeBonuses[attr];
+    }
+    
+    // 6. Assemble the final character object
     const finalInventory = this._processFinalInventory(categorizedSelections.inventory, currentState.inventory, allItemDefs);
-
-    // 4. Assemble the final character object from the clean, categorized data.
     const character = {
       module: currentState.module,
+      level: currentState.creationLevel,
       destiny: currentState.destiny,
       purpose: currentState.purpose,
       nurture: currentState.nurture,
-      attributes: currentState.attributes,
+      attributes: finalAttributes,
       info: currentState.info,
       createdAt: new Date().toISOString(),
-      flaws: categorizedSelections.flaws,
-      perks: categorizedSelections.perks,
-      abilities: categorizedSelections.abilities,
-      communities: categorizedSelections.communities,
-      relationships: categorizedSelections.relationships,
+      ...categorizedSelections,
       inventory: finalInventory,
       health: {
-        current: characterEffects.calculatedHealth.currentMax,
-        max: characterEffects.calculatedHealth.currentMax,
+        current: modifiedCharacter.calculatedHealth.currentMax,
+        max: modifiedCharacter.calculatedHealth.currentMax,
         temporary: 0
       },
     };
@@ -106,6 +124,47 @@ class CharacterFinisher {
       console.error('CharacterFinisher.finishWizard: Failed to save character:', err);
       this.alerter.show(`Failed to save character: ${err.message}`, 'error');
     }
+  }
+
+  /**
+   * --- NEW HELPER: Gets base health from the Destiny definition. ---
+   */
+  _getBaseHealth(currentState) {
+      const destinyId = currentState.destiny;
+      if (!destinyId) return 0;
+      const destinyDef = this.stateManager.getDestiny(destinyId);
+      return destinyDef?.health?.value || 0;
+  }
+
+  /**
+   * --- NEW HELPER: Converts level rewards into effects for the EffectHandler. ---
+   */
+  _addLevelRewardsToEffects(currentState) {
+      const sources = ['destiny', 'purpose', 'nurture'];
+      const level = currentState.creationLevel;
+
+      for (const sourceType of sources) {
+          const sourceId = currentState[sourceType];
+          if (!sourceId) continue;
+          
+          const definition = this.stateManager[`get${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)}`](sourceId);
+          if (!definition || !Array.isArray(definition.levels)) continue;
+
+          for (const levelData of definition.levels) {
+              if (levelData.level > level) continue;
+              if (!levelData.rewards || !levelData.rewards.health) continue;
+
+              const healthEffect = {
+                  type: 'max_health_mod',
+                  value: levelData.rewards.health,
+                  itemName: `Level ${levelData.level} Bonus`,
+                  itemId: `${sourceId}-lvl-${levelData.level}`,
+                  itemType: 'passive',
+                  sourceType: 'level'
+              };
+              this.EffectHandler.activeEffects.push(healthEffect);
+          }
+      }
   }
 
   /**
@@ -129,10 +188,7 @@ class CharacterFinisher {
       const itemDef = allItemDefs[sel.id];
       if (!itemDef) continue;
 
-      // Create a clean copy of the selection object.
       const cleanedSel = { ...sel };
-
-      // Prune the 'selections' property if it's an empty array.
       if (Array.isArray(cleanedSel.selections) && cleanedSel.selections.length === 0) {
         delete cleanedSel.selections;
       }
@@ -166,6 +222,10 @@ class CharacterFinisher {
    * @private
    */
   _calculateCharacterEffects(categorizedSelections, currentState, allItemDefs) {
+    // This method is now only used by the original finishWizard logic.
+    // The new logic calls EffectHandler.processActiveAbilities directly.
+    // We are leaving this here to avoid breaking dependencies if it's called elsewhere,
+    // but the primary health calculation now happens in the main finishWizard method.
     const { abilities, flaws, perks } = categorizedSelections;
     const activeAbilityStates = new Set(
       abilities.filter(a => allItemDefs[a.id]?.type === 'active').map(a => a.id)

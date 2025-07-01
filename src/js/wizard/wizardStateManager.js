@@ -2,13 +2,14 @@
 // This module manages the central state of the character creation wizard
 // and provides access to all loaded game data.
 
+import { alerter } from '../alerter.js';
+
 class ItemManager {
   constructor(stateManager) {
     this.stateManager = stateManager;
     this.state = stateManager.state;
   }
 
-  // Add an optional 'payload' parameter to carry extra data like quantity/equipped status.
   selectItem(itemDef, source, groupId, payload = {}) {
     const { id } = itemDef;
     const isAlreadySelected = this.state.selections.some(sel => sel.id === id && sel.source === source);
@@ -18,18 +19,35 @@ class ItemManager {
         'purpose': this.stateManager.getPurpose(this.state.purpose),
         'nurture': this.stateManager.getNurture(this.state.nurture)
     }[source] || {};
-    const groupDef = groupId ? parentDef?.choiceGroups?.[groupId] : null; 
+    
+    let groupDef = null;
+    if (groupId && parentDef && Array.isArray(parentDef.levels)) {
+        for (const levelData of parentDef.levels) {
+            if (levelData.choiceGroups && levelData.choiceGroups[groupId]) {
+                groupDef = levelData.choiceGroups[groupId];
+                break;
+            }
+        }
+    }
 
     const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
 
     if (isAlreadySelected) {
       if (groupId && maxChoices === 1 && ['destiny', 'purpose', 'nurture'].includes(source)) {
-        console.log(`ItemManager: Ignoring re-selection of true radio item '${id}'.`);
         return;
       }
-      
       this.deselectItem(id, source);
       return;
+    }
+
+    if (groupId && maxChoices > 1) {
+        const selectionsInGroup = this.state.selections.filter(
+            sel => sel.groupId === groupId && sel.source === source
+        );
+        if (selectionsInGroup.length >= maxChoices) {
+            alerter.show(`You may only select ${maxChoices} items from this group.`, 'error');
+            return;
+        }
     }
 
     let newSelections = [...this.state.selections];
@@ -116,6 +134,7 @@ class WizardStateManager {
     this.state = {
       module: null, destiny: null, purpose: null, nurture: null, selections: [], attributes: {},
       inventory: [], info: { name: '', bio: '' }, moduleChanged: false,
+      creationLevel: 1,
     };
     this.data = {
       modules: moduleSystemData || {},
@@ -170,8 +189,47 @@ class WizardStateManager {
 
   getState() { return JSON.parse(JSON.stringify(this.state)); }
   get(key) { return this.state[key]; }
+  
+  /**
+   * --- UPDATED: Now includes logic to clean up selections when the level is decreased. ---
+   */
   set(key, value) {
     if (this.state.hasOwnProperty(key)) {
+      
+      // --- NEW: Logic to remove selections from levels that are no longer accessible ---
+      if (key === 'creationLevel') {
+        const oldLevel = this.state.creationLevel;
+        const newLevel = value;
+        
+        if (newLevel < oldLevel) {
+          const invalidGroupIds = new Set();
+          const sources = ['destiny', 'purpose', 'nurture'];
+
+          // Find all choice group IDs from the levels that are being removed
+          sources.forEach(sourceType => {
+            const sourceId = this.get(sourceType);
+            if (!sourceId) return;
+
+            const definition = this[`get${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)}`](sourceId);
+            if (!definition || !Array.isArray(definition.levels)) return;
+
+            definition.levels.forEach(levelData => {
+              if (levelData.level > newLevel) {
+                if (levelData.choiceGroups) {
+                  Object.keys(levelData.choiceGroups).forEach(groupId => invalidGroupIds.add(groupId));
+                }
+              }
+            });
+          });
+
+          // Filter the selections array, removing any item belonging to an invalid group
+          if (invalidGroupIds.size > 0) {
+            this.state.selections = this.state.selections.filter(sel => !invalidGroupIds.has(sel.groupId));
+          }
+        }
+      }
+      // --- END NEW ---
+
       this.state[key] = value;
       document.dispatchEvent(new CustomEvent('wizard:stateChange', {
         detail: { key: key, value: this.state[key], newState: this.getState() }
@@ -251,6 +309,38 @@ class WizardStateManager {
   removeInventoryItem(itemId) {
     this.state.inventory = this.state.inventory.filter(item => item.id !== itemId);
     this.set('inventory', this.state.inventory);
+  }
+
+  getCombinedAttributeBonuses() {
+    const attributeBonuses = {};
+
+    const sources = ['destiny', 'purpose', 'nurture'];
+    const level = this.get('creationLevel');
+
+    for (const sourceType of sources) {
+        const sourceId = this.get(sourceType);
+        if (!sourceId) continue;
+
+        const definition = this[`get${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)}`](sourceId);
+        if (!definition || !Array.isArray(definition.levels)) continue;
+
+        for (const levelData of definition.levels) {
+            if (levelData.level > level) continue;
+
+            const rewards = levelData.rewards;
+            if (!rewards || !rewards.attributes) continue;
+            
+            // Sum attribute bonuses
+            for (const attr in rewards.attributes) {
+                if (attributeBonuses[attr]) {
+                    attributeBonuses[attr] += rewards.attributes[attr];
+                } else {
+                    attributeBonuses[attr] = rewards.attributes[attr];
+                }
+            }
+        }
+    }
+    return attributeBonuses;
   }
 }
 

@@ -10,47 +10,60 @@
         { "id": "nature", "display": "Nature", "color": "#28a745", "icon": "🌳" },
         { "id": "beast-tamer", "display": "Beast Tamer", "color": "#C4A484", "icon": "🐻" }
     ],
-    "choiceGroups": {
-        "flaws": {
-            "type": "flaws",
-            "name": "Flaws",
-            "maxChoices": 1,
-            "items": ["frail", "stranger"]
+    "levels": [
+        {
+            "level": 1,
+            "choiceGroups": {
+                "flaws": {
+                    "type": "flaws",
+                    "name": "Flaws",
+                    "maxChoices": 1,
+                    "items": ["frail", "stranger"]
+                },
+                "initial_abilities": {
+                    "type": "abilities",
+                    "name": "Starting Abilities",
+                    "maxChoices": 1,
+                    "items": ["speak-with-animals", "easter-egg"]
+                },
+                "natures_blessing": {
+                    "type": "abilities",
+                    "name": "Nature's Blessing",
+                    "maxChoices": 2,
+                    "items": ["forest-feet", "natures-gift"]
+                },
+                "birdseed": {
+                    "type": "abilities",
+                    "name": "Birdseed",
+                    "maxChoices": 1,
+                    "items": ["birdseed"]
+                },
+                "domain_abilities": {
+                    "type": "abilities",
+                    "name": "Domain Abilities",
+                    "maxChoices": 2,
+                    "items": ["small-domain", "medium-domain", "large-domain"]
+                },
+                "equipment": {
+                    "type": "inventory",
+                    "name": "Fae-Touched Gift",
+                    "maxChoices": 1,
+                    "items": [
+                        "staff-of-moon-whispers",
+                        "mothwing-cloak",
+                        "pixie-call-whistle",
+                        "example-ring-of-protection"
+                    ]
+                }
+            }
         },
-        "initial_abilities": {
-            "type": "abilities",
-            "name": "Starting Abilities",
-            "maxChoices": 1,
-            "items": ["speak-with-animals", "easter-egg"]
-        },
-        "natures_blessing": {
-            "type": "abilities",
-            "name": "Nature's Blessing",
-            "maxChoices": 2,
-            "items": ["forest-feet", "natures-gift"]
-        },
-        "birdseed": {
-            "type": "abilities",
-            "name": "Birdseed",
-            "maxChoices": 1,
-            "items": ["birdseed"]
-        },
-        "domain_abilities": {
-            "type": "abilities",
-            "name": "Domain Abilities",
-            "maxChoices": 2,
-            "items": ["small-domain", "medium-domain", "large-domain"]
-        },
-        "equipment": {
-            "type": "inventory",
-            "name": "Fae-Touched Gift",
-            "maxChoices": 1,
-            "items": [
-                "staff-of-moon-whispers",
-                "mothwing-cloak",
-                "pixie-call-whistle",
-                "example-ring-of-protection"
-            ]
+        {
+            "level": 2,
+            "rewards": {
+                "attributes": {
+                    "whimsy": 1
+                }
+            }
         }
-    }
+    ]
 }

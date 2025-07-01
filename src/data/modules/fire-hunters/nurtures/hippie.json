@@ -6,18 +6,34 @@
         { "id": "elemental", "display": "Elemental", "color": "#ff6347", "icon": "🔥" },
         { "id": "magic", "display": "Magic", "color": "#8A2BE2", "icon": "✨" }
     ],
-    "choiceGroups": {
-        "initial_abilities": {
-            "type": "abilities",
-            "name": "Starting Attunement",
-            "maxChoices": 1,
-            "items": ["tree-hugger"]
+    "levels": [
+        {
+            "level": 1,
+            "choiceGroups": {
+                "initial_abilities": {
+                    "type": "abilities",
+                    "name": "Starting Attunement",
+                    "maxChoices": 1,
+                    "items": ["tree-hugger"]
+                },
+                "gwirlfriend": {
+                    "type": "relationships",
+                    "name": "Pretty Girl",
+                    "maxChoices": 1,
+                    "items": ["girlfriend"]
+                }
+            }
         },
-        "gwirlfriend": {
-            "type": "relationships",
-            "name": "Pretty Girl",
-            "maxChoices": 1,
-            "items": ["girlfriend"]
+        {
+            "level": 2,
+            "choiceGroups": {
+                "example": {
+                    "type": "abilities",
+                    "name": "Example",
+                    "maxChoices": 1,
+                    "items": ["spellcaster"]
+                }
+            }
         }
-    }
+    ]
 }

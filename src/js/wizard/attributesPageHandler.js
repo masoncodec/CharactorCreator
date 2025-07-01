@@ -1,12 +1,13 @@
 // attributesPageHandler.js
 // This module handles the UI for the 'attributes' assignment page
-// and now contains its own completion and informer logic.
+// UPDATED: Now displays attribute bonuses from leveling and calculates totals.
 
 import { alerter } from '../alerter.js';
 
 /**
  * @private
  * This class encapsulates the generic logic for assigning a set of unique values to attributes.
+ * NOTE: This class remains unchanged.
  */
 class AttributeAssignmentManager {
   /**
@@ -23,10 +24,6 @@ class AttributeAssignmentManager {
     this.boundProcessSelection = null;
   }
 
-  /**
-   * Initializes or re-initializes the manager, clearing previous states and
-   * restoring assignments from the wizard's state.
-   */
   init() {
     this.usedValuesByIndex.clear();
     this.assignedAttributes.clear();
@@ -110,6 +107,8 @@ class AttributesPageHandler {
     this.alerter = alerter;
     this.selectorPanel = null;
     this.assignmentManager = null;
+    // --- NEW: Bound listener for state changes ---
+    this._boundStateChangeHandler = this._updateTotals.bind(this);
     console.log('AttributesPageHandler: Initialized (Refactored).');
   }
 
@@ -117,14 +116,20 @@ class AttributesPageHandler {
     this.selectorPanel = selectorPanel;
     this._renderAttributeTable();
     this._initAssignmentManager();
+    // --- NEW: Listen for state changes to update totals ---
+    document.addEventListener('wizard:stateChange', this._boundStateChangeHandler);
+    this._updateTotals(); // Initial call to set totals
   }
 
+  /**
+   * --- REPLACED: Now renders a table with Bonus and Total columns. ---
+   */
   _renderAttributeTable() {
     this.selectorPanel.innerHTML = '';
     const currentModuleId = this.stateManager.get('module');
     if (!currentModuleId) {
-      this.selectorPanel.innerHTML = '<p>Select a module first to see available attributes.</p>';
-      return;
+        this.selectorPanel.innerHTML = '<p>Select a module first to see available attributes.</p>';
+        return;
     }
     const moduleData = this.stateManager.getModule(currentModuleId);
     const attrConfig = moduleData?.attributes;
@@ -132,22 +137,63 @@ class AttributesPageHandler {
         this.selectorPanel.innerHTML = '<p>The selected module does not have a valid attribute configuration.</p>';
         return;
     }
+
+    // --- NEW: Get level-up bonuses ---
+    const bonuses = this.stateManager.getCombinedAttributeBonuses();
+
     const table = document.createElement('table');
     table.className = 'dice-assignment-table';
     const thead = table.createTHead();
     const headerRow = thead.insertRow();
-    headerRow.innerHTML = `<th>Attribute</th><th colspan="${attrConfig.values.length}">Assign Value</th>`;
+    // --- NEW: Updated header row ---
+    headerRow.innerHTML = `<th>Attribute</th><th>Bonus</th><th colspan="${attrConfig.values.length}">Assign Value</th><th>Total</th>`;
+
     const tbody = table.createTBody();
     attrConfig.names.forEach(attrName => {
+        const attrKey = attrName.toLowerCase();
+        const bonusValue = bonuses[attrKey] || 0;
         const row = tbody.insertRow();
-        row.dataset.attribute = attrName.toLowerCase();
-        row.insertCell().textContent = attrName;
-        attrConfig.values.forEach((value, index) => {
+        row.dataset.attribute = attrKey;
+        
+        row.insertCell().textContent = attrName; // Attribute Name
+        
+        const bonusCell = row.insertCell(); // Bonus
+        bonusCell.textContent = `+${bonusValue}`;
+        bonusCell.className = 'bonus-cell';
+
+        attrConfig.values.forEach((value, index) => { // Assignment Buttons
             const btnCell = row.insertCell();
             btnCell.innerHTML = `<button type="button" data-value="${value}" data-index="${index}">${value.toString().toUpperCase()}</button>`;
         });
+
+        const totalCell = row.insertCell(); // Total
+        totalCell.id = `${attrKey}-total`; // ID for easy updating
+        totalCell.className = 'total-cell';
+        totalCell.textContent = '...';
     });
     this.selectorPanel.appendChild(table);
+  }
+
+  /**
+   * --- NEW: Updates the 'Total' column for all attributes. ---
+   */
+  _updateTotals() {
+      const bonuses = this.stateManager.getCombinedAttributeBonuses();
+      const assigned = this.stateManager.get('attributes');
+      
+      const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
+      const attrNames = moduleData?.attributes?.names || [];
+
+      attrNames.forEach(attrName => {
+          const attrKey = attrName.toLowerCase();
+          const totalEl = this.selectorPanel.querySelector(`#${attrKey}-total`);
+          if (totalEl) {
+              const bonusValue = bonuses[attrKey] || 0;
+              const assignedValue = assigned[attrKey] || 0;
+              const total = assignedValue + bonusValue;
+              totalEl.textContent = total;
+          }
+      });
   }
 
   _initAssignmentManager() {
@@ -162,25 +208,37 @@ class AttributesPageHandler {
     }
   }
 
+  /**
+   * --- REPLACED: Informer now shows the full breakdown of attribute values. ---
+   */
   getInformerContent() {
     const currentState = this.stateManager.getState();
-    if (currentState.module) {
-      const moduleData = this.stateManager.getModule(currentState.module);
-      const attrConfig = moduleData?.attributes;
-      let attributeList = '<li>No attributes configured for this module.</li>';
+    const moduleData = this.stateManager.getModule(currentState.module);
+    if (!moduleData) return `<h3>Attributes</h3><p>Select a module first.</p>`;
 
-      if (attrConfig && attrConfig.names) {
-          attributeList = attrConfig.names.map(attrName => {
-              const assignedValue = currentState.attributes[attrName.toLowerCase()];
-              const displayValue = (assignedValue !== undefined && assignedValue !== null) ? assignedValue.toString().toUpperCase() : 'Unassigned';
-              return `<li><strong>${attrName}</strong>: ${displayValue}</li>`;
-          }).join('');
-      }
-      
-      return `<h3>${moduleData.name} Attributes</h3><ul>${attributeList}</ul>`;
+    const attrConfig = moduleData.attributes;
+    const bonuses = this.stateManager.getCombinedAttributeBonuses();
+    let attributeList = '<li>No attributes configured.</li>';
+
+    if (attrConfig && attrConfig.names) {
+        attributeList = attrConfig.names.map(attrName => {
+            const attrKey = attrName.toLowerCase();
+            const assignedValue = currentState.attributes[attrKey];
+            const bonusValue = bonuses[attrKey] || 0;
+            
+            if (assignedValue === undefined || assignedValue === null) {
+                return `<li><strong>${attrName}</strong>: Unassigned</li>`;
+            }
+            
+            const total = assignedValue + bonusValue;
+            return `<li><strong>${attrName}</strong>: <strong>${total}</strong></li>`;
+
+        }).join('');
     }
-    return `<h3>Attributes</h3><p>Select a module first to see attributes.</p>`;
+    
+    return `<h3>${moduleData.name} Attributes</h3><ul>${attributeList}</ul>`;
   }
+
 
   isComplete(currentState) {
     if (!currentState.module) return false;
@@ -194,17 +252,13 @@ class AttributesPageHandler {
     });
   }
 
-  /**
-   * MODIFIED: Generates a detailed list of all unassigned attributes.
-   * @returns {string} A comprehensive error message.
-   */
   getCompletionError() {
+    // This method remains the same and is still correct.
     const currentState = this.stateManager.getState();
     const moduleDef = this.stateManager.getModule(currentState.module);
     const attrConfig = moduleDef?.attributes;
 
     if (!attrConfig || !attrConfig.names) {
-      // This page is complete if there are no attributes to assign.
       return '';
     }
 
@@ -220,9 +274,12 @@ class AttributesPageHandler {
 
     return 'An unknown validation error occurred on the Attributes page.';
   }
-
+  
+  /**
+   * --- UPDATED: Removes the state change listener on cleanup. ---
+   */
   cleanup() {
-    // AssignmentManager handles its own listener removal if re-initialized.
+    document.removeEventListener('wizard:stateChange', this._boundStateChangeHandler);
   }
 }
 
