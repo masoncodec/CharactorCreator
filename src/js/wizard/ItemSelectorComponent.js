@@ -1,16 +1,15 @@
 // ItemSelectorComponent.js
 // A reusable component to render and manage a grid of selectable items.
-// UPDATED: Now supports a locked/disabled state for level-up mode.
+// REVERTED: The 'isLocked' logic has been removed as it is no longer needed.
 
 class ItemSelectorComponent {
-  constructor(containerElement, itemsToRender, source, stateManager, ruleEngine, context = null, isLocked = false) {
+  constructor(containerElement, itemsToRender, source, stateManager, ruleEngine, context = null) {
     this.container = containerElement;
     this.items = itemsToRender;
     this.source = source;
     this.stateManager = stateManager;
     this.ruleEngine = ruleEngine;
     this.context = context;
-    this.isLocked = isLocked; // NEW: Flag for read-only mode
     this._boundHandleClick = this._handleClick.bind(this);
     this._attachEventListeners();
     console.log(`ItemSelectorComponent: Initialized for source '${this.source}'.`);
@@ -22,7 +21,6 @@ class ItemSelectorComponent {
     for (const itemId in this.items) {
       const itemDef = this.items[itemId];
       const selectionState = this.stateManager.itemManager.getSelection(itemDef.id, this.source);
-      // Pass the context to the rule engine for validation
       const validationState = this.ruleEngine.getValidationState(itemDef, this.source, this.context);
       allCardsHtml += this._createCardHTML(itemDef, selectionState, validationState);
     }
@@ -36,17 +34,22 @@ class ItemSelectorComponent {
   _getGroupDefinition(itemDef) {
     if (!this.context || !itemDef.groupId) return null;
     const mainDefinition = this.context.getDefinition();
-    return mainDefinition?.choiceGroups?.[itemDef.groupId] || null;
+    // This now correctly finds the groupDef within the levels array
+    let groupDef = null;
+    if (mainDefinition && Array.isArray(mainDefinition.levels)) {
+        for (const levelData of mainDefinition.levels) {
+            if (levelData.choiceGroups && levelData.choiceGroups[itemDef.groupId]) {
+                groupDef = levelData.choiceGroups[itemDef.groupId];
+                break;
+            }
+        }
+    }
+    return groupDef;
   }
 
-  /**
-   * --- UPDATED: Now disables inputs if the component is in a locked state. ---
-   */
   _createCardHTML(itemDef, selectionState, validationState) {
     const isSelected = !!selectionState;
-    // --- NEW: The card is disabled if validation fails OR if it's locked ---
-    const isDisabled = validationState.isDisabled || this.isLocked;
-    const lockedClass = this.isLocked ? 'locked' : ''; // For styling locked cards
+    const isDisabled = validationState.isDisabled;
     const disabledClass = isDisabled ? 'disabled-for-selection' : '';
     const selectedClass = isSelected ? 'selected' : '';
     
@@ -59,9 +62,9 @@ class ItemSelectorComponent {
 
     return `
       <div class="item-container">
-        <div class="ability-card ${selectedClass} ${disabledClass} ${lockedClass}" 
+        <div class="ability-card ${selectedClass} ${disabledClass}" 
              data-item-id="${itemDef.id}"
-             title="${this.isLocked ? 'This choice is locked from a previous level.' : validationState.reason}">
+             title="${validationState.reason}">
           <div class="ability-header">
             <label>
               <input type="${inputType}" name="${inputName}"
@@ -93,8 +96,7 @@ class ItemSelectorComponent {
         <p>Choose ${parentItemDef.maxChoices || 'any'}:</p>
         ${parentItemDef.options.map(option => {
           const isChecked = currentSelections.includes(option.id);
-          // --- NEW: Nested options are also disabled if the component is locked ---
-          const isDisabled = !isParentSelected || (limitReached && !isChecked) || this.isLocked;
+          const isDisabled = !isParentSelected || (limitReached && !isChecked);
 
           return `
             <label class="ability-option">

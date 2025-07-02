@@ -109,10 +109,14 @@ class ChoicePageHandler {
     });
   }
 
+  /**
+   * --- UPDATED: Hides past-level choice groups when in level-up mode. ---
+   */
   _renderChoiceGroupsSection() {
     this._cleanupItemSelectors();
     const scrollArea = this.selectorPanel.querySelector(this.config.contentScrollAreaClass);
     if (!scrollArea) return;
+
     let choiceGroupsContainer = scrollArea.querySelector('.choice-groups-section');
     if (!choiceGroupsContainer) {
         choiceGroupsContainer = document.createElement('div');
@@ -120,50 +124,63 @@ class ChoicePageHandler {
         scrollArea.appendChild(choiceGroupsContainer);
     }
     choiceGroupsContainer.innerHTML = '';
+
     const currentId = this.stateManager.get(this.config.stateKey);
     if (!currentId) return;
+
     const mainDefinition = this.stateManager[this.config.getDataMethodName](currentId);
     if (!mainDefinition || !Array.isArray(mainDefinition.levels)) return;
+    
     const isLevelUpMode = this.stateManager.get('isLevelUpMode');
     const originalLevel = this.stateManager.get('originalLevel');
     const targetLevel = this.stateManager.get('creationLevel');
+    
     const allItemDefs = this.stateManager.getItemData();
     const pageContext = {
       sourcePrefix: this.config.stateKey,
       getDefinition: () => this.stateManager[this.config.getDataMethodName](this.stateManager.get(this.config.stateKey))
     };
+
     for (const levelData of mainDefinition.levels) {
         if (levelData.level > targetLevel) continue;
+
+        // --- NEW: In level-up mode, skip rendering choices from past levels. ---
+        if (isLevelUpMode && levelData.level <= originalLevel) {
+            continue;
+        }
+
         if (!levelData.choiceGroups) continue;
-        const isLocked = isLevelUpMode && levelData.level <= originalLevel;
-        const headerText = isLocked 
-            ? `Level ${levelData.level} Choices (Locked)`
-            : `Level ${levelData.level} Choices`;
+
         const levelHeader = document.createElement('h4');
         levelHeader.className = 'level-group-header';
-        if(isLocked) levelHeader.classList.add('locked-header');
-        levelHeader.textContent = headerText;
+        levelHeader.textContent = `Level ${levelData.level} Choices`;
         choiceGroupsContainer.appendChild(levelHeader);
+
         Object.entries(levelData.choiceGroups).forEach(([groupId, groupDef]) => {
             const groupContainer = document.createElement('div');
             groupContainer.className = 'ability-group-container';
             const maxChoicesText = groupDef.maxChoices === 1 ? 'Choose 1' : `Choose up to ${groupDef.maxChoices}`;
             groupContainer.innerHTML = `<h5 class="group-header">${groupDef.name} (${maxChoicesText})</h5>`;
+            
             const componentContainer = document.createElement('div');
             componentContainer.className = 'abilities-grid-container';
             groupContainer.appendChild(componentContainer);
             choiceGroupsContainer.appendChild(groupContainer);
+
             const itemsForGroup = groupDef.items.reduce((acc, itemId) => {
                 if (allItemDefs[itemId]) {
                     acc[itemId] = { ...allItemDefs[itemId], groupId: groupId };
                 }
                 return acc;
             }, {});
+
             const SelectorComponent = groupDef.type === 'inventory' ? EquipmentSelectorComponent : ItemSelectorComponent;
+            // The isLocked flag is no longer needed here
             const selector = new SelectorComponent(
                 componentContainer, itemsForGroup, this.config.stateKey,
-                this.stateManager, this.ruleEngine, pageContext, isLocked
+                this.stateManager, this.ruleEngine, pageContext
             );
+
             this.activeItemSelectors.push(selector);
             selector.render();
         });
