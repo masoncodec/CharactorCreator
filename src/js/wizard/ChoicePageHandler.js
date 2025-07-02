@@ -93,20 +93,36 @@ class ChoicePageHandler {
     const container = this.selectorPanel.querySelector(this.config.optionsContainerId);
     if (!container) return;
     container.innerHTML = '';
-    const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
-    const options = moduleData ? moduleData[this.config.getOptionsKey] : [];
+
     const isLevelUpMode = this.stateManager.get('isLevelUpMode');
-    if (!options || options.length === 0) {
-      container.innerHTML = `<p>No ${this.config.pageName}s available for this module.</p>`;
-      return;
+
+    if (isLevelUpMode) {
+        // --- LEVEL-UP MODE: Render only the single, selected option ---
+        const selectedId = this.stateManager.get(this.config.stateKey);
+        if (selectedId) {
+            const optionDef = this.stateManager[this.config.getDataMethodName](selectedId);
+            if (optionDef) {
+                // Add both 'selected' and 'disabled' classes
+                container.innerHTML += `<div class="${this.config.optionClassName.substring(1)} selected" ${this.config.dataAttribute}="${selectedId}"><span class="${this.config.stateKey}-name">${optionDef.displayName}</span></div>`;
+            }
+        }
+    } else {
+        // --- CREATION MODE: Render all available options ---
+        const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
+        const options = moduleData ? moduleData[this.config.getOptionsKey] : [];
+
+        if (!options || options.length === 0) {
+            container.innerHTML = `<p>No ${this.config.pageName}s available for this module.</p>`;
+            return;
+        }
+
+        options.forEach(optionId => {
+            const optionDef = this.stateManager[this.config.getDataMethodName](optionId);
+            if (optionDef) {
+                container.innerHTML += `<div class="${this.config.optionClassName.substring(1)}" ${this.config.dataAttribute}="${optionId}"><span class="${this.config.stateKey}-name">${optionDef.displayName}</span></div>`;
+            }
+        });
     }
-    options.forEach(optionId => {
-      const optionDef = this.stateManager[this.config.getDataMethodName](optionId);
-      if (optionDef) {
-        const disabledClass = isLevelUpMode ? 'disabled' : '';
-        container.innerHTML += `<div class="${this.config.optionClassName.substring(1)} ${disabledClass}" ${this.config.dataAttribute}="${optionId}"><span class="${this.config.stateKey}-name">${optionDef.displayName}</span></div>`;
-      }
-    });
   }
 
   /**
