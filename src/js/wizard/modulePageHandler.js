@@ -1,23 +1,23 @@
 // modulePageHandler.js
-// REFACTORED: This module handles the 'module' selection page.
-// It now triggers the on-demand loading of module data.
+// UPDATED: Manages a single, dynamic UI element for level configuration.
 
 class ModulePageHandler {
-  /**
-   * REFACTORED: The constructor now accepts the `selectModuleCallback`
-   * from the main CharacterWizard.
-   * @param {object} stateManager - The wizard's state manager.
-   * @param {function} selectModuleCallback - The function to call to load module data.
-   */
   constructor(stateManager, selectModuleCallback) {
     this.stateManager = stateManager;
-    this.selectModule = selectModuleCallback; // Store the callback function
+    this.selectModule = selectModuleCallback;
     this.selectorPanel = null;
     console.log('ModulePageHandler: Initialized (Refactored).');
   }
 
   setupPage(selectorPanel) {
     this.selectorPanel = selectorPanel;
+
+    // --- UPDATED: Find the single, merged UI elements ---
+    this.levelConfigContainer = this.selectorPanel.querySelector('#levelConfigContainer');
+    this.levelConfigLabel = this.selectorPanel.querySelector('#levelConfigLabel');
+    this.levelConfigInput = this.selectorPanel.querySelector('#levelConfigInput');
+    // --- END UPDATED ---
+
     this._attachEventListeners();
     this._restoreState();
   }
@@ -25,42 +25,94 @@ class ModulePageHandler {
   _attachEventListeners() {
     this._boundModuleOptionClickHandler = this._handleModuleOptionClick.bind(this);
     this.selectorPanel.addEventListener('click', this._boundModuleOptionClickHandler);
+
+    // --- UPDATED: Use a single event handler for the merged input ---
+    this._boundLevelConfigChangeHandler = this._handleLevelConfigChange.bind(this);
+    this.levelConfigInput.addEventListener('change', this._boundLevelConfigChangeHandler);
+    // --- END UPDATED ---
+  }
+  
+  /**
+   * --- NEW: A single handler that works for both modes. ---
+   */
+  _handleLevelConfigChange(e) {
+    const value = parseInt(e.target.value, 10);
+    if (isNaN(value) || value < 1) return;
+
+    const isLevelUpMode = this.stateManager.get('isLevelUpMode');
+
+    if (isLevelUpMode) {
+      // In level-up mode, the value represents "Levels to Gain"
+      const originalLevel = this.stateManager.get('originalLevel');
+      const newTargetLevel = originalLevel + value;
+      this.stateManager.set('creationLevel', newTargetLevel);
+      console.log(`ModulePageHandler: Levels to gain set to ${value}. Target level is now ${newTargetLevel}.`);
+    } else {
+      // In creation mode, the value is the "Starting Level"
+      this.stateManager.set('creationLevel', value);
+      console.log(`ModulePageHandler: Creation level set to ${value}.`);
+    }
   }
 
-  /**
-   * REFACTORED: This handler now calls the `selectModule` callback
-   * instead of setting the state directly. This is the key to triggering
-   * the data loading process.
-   */
   _handleModuleOptionClick(e) {
     const opt = e.target.closest('.module-option');
-    if (!opt) return;
+    if (!opt || opt.disabled) return;
 
-    // Visually select the option
+    // This logic only runs in creation mode because buttons are disabled in level-up mode
     this.selectorPanel.querySelectorAll('.module-option').forEach(o => o.classList.remove('selected'));
     opt.classList.add('selected');
 
     const selectedModuleId = opt.dataset.value;
     
-    // ** THE FIX **
-    // Call the main wizard's method to handle the entire data loading flow.
-    // This will set the state AND fetch all the necessary data.
     if (this.selectModule) {
       this.selectModule(selectedModuleId);
+      
+      // Show and enable the level config container
+      if (this.levelConfigContainer && this.levelConfigInput) {
+        this.levelConfigContainer.classList.remove('is-hidden');
+        this.levelConfigInput.disabled = false;
+      }
     } else {
       console.error("ModulePageHandler: 'selectModule' callback is not defined.");
     }
   }
 
+  /**
+   * --- REPLACED: Now dynamically configures the single UI element based on mode. ---
+   */
   _restoreState() {
+    const isLevelUpMode = this.stateManager.get('isLevelUpMode');
     const currentModule = this.stateManager.get('module');
+
     if (currentModule) {
+      // Select the correct module button
       const btn = this.selectorPanel.querySelector(`.module-option[data-value="${currentModule}"]`);
       btn?.classList.add('selected');
+
+      // Make the level configuration UI visible
+      this.levelConfigContainer.classList.remove('is-hidden');
+      this.levelConfigInput.disabled = false;
+
+      if (isLevelUpMode) {
+        // --- CONFIGURE FOR LEVEL-UP MODE ---
+        this.selectorPanel.querySelectorAll('.module-option').forEach(o => o.disabled = true);
+        
+        this.levelConfigLabel.textContent = 'Levels to Gain:';
+        this.levelConfigInput.value = 1; // Default to gaining 1 level
+        this.levelConfigInput.min = 1;
+        
+        // Trigger initial calculation
+        this._handleLevelConfigChange({ target: this.levelConfigInput });
+
+      } else {
+        // --- CONFIGURE FOR CREATION MODE ---
+        this.levelConfigLabel.textContent = 'Starting Level:';
+        this.levelConfigInput.value = this.stateManager.get('creationLevel');
+        this.levelConfigInput.min = 1;
+      }
     }
   }
   
-  // This method is no longer used here, as the informerUpdater handles it centrally.
   getInformerContent() {
     return '<p>Select a module to see its description and begin your journey.</p>';
   }
@@ -75,6 +127,7 @@ class ModulePageHandler {
   
   cleanup() {
     this.selectorPanel?.removeEventListener('click', this._boundModuleOptionClickHandler);
+    this.levelConfigInput?.removeEventListener('change', this._boundLevelConfigChangeHandler);
   }
 }
 

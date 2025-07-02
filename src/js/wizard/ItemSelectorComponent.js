@@ -1,6 +1,6 @@
 // ItemSelectorComponent.js
 // A reusable component to render and manage a grid of selectable items.
-// This version is refactored to be generic via a context object.
+// REVERTED: The 'isLocked' logic has been removed as it is no longer needed.
 
 class ItemSelectorComponent {
   constructor(containerElement, itemsToRender, source, stateManager, ruleEngine, context = null) {
@@ -9,7 +9,7 @@ class ItemSelectorComponent {
     this.source = source;
     this.stateManager = stateManager;
     this.ruleEngine = ruleEngine;
-    this.context = context; // A context object, if provided, indicates a complex page
+    this.context = context;
     this._boundHandleClick = this._handleClick.bind(this);
     this._attachEventListeners();
     console.log(`ItemSelectorComponent: Initialized for source '${this.source}'.`);
@@ -21,7 +21,6 @@ class ItemSelectorComponent {
     for (const itemId in this.items) {
       const itemDef = this.items[itemId];
       const selectionState = this.stateManager.itemManager.getSelection(itemDef.id, this.source);
-      // Pass the context to the rule engine for validation
       const validationState = this.ruleEngine.getValidationState(itemDef, this.source, this.context);
       allCardsHtml += this._createCardHTML(itemDef, selectionState, validationState);
     }
@@ -35,7 +34,17 @@ class ItemSelectorComponent {
   _getGroupDefinition(itemDef) {
     if (!this.context || !itemDef.groupId) return null;
     const mainDefinition = this.context.getDefinition();
-    return mainDefinition?.choiceGroups?.[itemDef.groupId] || null;
+    // This now correctly finds the groupDef within the levels array
+    let groupDef = null;
+    if (mainDefinition && Array.isArray(mainDefinition.levels)) {
+        for (const levelData of mainDefinition.levels) {
+            if (levelData.choiceGroups && levelData.choiceGroups[itemDef.groupId]) {
+                groupDef = levelData.choiceGroups[itemDef.groupId];
+                break;
+            }
+        }
+    }
+    return groupDef;
   }
 
   _createCardHTML(itemDef, selectionState, validationState) {
@@ -105,6 +114,13 @@ class ItemSelectorComponent {
   }
 
   _handleClick(e) {
+    // --- NEW: Prevent all clicks if the component is locked ---
+    if (this.isLocked) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
+    
     const card = e.target.closest('.ability-card');
     if (!card || card.classList.contains('disabled-for-selection')) {
       return;
@@ -114,17 +130,15 @@ class ItemSelectorComponent {
     const itemDef = this.items[itemId];
     if (!itemDef) return;
 
-    // Case 1: The click happened inside an option's label.
+    // Case 1: Clicked inside an option's label.
     const optionLabel = e.target.closest('.ability-option');
     if (optionLabel) {
       const optionInput = optionLabel.querySelector('input[data-action="select-option"]');
       if (!optionInput) return;
 
-      const parentSelection = this.stateManager.itemManager.getSelection(itemId, this.source); //
-      const isParentSelected = !!parentSelection; //
+      const parentSelection = this.stateManager.itemManager.getSelection(itemId, this.source);
+      const isParentSelected = !!parentSelection;
       
-      // Only block clicks on disabled options if the parent is already selected.
-      // This allows an initial click on an option to select the parent item.
       if (isParentSelected && optionInput.disabled) {
           return;
       }
@@ -149,25 +163,24 @@ class ItemSelectorComponent {
       }
 
       if (!isParentSelected) {
-        // This block now correctly runs on the first click of an option.
         const payload = { selections: nextNestedSelections };
-        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, payload); //
+        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, payload);
       } else {
-        this.stateManager.itemManager.updateNestedSelections(itemId, this.source, nextNestedSelections); //
+        this.stateManager.itemManager.updateNestedSelections(itemId, this.source, nextNestedSelections);
       }
       return;
     }
 
-    // Case 2: The click was in the options box PADDING (but not on an option label).
+    // Case 2: Clicked in the options box padding.
     if (e.target.closest('.ability-options')) {
       if (!this.stateManager.itemManager.getSelection(itemId, this.source)) {
-        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId); //
+        this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
       }
       return;
     }
 
-    // Case 3: The click was on the main card body (outside the options box).
-    this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId); //
+    // Case 3: Clicked on the main card body.
+    this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
   }
 
   cleanup() {

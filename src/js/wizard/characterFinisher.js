@@ -1,22 +1,16 @@
 // characterFinisher.js
 // This module handles the final validation of the character data and the saving process.
+// FINAL VERSION: Saves only categorized lists, not the raw selections array.
 
 class CharacterFinisher {
-  /**
-   * @param {WizardStateManager} stateManager - The instance of the WizardStateManager.
-   * @param {Object} db - The database instance for saving characters (e.g., Firestore).
-   * @param {Object} alerter - The alerter utility for displaying messages.
-   * @param {EffectHandler} EffectHandler - The EffectHandler module for calculating character effects.
-   * @param {PageNavigator} pageNavigator - The instance of the PageNavigator.
-   * @param {string[]} pages - An array of all page names in order.
-   */
-  constructor(stateManager, db, alerter, EffectHandler, pageNavigator, pages) {
+  constructor(stateManager, db, alerter, EffectHandler, pageNavigator, pages, characterId = null) {
     this.stateManager = stateManager;
     this.db = db;
     this.alerter = alerter;
     this.EffectHandler = EffectHandler;
     this.pageNavigator = pageNavigator;
     this.pages = pages;
+    this.characterId = characterId;
 
     this._boundFinishHandler = this.finishWizard.bind(this);
     document.addEventListener('wizard:finish', this._boundFinishHandler);
@@ -24,36 +18,25 @@ class CharacterFinisher {
     console.log('CharacterFinisher: Initialized (Refactored).');
   }
 
-  /**
-   * Performs final validation by iterating through all pages.
-   * @private
-   */
   _validateAllPages() {
     console.log('CharacterFinisher._validateAllPages: Running centralized validation via PageNavigator.');
     const errors = [];
     const currentState = this.stateManager.getState();
-
-    // Iterate over all pages managed by the navigator.
     for (const page of this.pages) {
       if (!this.pageNavigator.isPageCompleted(page, currentState)) {
         const errorMessage = this.pageNavigator.getCompletionError(page);
         errors.push(`${errorMessage}`);
       }
     }
-
     return {
       isValid: errors.length === 0,
       message: errors.join("\n\n")
     };
   }
   
-  /**
-   * Initiates the wizard finishing process.
-   */
   async finishWizard() {
     console.log('CharacterFinisher.finishWizard: Attempting to finish wizard.');
     const validation = this._validateAllPages();
-
     if (!validation.isValid) {
       this.alerter.show("Please complete the following:\n\n" + validation.message, 'error');
       return;
@@ -61,25 +44,41 @@ class CharacterFinisher {
 
     const currentState = this.stateManager.getState();
     const allItemDefs = this.stateManager.getItemData();
+    const data = this.stateManager.data;
     
-    // 1. Categorize all selections in a single pass.
-    const categorizedSelections = this._categorizeSelections(currentState.selections, allItemDefs);
+    const finalSelections = currentState.selections;
+    const categorizedSelections = this._categorizeSelections(finalSelections, allItemDefs);
+    
+    const tempCharForEffects = {
+        ...categorizedSelections,
+        health: { max: this._getBaseHealth(currentState) }
+    };
+    
+    this.EffectHandler.processActiveAbilities(
+        tempCharForEffects, data.abilities, data.flaws, data.perks, new Set(), 'wizard'
+    );
+    this._addLevelRewardsToEffects(currentState);
+    const modifiedCharacter = this.EffectHandler.applyEffectsToCharacter(tempCharForEffects, 'wizard');
 
-    // 2. Calculate effects using the pre-categorized lists.
-    const characterEffects = this._calculateCharacterEffects(categorizedSelections, currentState, allItemDefs);
-
-    // 3. Process the pre-categorized inventory list for stacking.
+    const attributeBonuses = this.stateManager.getCombinedAttributeBonuses();
+    const finalAttributes = { ...currentState.attributes };
+    for (const attr in attributeBonuses) {
+        finalAttributes[attr] = (finalAttributes[attr] || 0) + attributeBonuses[attr];
+    }
+    
     const finalInventory = this._processFinalInventory(categorizedSelections.inventory, currentState.inventory, allItemDefs);
 
-    // 4. Assemble the final character object from the clean, categorized data.
+    // Assemble the final character object for saving.
     const character = {
       module: currentState.module,
+      level: currentState.creationLevel,
       destiny: currentState.destiny,
       purpose: currentState.purpose,
       nurture: currentState.nurture,
-      attributes: currentState.attributes,
+      attributes: finalAttributes,
       info: currentState.info,
       createdAt: new Date().toISOString(),
+      // --- FIX: The raw selections array is no longer saved. ---
       flaws: categorizedSelections.flaws,
       perks: categorizedSelections.perks,
       abilities: categorizedSelections.abilities,
@@ -87,115 +86,91 @@ class CharacterFinisher {
       relationships: categorizedSelections.relationships,
       inventory: finalInventory,
       health: {
-        current: characterEffects.calculatedHealth.currentMax,
-        max: characterEffects.calculatedHealth.currentMax,
+        current: modifiedCharacter.calculatedHealth.currentMax,
+        max: modifiedCharacter.calculatedHealth.currentMax,
         temporary: 0
       },
     };
     
-    console.log('CharacterFinisher.finishWizard: Character object prepared for saving:', character);
+    console.log('CharacterFinisher.finishWizard: Character object prepared for saving/updating:', character);
 
     try {
-      if (this.db && typeof this.db.saveCharacter === 'function') {
-        await this.db.saveCharacter(character);
-        window.location.href = 'character-selector.html';
+      const isLevelUp = this.stateManager.get('isLevelUpMode');
+      const characterId = this.stateManager.get('levelUpCharacterId');
+
+      if (isLevelUp && characterId) {
+        await this.db.updateCharacter(characterId, character);
+        sessionStorage.removeItem('levelUpCharacterId');
+        window.location.href = 'play.html';
       } else {
-        throw new Error("Database service or saveCharacter method is not available.");
+        await this.db.saveCharacter(character);
+        sessionStorage.removeItem('levelUpCharacterId');
+        window.location.href = 'character-selector.html';
       }
     } catch (err) {
-      console.error('CharacterFinisher.finishWizard: Failed to save character:', err);
+      console.error('CharacterFinisher.finishWizard: Failed to save/update character:', err);
       this.alerter.show(`Failed to save character: ${err.message}`, 'error');
     }
   }
 
-  /**
-   * Centralized helper to sort all selections into their respective categories.
-   * @param {Array} selections - The character's current selections.
-   * @param {Object} allItemDefs - A map of all item definitions.
-   * @returns {Object} An object containing arrays of categorized selections.
-   * @private
-   */
+  _getBaseHealth(currentState) {
+      const destinyId = currentState.destiny;
+      if (!destinyId) return 0;
+      const destinyDef = this.stateManager.getDestiny(destinyId);
+      return destinyDef?.health?.value || 0;
+  }
+
+  _addLevelRewardsToEffects(currentState) {
+      const sources = ['destiny', 'purpose', 'nurture'];
+      const level = currentState.creationLevel;
+      for (const sourceType of sources) {
+          const sourceId = currentState[sourceType];
+          if (!sourceId) continue;
+          const definition = this.stateManager[`get${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)}`](sourceId);
+          if (!definition || !Array.isArray(definition.levels)) continue;
+          for (const levelData of definition.levels) {
+              if (levelData.level > level) continue;
+              if (!levelData.rewards || !levelData.rewards.health) continue;
+              const healthEffect = {
+                  type: 'max_health_mod',
+                  value: levelData.rewards.health,
+                  itemName: `Level ${levelData.level} Bonus`,
+                  itemId: `${sourceId}-lvl-${levelData.level}`,
+                  itemType: 'passive',
+                  sourceType: 'level'
+              };
+              this.EffectHandler.activeEffects.push(healthEffect);
+          }
+      }
+  }
+
   _categorizeSelections(selections, allItemDefs) {
     const categorized = {
-      flaws: [],
-      perks: [],
-      abilities: [],
-      communities: [],
-      relationships: [],
-      inventory: [],
+      flaws: [], perks: [], abilities: [], communities: [], relationships: [], inventory: [],
     };
-
     for (const sel of selections) {
       const itemDef = allItemDefs[sel.id];
       if (!itemDef) continue;
-
-      // Create a clean copy of the selection object.
       const cleanedSel = { ...sel };
-
-      // Prune the 'selections' property if it's an empty array.
       if (Array.isArray(cleanedSel.selections) && cleanedSel.selections.length === 0) {
         delete cleanedSel.selections;
       }
-
       switch (itemDef.itemType) {
-        case 'flaw':
-          categorized.flaws.push(cleanedSel);
-          break;
-        case 'perk':
-          categorized.perks.push(cleanedSel);
-          break;
-        case 'ability':
-          categorized.abilities.push(cleanedSel);
-          break;
-        case 'community':
-          categorized.communities.push(cleanedSel);
-          break;
-        case 'relationship':
-          categorized.relationships.push(cleanedSel);
-          break;
-        case 'equipment':
-        case 'loot':
-          categorized.inventory.push(cleanedSel);
-          break;
+        case 'flaw': categorized.flaws.push(cleanedSel); break;
+        case 'perk': categorized.perks.push(cleanedSel); break;
+        case 'ability': categorized.abilities.push(cleanedSel); break;
+        case 'community': categorized.communities.push(cleanedSel); break;
+        case 'relationship': categorized.relationships.push(cleanedSel); break;
+        case 'equipment': case 'loot': categorized.inventory.push(cleanedSel); break;
       }
     }
     return categorized;
   }
 
-  /**
-   * @private
-   */
-  _calculateCharacterEffects(categorizedSelections, currentState, allItemDefs) {
-    const { abilities, flaws, perks } = categorizedSelections;
-    const activeAbilityStates = new Set(
-      abilities.filter(a => allItemDefs[a.id]?.type === 'active').map(a => a.id)
-    );
-    const destinyDef = this.stateManager.getDestiny(currentState.destiny);
-    const characterStateForEffects = {
-      abilities, flaws, perks,
-      destiny: currentState.destiny,
-      health: { max: destinyDef.health.value }
-    };
-    this.EffectHandler.processActiveAbilities(
-      characterStateForEffects, this.stateManager.data.abilities,
-      this.stateManager.data.flaws, this.stateManager.data.perks,
-      activeAbilityStates, 'wizard'
-    );
-    return this.EffectHandler.applyEffectsToCharacter(characterStateForEffects, 'wizard');
-  }
-
-  /**
-   * @private
-   */
   _processFinalInventory(rawInventorySelections, stateInventory, allItemDefs) {
     const finalInventory = [];
     const stackableMap = new Map();
-    
-    const combinedRawInventory = [
-        ...stateInventory,
-        ...rawInventorySelections
-    ];
-
+    const combinedRawInventory = [ ...stateInventory, ...rawInventorySelections ];
     for (const itemState of combinedRawInventory) {
       const itemDef = allItemDefs[itemState.id];
       if (!itemDef) continue;

@@ -9,22 +9,18 @@ class RuleEngine {
   }
 
   getValidationState(itemDef, source, context = null) {
-    // Rule: Is the item already selected from a different source?
     const sourceConflict = this._checkSourceConflict(itemDef, source);
     if (sourceConflict.isDisabled) {
       return sourceConflict;
     }
     
-    // Only check for max choices if a context is provided
     if (context) {
-      // Rule: Has the max number of choices for this item's group been reached?
       const maxChoicesConflict = this._checkMaxChoices(itemDef, source, context);
       if (maxChoicesConflict.isDisabled) {
           return maxChoicesConflict;
       }
     }
 
-    // Rule: Can the character afford this perk based on the unified point system?
     if (itemDef.itemType === 'perk' && source === 'independent-perk') {
       const perkAffordability = this._checkPerkAffordability(itemDef);
       if (perkAffordability.isDisabled) {
@@ -32,7 +28,6 @@ class RuleEngine {
       }
     }
 
-    // Rule: Can the character afford this equipment or loot item?
     if (source === 'equipment-and-loot') {
         const affordability = this._checkEquipmentAffordability(itemDef);
         if (affordability.isDisabled) {
@@ -40,7 +35,6 @@ class RuleEngine {
         }
     }
     
-    // If no rules failed, the item is enabled.
     return { isDisabled: false, reason: '' };
   }
 
@@ -56,22 +50,31 @@ class RuleEngine {
     return { isDisabled: false, reason: '' };
   }
 
-  // This method now receives the context object directly
+  /**
+   * --- REPLACED: Logic to find the group definition within the new 'levels' structure. ---
+   */
   _checkMaxChoices(itemDef, source, context) {
     if (this.stateManager.itemManager.getSelection(itemDef.id, source)) {
       return { isDisabled: false, reason: '' };
     }
     
-    // Get the group definition using the context
     if (!context || !itemDef.groupId) return { isDisabled: false, reason: '' };
+    
     const mainDefinition = context.getDefinition();
-    const groupDef = mainDefinition?.choiceGroups?.[itemDef.groupId] || null;
+    let groupDef = null;
+    if (mainDefinition && Array.isArray(mainDefinition.levels)) {
+        for (const levelData of mainDefinition.levels) {
+            if (levelData.choiceGroups && levelData.choiceGroups[itemDef.groupId]) {
+                groupDef = levelData.choiceGroups[itemDef.groupId];
+                break;
+            }
+        }
+    }
 
     if (!groupDef || !groupDef.maxChoices) return { isDisabled: false, reason: '' };
 
     if (groupDef.maxChoices === 1) return { isDisabled: false, reason: '' };
 
-    // Filter by groupId in addition to source to correctly isolate selections within their specific group.
     const selectionsInGroup = this.stateManager.state.selections.filter(
         sel => sel.source === source && sel.groupId === itemDef.groupId
     );
