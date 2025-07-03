@@ -1,6 +1,7 @@
 // js/wizard/ChoicePageHandler.js
 // FINAL VERSION: Correctly passes data to the PageContentRenderer.
 
+import { InformerContentBuilder } from './InformerContentBuilder.js';
 import { PageContentRenderer } from './PageContentRenderer.js';
 import { RuleEngine } from './RuleEngine.js';
 
@@ -34,9 +35,25 @@ class ChoicePageHandler {
   }
 
   _handleStateChange(event) {
-    if (event.detail.key === 'selections' || event.detail.key === 'creationLevel') {
-      this._renderPageContent();
-      document.dispatchEvent(new CustomEvent('wizard:informerUpdate', { detail: { handler: this } }));
+    // --- REPLACED: This logic is now more comprehensive ---
+    const key = event.detail.key;
+
+    // Define which state changes should trigger an informer update for this page
+    const needsInformerUpdate = [
+        'selections', 
+        'creationLevel', 
+        this.config.stateKey // This now correctly listens for 'destiny', 'purpose', etc.
+    ].includes(key);
+
+    if (needsInformerUpdate) {
+        // Only re-render the main content panel if selections or level change,
+        // as changing the main choice (e.g. Destiny) handles its own re-render.
+        if (key === 'selections' || key === 'creationLevel') {
+            this._renderPageContent();
+        }
+        
+        // Always dispatch the informer update if a relevant key changed.
+        document.dispatchEvent(new CustomEvent('wizard:informerUpdate', { detail: { handler: this } }));
     }
   }
 
@@ -55,8 +72,6 @@ class ChoicePageHandler {
     
     this._autoSelectUnlocks();
     this._renderPageContent();
-
-    document.dispatchEvent(new CustomEvent('wizard:informerUpdate'));
   }
 
   _restoreState() {
@@ -147,15 +162,19 @@ class ChoicePageHandler {
     }
   }
   
+  /**
+   * --- REPLACED ---
+   * This method now delegates the complex HTML generation to the InformerContentBuilder.
+   */
   getInformerContent() {
-    const currentState = this.stateManager.getState();
-    const currentId = currentState[this.config.stateKey];
-    if (!currentId) return `Select your ${this.config.pageName}`;
+    const currentId = this.stateManager.get(this.config.stateKey);
+    if (!currentId) return `<p class="informer-placeholder">Select your ${this.config.pageName}.</p>`;
+
     const mainDefinition = this.stateManager.getDefinitionForSource(this.config.stateKey);
-    const allItemDefs = this.stateManager.getItemData();
-    let content = `<h3>${mainDefinition.displayName}</h3><p>${mainDefinition.description}</p>`;
-    // Add logic to display selected items from this source if needed
-    return content;
+    if (!mainDefinition) return '';
+
+    const builder = new InformerContentBuilder(this.stateManager, this.config.stateKey, mainDefinition);
+    return builder.build();
   }
   
   isComplete(currentState) {

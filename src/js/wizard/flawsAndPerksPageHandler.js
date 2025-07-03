@@ -56,19 +56,14 @@ class FlawsAndPerksPageHandler {
     return availableUnlocks;
   }
 
+  /**
+   * --- REPLACED ---
+   * This method now delegates the complex HTML generation to the InformerContentBuilder.
+   */
   getInformerContent() {
     if (!this.pageDef) return '';
-    const pointBuyUnlock = this.pageDef.unlocks?.find(u => u.type === 'pointBuy');
-    if (!pointBuyUnlock) return '';
-
-    const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
-    return `
-      <h3>${pointSummary.name}</h3>
-      <div class="points-summary-container">
-        <strong>Available Points: ${pointSummary.current}</strong>
-      </div>
-      <p>${this.pageDef.description}</p>
-    `;
+    const builder = new InformerContentBuilder(this.stateManager, 'flaws-and-perks', this.pageDef);
+    return builder.build();
   }
 
   isComplete() {

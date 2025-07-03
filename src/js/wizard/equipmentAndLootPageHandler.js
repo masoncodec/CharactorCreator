@@ -54,19 +54,14 @@ class EquipmentAndLootPageHandler {
     return availableUnlocks;
   }
 
+  /**
+   * --- REPLACED ---
+   * This method now delegates the complex HTML generation to the InformerContentBuilder.
+   */
   getInformerContent() {
     if (!this.pageDef) return '';
-    const pointBuyUnlock = this.pageDef.unlocks?.find(u => u.type === 'pointBuy');
-    if (!pointBuyUnlock) return '';
-
-    const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
-    return `
-      <h3>${pointSummary.name}</h3>
-      <div class="points-summary-container">
-        <strong>${pointSummary.current} / ${pointSummary.total} Remaining</strong>
-      </div>
-      <p>${this.pageDef.description}</p>
-    `;
+    const builder = new InformerContentBuilder(this.stateManager, 'equipment-and-loot', this.pageDef);
+    return builder.build();
   }
 
   isComplete() {
