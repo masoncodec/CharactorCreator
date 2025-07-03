@@ -1,43 +1,47 @@
-// informerUpdater.js
-// REFACTORED: This module manages the content displayed in the informer panel.
-// It is now a "dumb" component that simply displays the HTML it receives from
-// the active page handler, making it closed for modification.
+// js/wizard/InformerUpdater.js
+// FINAL VERSION: Now self-contained and listens for a specific update event.
 
 class InformerUpdater {
-  /**
-   * @param {WizardStateManager} stateManager - The instance of the WizardStateManager.
-   */
   constructor(stateManager) {
     this.stateManager = stateManager;
     this.informerPanel = document.getElementById('informerPanel');
+    this.activePageHandler = null;
 
-    if (!this.informerPanel) {
-      console.warn('InformerUpdater: Informer panel not found. Display updates will not occur.');
-    }
+    // Listen for the specific event to trigger an update.
+    this._boundUpdateListener = this.update.bind(this);
+    document.addEventListener('wizard:informerUpdate', this._boundUpdateListener);
     
-    // The global state change listener is removed from here. The CharacterWizard now
-    // orchestrates the call to update() at the appropriate time (on page load).
-    // Individual page handlers are responsible for triggering updates on state changes if needed.
-
-    console.log('InformerUpdater: Initialized.');
+    console.log('InformerUpdater: Initialized and listening.');
   }
 
   /**
-   * REFACTORED: Updates the informer panel content by calling a method on the active page handler.
-   * This removes the need for a brittle, hardcoded switch statement.
-   * @param {object|null} activePageHandler - The handler for the current page.
+   * Main update function, now called by the event listener.
+   * @param {CustomEvent} event - The event object, which may contain the active handler.
    */
-  update(activePageHandler) {
-    if (!this.informerPanel) return;
-
-    let htmlContent = '<p>Information will appear here as you make selections.</p>';
+  update(event) {
+    // The event listener will be called without an event object on the first page load.
+    // In that case, the event is the page handler itself.
+    if (event && event.detail && event.detail.handler) {
+      this.activePageHandler = event.detail.handler;
+    } else if (event && !event.detail) {
+      this.activePageHandler = event;
+    }
     
-    // If the active handler exists and has the getInformerContent method, call it.
-    if (activePageHandler && typeof activePageHandler.getInformerContent === 'function') {
-      htmlContent = activePageHandler.getInformerContent();
+    if (!this.informerPanel || !this.activePageHandler) {
+      // console.warn('InformerUpdater: Panel or active handler not found.');
+      return;
     }
 
-    this.informerPanel.innerHTML = htmlContent;
+    if (typeof this.activePageHandler.getInformerContent === 'function') {
+      const content = this.activePageHandler.getInformerContent();
+      this.informerPanel.innerHTML = content;
+    } else {
+      this.informerPanel.innerHTML = '';
+    }
+  }
+
+  cleanup() {
+    document.removeEventListener('wizard:informerUpdate', this._boundUpdateListener);
   }
 }
 

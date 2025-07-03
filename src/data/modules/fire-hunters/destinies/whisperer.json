@@ -2,10 +2,6 @@
     "id": "whisperer",
     "displayName": "Whisperer",
     "description": "One with the Beasts of the Forest",
-    "health": {
-        "title": "Average",
-        "value": 10
-    },
     "tags": [
         { "id": "nature", "display": "Nature", "color": "#28a745", "icon": "🌳" },
         { "id": "beast-tamer", "display": "Beast Tamer", "color": "#C4A484", "icon": "🐻" }
@@ -13,57 +9,75 @@
     "levels": [
         {
             "level": 1,
-            "choiceGroups": {
-                "flaws": {
-                    "type": "flaws",
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "ranger_base_health",
+                    "rewards": {
+                        "health": 10
+                    }
+                },
+                {
+                    "type": "choice",
+                    "id": "flaws",
                     "name": "Flaws",
+                    "itemType": "flaw",
                     "maxChoices": 1,
                     "items": ["frail", "stranger"]
                 },
-                "initial_abilities": {
-                    "type": "abilities",
+                {
+                    "type": "choice",
+                    "id": "initial_abilities",
                     "name": "Starting Abilities",
+                    "itemType": "ability",
                     "maxChoices": 1,
                     "items": ["speak-with-animals", "easter-egg"]
                 },
-                "natures_blessing": {
-                    "type": "abilities",
+                {
+                    "type": "choice",
+                    "id": "natures_blessing",
                     "name": "Nature's Blessing",
+                    "itemType": "ability",
                     "maxChoices": 2,
                     "items": ["forest-feet", "natures-gift"]
                 },
-                "birdseed": {
-                    "type": "abilities",
+                {
+                    "type": "choice",
+                    "id": "birdseed",
                     "name": "Birdseed",
+                    "itemType": "ability",
                     "maxChoices": 1,
                     "items": ["birdseed"]
                 },
-                "domain_abilities": {
-                    "type": "abilities",
+                {
+                    "type": "choice",
+                    "id": "domain_abilities",
                     "name": "Domain Abilities",
+                    "itemType": "ability",
                     "maxChoices": 2,
                     "items": ["small-domain", "medium-domain", "large-domain"]
                 },
-                "equipment": {
-                    "type": "inventory",
+                {
+                    "type": "choice",
+                    "id": "equipment",
                     "name": "Fae-Touched Gift",
+                    "itemType": "equipment",
                     "maxChoices": 1,
-                    "items": [
-                        "staff-of-moon-whispers",
-                        "mothwing-cloak",
-                        "pixie-call-whistle",
-                        "example-ring-of-protection"
-                    ]
+                    "items": [ "staff-of-moon-whispers", "mothwing-cloak", "pixie-call-whistle", "example-ring-of-protection" ]
                 }
-            }
+            ]
         },
         {
             "level": 2,
-            "rewards": {
-                "attributes": {
-                    "whimsy": 1
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "ranger_level_2_attribute",
+                    "rewards": {
+                        "attributes": { "whimsy": 1 }
+                    }
                 }
-            }
+            ]
         }
     ]
 }

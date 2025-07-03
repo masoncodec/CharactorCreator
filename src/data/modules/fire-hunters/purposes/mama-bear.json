@@ -9,26 +9,34 @@
     "levels": [
         {
             "level": 1,
-            "choiceGroups": {
-                "initial_abilities": {
-                    "type": "abilities",
+            "unlocks": [
+                {
+                    "type": "choice",
+                    "id": "initial_abilities",
                     "name": "Starting Attunement",
+                    "itemType": "ability",
                     "maxChoices": 1,
                     "items": ["animal-friend"]
                 },
-                "commms": {
-                    "type": "communities",
+                {
+                    "type": "choice",
+                    "id": "commms",
                     "name": "Clerb",
+                    "itemType": "community",
                     "maxChoices": 1,
                     "items": ["fire-hunters"]
                 }
-            }
+            ]
         },
         {
             "level": 2,
-            "rewards": {
-                "health": 5
-            }
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "mama_bear_health_boost",
+                    "rewards": { "health": 5 }
+                }
+            ]
         }
     ]
 }

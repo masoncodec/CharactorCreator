@@ -1,6 +1,5 @@
 // wizardStateManager.js
-// This module manages the central state of the character creation wizard
-// and provides access to all loaded game data.
+// UPDATED: The ItemManager now understands the new 'unlocks' data structure.
 
 import { alerter } from '../alerter.js';
 
@@ -14,23 +13,23 @@ class ItemManager {
     const { id } = itemDef;
     const isAlreadySelected = this.state.selections.some(sel => sel.id === id && sel.source === source);
 
-    const parentDef = {
-        'destiny': this.stateManager.getDestiny(this.state.destiny),
-        'purpose': this.stateManager.getPurpose(this.state.purpose),
-        'nurture': this.stateManager.getNurture(this.state.nurture)
-    }[source] || {};
-    
-    let groupDef = null;
+    // --- REPLACED: Logic to find the unlock definition in the new structure ---
+    const parentDef = this.stateManager.getDefinitionForSource(source);
+    let unlockDef = null;
     if (groupId && parentDef && Array.isArray(parentDef.levels)) {
         for (const levelData of parentDef.levels) {
-            if (levelData.choiceGroups && levelData.choiceGroups[groupId]) {
-                groupDef = levelData.choiceGroups[groupId];
-                break;
+            if (levelData.unlocks) {
+                const foundUnlock = levelData.unlocks.find(u => u.id === groupId);
+                if (foundUnlock) {
+                    unlockDef = foundUnlock;
+                    break;
+                }
             }
         }
     }
+    // --- END REPLACEMENT ---
 
-    const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
+    const maxChoices = unlockDef?.maxChoices ?? itemDef.maxChoices;
 
     if (isAlreadySelected) {
       if (groupId && maxChoices === 1 && ['destiny', 'purpose', 'nurture'].includes(source)) {
@@ -144,8 +143,8 @@ class WizardStateManager {
     this.data = {
       modules: moduleSystemData || {},
       destinies: {}, purposes: {}, nurtures: {}, abilities: {}, flaws: {},
-      perks: {}, equipment: {}, 
-      communities: {}, relationships: {},
+      perks: {}, equipment: {}, communities: {}, relationships: {},
+      // --- NEW: Storing the new page definitions ---
       flawsAndPerksDef: {},
       equipmentAndLootDef: {},
       allItems: {}
@@ -189,13 +188,13 @@ class WizardStateManager {
     this.data.equipment = loadedData.equipmentAndLootData || {};
     this.data.communities = loadedData.communityData || {};
     this.data.relationships = loadedData.relationshipData || {};
+    // --- NEW: Storing the loaded page definitions ---
     this.data.flawsAndPerksDef = loadedData.flawsAndPerksDef || {};
     this.data.equipmentAndLootDef = loadedData.equipmentAndLootDef || {};
-    this.data.allItems = {};
 
+    this.data.allItems = {};
     this._normalizeData();
-    
-    console.log('WizardStateManager: New module data loaded. Item map now contains', Object.keys(this.data.allItems).length, 'items.');
+    console.log('WizardStateManager: New module data loaded.');
     document.dispatchEvent(new CustomEvent('wizard:dataLoaded'));
   }
 
@@ -309,38 +308,30 @@ class WizardStateManager {
   }
   /**
    * --- NEW: A generic function to calculate the state of any point pool. ---
-   * @param {Object} pageDef - The definition object for the point-buy page (e.g., this.data.flawsAndPerksDef).
-   * @returns {Object} An object like { name, current, total }.
+   * @param {Object} pointBuyUnlock - The `pointBuy` unlock object from the JSON definition.
+   * @returns {Object} An object like { name, current, total, id }.
    */
-  getPointPoolSummary(pageDef) {
-    if (!pageDef || !pageDef.pointPool) {
-      return { name: 'Invalid Pool', current: 0, total: 0 };
+  getPointPoolSummary(pointBuyUnlock) {
+    if (!pointBuyUnlock || !pointBuyUnlock.pointPool) {
+      return { name: 'Invalid Pool', current: 0, total: 0, id: null };
     }
 
-    const pool = pageDef.pointPool;
+    const pool = pointBuyUnlock.pointPool;
     let currentPoints = pool.initialValue;
-    const allGroups = new Map();
+    const allItemDefs = this.getItemData();
 
-    // Collect all available groups up to the character's target level
-    const targetLevel = this.get('creationLevel');
-    if (Array.isArray(pageDef.levels)) {
-      pageDef.levels.forEach(levelData => {
-        if (levelData.level <= targetLevel && levelData.groups) {
-          Object.entries(levelData.groups).forEach(([groupId, groupData]) => {
-            allGroups.set(groupId, groupData);
-          });
-        }
-      });
-    }
+    // Find all groups associated with this point-buy unlock
+    const groupsInSystem = new Map(Object.entries(pointBuyUnlock.groups || {}));
 
     // Calculate spent/gained points from selections
     this.state.selections.forEach(sel => {
-      if (sel.groupId && allGroups.has(sel.groupId)) {
-        const groupData = allGroups.get(sel.groupId);
-        const itemDef = this.getItemDefinition(sel.id);
+      // A selection belongs to this pool if its groupId is one of the groups in the system
+      if (sel.groupId && groupsInSystem.has(sel.groupId)) {
+        const groupData = groupsInSystem.get(sel.groupId);
+        const itemDef = allItemDefs[sel.id];
         if (!itemDef) return;
 
-        const cost = itemDef[groupData.costProperty || 'weight'] || 0;
+        const cost = itemDef.weight || 0; // Assumes cost is always 'weight'
         const quantity = sel.quantity || 1;
         const totalCost = cost * quantity;
 
@@ -353,6 +344,7 @@ class WizardStateManager {
     });
 
     return {
+      id: pool.id,
       name: pool.name,
       current: currentPoints,
       total: pool.initialValue
@@ -406,6 +398,17 @@ class WizardStateManager {
         }
     }
     return attributeBonuses;
+  }
+
+  getDefinitionForSource(source) {
+    const sourceId = this.get(source);
+    if (!sourceId) return null;
+
+    const getterName = `get${source.charAt(0).toUpperCase() + source.slice(1)}`;
+    if (typeof this[getterName] === 'function') {
+      return this[getterName](sourceId);
+    }
+    return null;
   }
 }
 

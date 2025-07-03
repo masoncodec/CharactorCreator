@@ -1,36 +1,36 @@
 {
-    "id": "base-equipment-and-loot",
+    "id": "equipment-and-loot-page",
     "name": "Equipment & Loot",
     "description": "Spend points to purchase equipment for your journey.",
-    "pointPool": {
-        "id": "equipmentPoints",
-        "name": "Equipment Points",
-        "initialValue": 20
-    },
     "levels": [
         {
             "level": 1,
-            "description": "Purchase items from the available equipment and loot.",
-            "groups": {
-                "base_equipment": {
-                    "name": "Available Equipment",
-                    "type": "equipment",
-                    "pointModifier": "subtract",
-                    "items": [
-                        "example-longsword", "example-leather-armor", "example-ring-of-protection", 
-                        "example-greatshield", "staff-of-moon-whispers", "mothwing-cloak", 
-                        "pixie-call-whistle"
-                    ]
-                },
-                "base_loot": {
-                    "name": "Available Loot",
-                    "type": "loot",
-                    "pointModifier": "subtract",
-                    "items": [
-                        "example-healing-potion", "example-gold-coin", "example-iron-ore"
-                    ]
+            "unlocks": [
+                {
+                    "type": "pointBuy",
+                    "id": "equipment_points_system",
+                    "name": "Equipment Points System",
+                    "pointPool": {
+                        "id": "equipmentPoints",
+                        "name": "Equipment Points",
+                        "initialValue": 20
+                    },
+                    "groups": {
+                        "base_equipment": {
+                            "name": "Available Equipment",
+                            "pointModifier": "subtract",
+                            "type": "equipment",
+                            "items": [ "example-longsword", "example-leather-armor", "example-ring-of-protection", "example-greatshield", "staff-of-moon-whispers", "mothwing-cloak", "pixie-call-whistle" ]
+                        },
+                        "base_loot": {
+                            "name": "Available Loot",
+                            "pointModifier": "subtract",
+                            "type": "loot",
+                            "items": [ "example-healing-potion", "example-gold-coin", "example-iron-ore" ]
+                        }
+                    }
                 }
-            }
+            ]
         }
     ]
 }

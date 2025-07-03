@@ -1,71 +1,101 @@
 // flawsAndPerksPageHandler.js
-// REFACTORED: Now a simple handler that uses the generic PointBuyComponent.
+// REFACTORED: Now correctly manages its event listeners.
 
-import { PointBuyComponent } from './PointBuyComponent.js';
+import { PageContentRenderer } from './PageContentRenderer.js';
 import { RuleEngine } from './RuleEngine.js';
 
 class FlawsAndPerksPageHandler {
   constructor(stateManager) {
     this.stateManager = stateManager;
-    this.selectorPanel = null;
-    this.pointBuyComponent = null;
-    this.ruleEngine = new RuleEngine(this.stateManager);
+    this.contentRenderer = null;
     this.pageDef = null;
-    console.log('FlawsAndPerksPageHandler: Initialized (Refactored).');
+
+    // --- FIX: Create a single, bound reference to the handler function ---
+    this._boundHandleStateChange = this._handleStateChange.bind(this);
   }
 
   setupPage(selectorPanel) {
-    this.selectorPanel = selectorPanel;
-    // Get the page definition loaded by the dataLoader
     this.pageDef = this.stateManager.data.flawsAndPerksDef;
-
     if (!this.pageDef) {
-        this.selectorPanel.innerHTML = '<p>Error: Flaws & Perks definition not found.</p>';
+        selectorPanel.innerHTML = '<p>Error: Flaws & Perks definition not found.</p>';
         return;
     }
     
-    // The sourceId 'flaws-and-perks' should match the old sources ('independent-flaw', 'independent-perk')
-    // if you want to maintain compatibility with old characters. For this refactor, we'll use a single source.
-    const sourceId = 'flaws-and-perks';
+    this.contentRenderer = new PageContentRenderer(
+      selectorPanel, this.stateManager, new RuleEngine(this.stateManager)
+    );
+    this.render();
 
-    // Create and render the new generic component
-    this.pointBuyComponent = new PointBuyComponent(this.selectorPanel, this.pageDef, sourceId, this.stateManager, this.ruleEngine);
-    this.pointBuyComponent.render();
+    // --- FIX: Add the event listener using the bound reference ---
+    document.addEventListener('wizard:stateChange', this._boundHandleStateChange);
+  }
+  
+  _handleStateChange(event) {
+      if (event.detail.key === 'selections' || event.detail.key === 'creationLevel') {
+          this.render();
+          document.dispatchEvent(new CustomEvent('wizard:informerUpdate', { detail: { handler: this } }));
+      }
+  }
+  
+  render() {
+    if (!this.contentRenderer) return;
+    const unlocks = this._getUnlocksForCurrentState();
+    this.contentRenderer.render(unlocks, 'flaws-and-perks', this.pageDef);
+  }
+
+  _getUnlocksForCurrentState() {
+    const targetLevel = this.stateManager.get('creationLevel');
+    let availableUnlocks = [];
+    if (this.pageDef && Array.isArray(this.pageDef.levels)) {
+        this.pageDef.levels.forEach(levelData => {
+            if (levelData.level <= targetLevel && levelData.unlocks) {
+                availableUnlocks.push(...levelData.unlocks);
+            }
+        });
+    }
+    return availableUnlocks;
   }
 
   getInformerContent() {
     if (!this.pageDef) return '';
-    
-    const pointSummary = this.stateManager.getPointPoolSummary(this.pageDef);
+    const pointBuyUnlock = this.pageDef.unlocks?.find(u => u.type === 'pointBuy');
+    if (!pointBuyUnlock) return '';
+
+    const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
     return `
       <h3>${pointSummary.name}</h3>
       <div class="points-summary-container">
         <strong>Available Points: ${pointSummary.current}</strong>
       </div>
-      <p>Select Flaws to gain more points. Spend points on Perks.</p>
+      <p>${this.pageDef.description}</p>
     `;
   }
 
-  isComplete(currentState) {
-    if (!this.pageDef) return true; // If no definition, nothing to validate.
-    
-    const pointSummary = this.stateManager.getPointPoolSummary(this.pageDef);
-    // The page is complete as long as the user hasn't overspent their points.
+  isComplete() {
+    if (!this.pageDef) return true;
+    const pointBuyUnlock = this.pageDef.unlocks?.find(u => u.type === 'pointBuy');
+    if (!pointBuyUnlock) return true;
+    const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
     return pointSummary.current >= 0;
   }
 
   getCompletionError() {
     if (!this.pageDef) return '';
-
-    const pointSummary = this.stateManager.getPointPoolSummary(this.pageDef);
+    // This logic seems to be from an older version in your file. 
+    // I've updated it to match the isComplete logic.
+    const pointBuyUnlock = this.pageDef.unlocks?.find(u => u.type === 'pointBuy');
+    if (!pointBuyUnlock) return '';
+    const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
     if (pointSummary.current < 0) {
-      return `You have overspent by ${Math.abs(pointSummary.current)} point(s). Please add Flaws or remove Perks.`;
+      return `You have overspent by ${Math.abs(pointSummary.current)} Character Point(s).`;
     }
-    return 'An unknown validation error occurred.';
+    return '';
   }
 
   cleanup() {
-    this.pointBuyComponent?.cleanup();
+    this.contentRenderer?.cleanup();
+    // --- FIX: Remove the event listener using the same bound reference ---
+    document.removeEventListener('wizard:stateChange', this._boundHandleStateChange);
   }
 }
 

@@ -1,5 +1,5 @@
 // characterFinisher.js
-// FINAL VERSION: Includes corrected logic for processing inventory from multiple sources.
+// UPDATED: Now sets new characters as active and redirects to play.html. Success alerts removed.
 
 class CharacterFinisher {
   constructor(stateManager, db, alerter, EffectHandler, pageNavigator, pages, characterId = null) {
@@ -50,7 +50,7 @@ class CharacterFinisher {
     
     const tempCharForEffects = {
         ...categorizedSelections,
-        health: { max: this._getBaseHealth(currentState) }
+        health: { max: 0 }
     };
     
     this.EffectHandler.processActiveAbilities(
@@ -96,13 +96,18 @@ class CharacterFinisher {
       const characterId = this.stateManager.get('levelUpCharacterId');
 
       if (isLevelUp && characterId) {
+        // --- LEVEL-UP LOGIC ---
         await this.db.updateCharacter(characterId, character);
         sessionStorage.removeItem('levelUpCharacterId');
+        // No alert, just redirect.
         window.location.href = 'play.html';
       } else {
-        await this.db.saveCharacter(character);
+        // --- NEW CHARACTER LOGIC (UPDATED) ---
+        const newCharacterId = await this.db.saveCharacter(character);
+        await this.db.setActiveCharacter(newCharacterId); // Set the new character as active
         sessionStorage.removeItem('levelUpCharacterId');
-        window.location.href = 'character-selector.html';
+        // No alert, just redirect.
+        window.location.href = 'play.html'; // Redirect to the play page
       }
     } catch (err) {
       console.error('CharacterFinisher.finishWizard: Failed to save/update character:', err);
@@ -110,33 +115,34 @@ class CharacterFinisher {
     }
   }
 
-  _getBaseHealth(currentState) {
-      const destinyId = currentState.destiny;
-      if (!destinyId) return 0;
-      const destinyDef = this.stateManager.getDestiny(destinyId);
-      return destinyDef?.health?.value || 0;
-  }
-
   _addLevelRewardsToEffects(currentState) {
       const sources = ['destiny', 'purpose', 'nurture'];
-      const level = currentState.creationLevel;
+      const targetLevel = currentState.creationLevel;
+
       for (const sourceType of sources) {
           const sourceId = currentState[sourceType];
           if (!sourceId) continue;
-          const definition = this.stateManager[`get${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)}`](sourceId);
+          
+          const definition = this.stateManager.getDefinitionForSource(sourceType);
           if (!definition || !Array.isArray(definition.levels)) continue;
+
           for (const levelData of definition.levels) {
-              if (levelData.level > level) continue;
-              if (!levelData.rewards || !levelData.rewards.health) continue;
-              const healthEffect = {
-                  type: 'max_health_mod',
-                  value: levelData.rewards.health,
-                  itemName: `Level ${levelData.level} Bonus`,
-                  itemId: `${sourceId}-lvl-${levelData.level}`,
-                  itemType: 'passive',
-                  sourceType: 'level'
-              };
-              this.EffectHandler.activeEffects.push(healthEffect);
+              if (levelData.level > targetLevel) continue;
+              if (!levelData.unlocks) continue;
+
+              for (const unlock of levelData.unlocks) {
+                  if (unlock.type === 'reward' && unlock.rewards?.health) {
+                      const healthEffect = {
+                          type: 'max_health_mod',
+                          value: unlock.rewards.health,
+                          itemName: unlock.id || `Level ${levelData.level} Health Bonus`,
+                          itemId: unlock.id || `${sourceId}-lvl-${levelData.level}-health`,
+                          itemType: 'passive',
+                          sourceType: sourceType
+                      };
+                      this.EffectHandler.activeEffects.push(healthEffect);
+                  }
+              }
           }
       }
   }
@@ -163,10 +169,7 @@ class CharacterFinisher {
     }
     return categorized;
   }
-
-  /**
-   * --- UPDATED: Correctly processes items with existing compound source strings. ---
-   */
+  
   _processFinalInventory(rawInventorySelections, stateInventory, allItemDefs) {
     const finalInventory = [];
     const stackableMap = new Map();
@@ -181,7 +184,6 @@ class CharacterFinisher {
         const entry = stackableMap.get(itemState.id);
         entry.quantity += itemState.quantity || 1; 
         
-        // --- FIX: Split existing source strings before adding to the Set ---
         if (itemState.source) {
             const sourcesToAdd = String(itemState.source).split(', ');
             sourcesToAdd.forEach(s => entry.sources.add(s.trim()));

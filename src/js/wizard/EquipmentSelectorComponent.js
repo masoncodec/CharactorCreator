@@ -1,36 +1,33 @@
 // public/js/components/wizard/EquipmentSelectorComponent.js
-// A specialized, reusable component that extends ItemSelectorComponent
-// FINAL VERSION: Intelligently changes UI based on maxChoices and item stackability.
+// FINAL VERSION: Intelligently changes UI based on unlock type and item stackability.
 
 import { ItemSelectorComponent } from './ItemSelectorComponent.js';
 
 class EquipmentSelectorComponent extends ItemSelectorComponent {
   /**
    * Overrides the parent render method to ensure the correct card HTML is used.
-   * This method itself doesn't need to change from the parent, but it's here for clarity.
    */
   render() {
+    // This method can simply call the parent's render, as all logic is in _createCardHTML.
     super.render();
   }
 
   /**
-   * --- REPLACED: This method is now much smarter. ---
-   * It decides which style of card to render based on the rules you've defined.
+   * --- REPLACED: This method is now context-aware. ---
+   * It decides which style of card to render based on the unlock type.
    * @private
    */
   _createCardHTML(itemDef, selectionState, validationState) {
-    const groupDef = this._getGroupDefinition(itemDef);
-    const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
+    const unlockType = this.context?.unlock?.type;
 
-    // RULE 1: If it's a single-choice group (maxChoices === 1)...
-    // RULE 2: Or if the item is NOT stackable...
-    // ...then render the simple, standard card from the parent class.
-    if (maxChoices === 1 || !itemDef.stackable) {
-      return this._createSimpleSelectionCard(itemDef, selectionState, validationState);
+    // On a 'pointBuy' page, we check if the item is stackable.
+    if (unlockType === 'pointBuy' && itemDef.stackable) {
+      return this._createQuantityControlCard(itemDef, selectionState, validationState);
     }
     
-    // Otherwise, render the special card with quantity controls.
-    return this._createQuantityControlCard(itemDef, selectionState, validationState);
+    // On all other pages ('choice' pages) OR for non-stackable items,
+    // we render the simple, standard selection card.
+    return this._createSimpleSelectionCard(itemDef, selectionState, validationState);
   }
 
   /**
@@ -41,7 +38,6 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
     // Get the standard card HTML (with radio/checkbox) from the parent class.
     const baseCardHTML = super._createCardHTML(itemDef, selectionState, validationState);
 
-    // Create a temporary element to safely manipulate the HTML string.
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = baseCardHTML;
     const cardElement = tempDiv.querySelector('.ability-card');
@@ -61,7 +57,6 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
           </div>
         </div>
       `;
-      // Inject the equip toggle at the end of the card.
       cardElement.insertAdjacentHTML('beforeend', equipToggleHTML);
     }
 
@@ -69,8 +64,7 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
   }
 
   /**
-   * --- NEW HELPER METHOD (was the old _createCardHTML) ---
-   * Renders the specialized card for stackable items in multi-choice/point-buy groups.
+   * Renders the specialized card for stackable items on point-buy pages.
    */
   _createQuantityControlCard(itemDef, selectionState, validationState) {
     const isSelected = !!selectionState;
@@ -105,8 +99,8 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
   }
 
   /**
-   * --- REPLACED: This method is now also much smarter. ---
-   * It decides whether to use its own special logic or pass the event to the parent class.
+   * --- REPLACED: This method is now also context-aware. ---
+   * It decides whether to use its own quantity logic or pass the event to the parent class.
    * @private
    */
   _handleClick(e) {
@@ -117,50 +111,45 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
     const itemDef = this.items[itemId];
     if (!itemDef) return;
 
-    const groupDef = this._getGroupDefinition(itemDef);
-    const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
+    const unlockType = this.context?.unlock?.type;
 
-    // If the card is in radio mode or is not stackable, let the parent handle the main selection click.
-    if (maxChoices === 1 || !itemDef.stackable) {
-      // The only custom action we need to handle is the equip toggle.
-      if (e.target.dataset.action === 'set-equipped') {
-        const isEquipped = e.target.checked;
-        this.stateManager.itemManager.updateSelection(itemId, this.source, { equipped: isEquipped });
-        return;
+    // If we are on a point-buy page and the item is stackable, use the quantity logic.
+    if (unlockType === 'pointBuy' && itemDef.stackable) {
+      const action = e.target.dataset.action;
+      if (!action || e.target.disabled) return;
+      
+      const selection = this.stateManager.itemManager.getSelection(itemId, this.source);
+      const currentQuantity = selection?.quantity || 0;
+
+      switch (action) {
+        case 'increment-quantity':
+          if (this.ruleEngine.getValidationState(itemDef, this.source, this.context).isDisabled) return;
+          if (currentQuantity === 0) {
+            this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, { quantity: 1, equipped: true });
+          } else {
+            this.stateManager.itemManager.updateSelection(itemId, this.source, { quantity: currentQuantity + 1 });
+          }
+          break;
+        case 'decrement-quantity':
+          if (currentQuantity > 1) {
+            this.stateManager.itemManager.updateSelection(itemId, this.source, { quantity: currentQuantity - 1 });
+          } else if (currentQuantity === 1) {
+            this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
+          }
+          break;
       }
-      // For all other clicks (like selecting the card itself), use the parent's logic.
-      super._handleClick(e);
+      return; // Stop execution here for quantity controls
+    }
+    
+    // Otherwise (it's a simple selection card), handle the equip toggle or pass to the parent.
+    if (e.target.dataset.action === 'set-equipped') {
+      const isEquipped = e.target.checked;
+      this.stateManager.itemManager.updateSelection(itemId, this.source, { equipped: isEquipped });
       return;
     }
 
-    // Otherwise (it's a stackable item in a multi-choice group), use the quantity logic.
-    const action = e.target.dataset.action;
-    if (!action || e.target.disabled) return;
-    
-    const selection = this.stateManager.itemManager.getSelection(itemId, this.source);
-    const currentQuantity = selection?.quantity || 0;
-
-    switch (action) {
-      case 'increment-quantity':
-        if (this.ruleEngine.getValidationState(itemDef, this.source, this.context).isDisabled) {
-            return;
-        }
-        if (currentQuantity === 0) {
-          this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, { quantity: 1, equipped: true });
-        } else {
-          this.stateManager.itemManager.updateSelection(itemId, this.source, { quantity: currentQuantity + 1 });
-        }
-        break;
-        
-      case 'decrement-quantity':
-        if (currentQuantity > 1) {
-          this.stateManager.itemManager.updateSelection(itemId, this.source, { quantity: currentQuantity - 1 });
-        } else if (currentQuantity === 1) {
-          // Deselect the item by calling selectItem again (it acts as a toggle)
-          this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
-        }
-        break;
-    }
+    // For all other clicks, let the parent component handle the selection logic.
+    super._handleClick(e);
   }
 
   _attachEventListeners() {

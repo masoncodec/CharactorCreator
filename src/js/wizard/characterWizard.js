@@ -64,7 +64,6 @@ class CharacterWizard {
     
     document.addEventListener('wizard:stateChange', () => {
         this.pageNavigator.updateNav();
-        this.informerUpdater.update(this.activePageHandler);
     });
     
     this.loadPage(this.pages[0]);
