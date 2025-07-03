@@ -1,5 +1,5 @@
 // PointBuyComponent.js
-// FINAL VERSION: Automatically selects the correct rendering component based on group type.
+// FINAL VERSION: Now correctly hides past-level groups when in level-up mode.
 
 import { ItemSelectorComponent } from './ItemSelectorComponent.js';
 import { EquipmentSelectorComponent } from './EquipmentSelectorComponent.js';
@@ -48,11 +48,22 @@ class PointBuyComponent {
     this.container.appendChild(summaryEl);
 
     const targetLevel = this.stateManager.get('creationLevel');
+    // --- NEW: Get level-up mode variables ---
+    const isLevelUpMode = this.stateManager.get('isLevelUpMode');
+    const originalLevel = this.stateManager.get('originalLevel');
+
     const allItemDefs = this.stateManager.getItemData();
 
     if (Array.isArray(this.pageDef.levels)) {
       this.pageDef.levels.forEach(levelData => {
-        if (levelData.level > targetLevel || !levelData.groups) return;
+        // --- UPDATED: This block now contains all necessary display logic. ---
+        // 1. Don't render if the group is for a level beyond our target level.
+        if (levelData.level > targetLevel) return;
+        // 2. In level-up mode, do not render groups from past levels.
+        if (isLevelUpMode && levelData.level <= originalLevel) return;
+        // 3. Don't render if there are no groups defined for this level.
+        if (!levelData.groups) return;
+        // --- END UPDATED ---
         
         const context = {
             pageDef: this.pageDef,
@@ -78,7 +89,6 @@ class PointBuyComponent {
             }, {});
           }
 
-          // --- REPLACED: Logic is now automatic based on the group's type. ---
           let SelectorComponent;
           if (groupDef.type === 'equipment' || groupDef.type === 'loot') {
             SelectorComponent = EquipmentSelectorComponent;
