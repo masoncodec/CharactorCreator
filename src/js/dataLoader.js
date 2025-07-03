@@ -44,8 +44,11 @@ export async function loadDataForModule(moduleDef) {
   try {
     const dataFileMap = moduleDef.dataFiles;
     const moduleId = moduleDef.id;
-    // Add data types to the array
-    const dataTypes = ["abilities", "flaws", "perks", "equipmentAndLoot", "communities", "relationships"];
+    // --- UPDATED: Add new definition types to the array ---
+    const dataTypes = [
+        "abilities", "flaws", "perks", "equipmentAndLoot", "communities", "relationships",
+        "flawsAndPerksDef", "equipmentAndLootDef" // NEW
+    ];
     const fetchPromises = {};
 
     dataTypes.forEach(type => {
@@ -53,7 +56,6 @@ export async function loadDataForModule(moduleDef) {
         const path = `data/modules/${moduleId}/${dataFileMap[type]}`;
         fetchPromises[type] = fetch(path).then(res => res.json());
       } else {
-        // If a data file isn't specified for a type, resolve with an empty object.
         fetchPromises[type] = Promise.resolve({});
       }
     });
@@ -68,24 +70,15 @@ export async function loadDataForModule(moduleDef) {
       fetch(`data/modules/${moduleId}/nurtures/${nurtureId}.json`).then(r => r.json())
     );
 
-    // Await the data promises
+    // --- UPDATED: Await the new data promises ---
     const [
-      abilityData,
-      flawData,
-      perkData,
-      equipmentAndLootData,
-      communityData,
-      relationshipData,
-      destinyResults,
-      purposeResults,
-      nurtureResults
+      abilityData, flawData, perkData, equipmentAndLootData, communityData, relationshipData,
+      flawsAndPerksDef, equipmentAndLootDef, // NEW
+      destinyResults, purposeResults, nurtureResults
     ] = await Promise.all([
-      fetchPromises.abilities,
-      fetchPromises.flaws,
-      fetchPromises.perks,
-      fetchPromises.equipmentAndLoot,
-      fetchPromises.communities,
-      fetchPromises.relationships,
+      fetchPromises.abilities, fetchPromises.flaws, fetchPromises.perks, fetchPromises.equipmentAndLoot,
+      fetchPromises.communities, fetchPromises.relationships,
+      fetchPromises.flawsAndPerksDef, fetchPromises.equipmentAndLootDef, // NEW
       Promise.all(destinyPromises),
       Promise.all(purposePromises),
       Promise.all(nurturePromises)
@@ -106,17 +99,11 @@ export async function loadDataForModule(moduleDef) {
 
     console.log(`dataLoader: All data for module '${moduleId}' loaded successfully.`);
 
-    // Return the data
+    // --- UPDATED: Return the new data definitions ---
     return {
-      abilityData,
-      flawData,
-      perkData,
-      equipmentAndLootData,
-      communityData,
-      relationshipData,
-      destinyData,
-      purposeData,
-      nurtureData
+      abilityData, flawData, perkData, equipmentAndLootData, communityData, relationshipData,
+      flawsAndPerksDef, equipmentAndLootDef, // NEW
+      destinyData, purposeData, nurtureData
     };
 
   } catch (error) {

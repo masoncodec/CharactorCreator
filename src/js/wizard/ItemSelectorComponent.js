@@ -31,17 +31,23 @@ class ItemSelectorComponent {
     this.container.addEventListener('click', this._boundHandleClick);
   }
   
+  /**
+   * --- REPLACED: Now checks for `choiceGroups` or `groups` to work on any page type. ---
+   */
   _getGroupDefinition(itemDef) {
     if (!this.context || !itemDef.groupId) return null;
+    
+    // The getDefinition function will return either a Destiny definition or a Point-Buy page definition
     const mainDefinition = this.context.getDefinition();
-    // This now correctly finds the groupDef within the levels array
+    if (!mainDefinition || !Array.isArray(mainDefinition.levels)) return null;
+
     let groupDef = null;
-    if (mainDefinition && Array.isArray(mainDefinition.levels)) {
-        for (const levelData of mainDefinition.levels) {
-            if (levelData.choiceGroups && levelData.choiceGroups[itemDef.groupId]) {
-                groupDef = levelData.choiceGroups[itemDef.groupId];
-                break;
-            }
+    for (const levelData of mainDefinition.levels) {
+        // Check for 'choiceGroups' (used by Destiny/Purpose pages) OR 'groups' (used by new point-buy pages)
+        const groupsContainer = levelData.choiceGroups || levelData.groups;
+        if (groupsContainer && groupsContainer[itemDef.groupId]) {
+            groupDef = groupsContainer[itemDef.groupId];
+            break;
         }
     }
     return groupDef;
@@ -58,7 +64,7 @@ class ItemSelectorComponent {
     const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
     const inputType = (maxChoices === 1) ? 'radio' : 'checkbox';
     
-    const inputName = groupDef ? `group-${this.source}` : `item-${itemDef.id}`;
+    const inputName = groupDef ? `group-${this.source}-${itemDef.groupId}` : `item-${itemDef.id}`;
 
     return `
       <div class="item-container">
@@ -114,13 +120,6 @@ class ItemSelectorComponent {
   }
 
   _handleClick(e) {
-    // --- NEW: Prevent all clicks if the component is locked ---
-    if (this.isLocked) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-    }
-    
     const card = e.target.closest('.ability-card');
     if (!card || card.classList.contains('disabled-for-selection')) {
       return;

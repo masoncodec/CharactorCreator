@@ -1,6 +1,5 @@
 // RuleEngine.js
-// This module centralizes the validation logic to determine if an item can be selected.
-// It is now fully generic and uses a context object for page-specific rules.
+// UPDATED: Now uses a generic affordability check for any point-buy system.
 
 class RuleEngine {
   constructor(stateManager) {
@@ -14,25 +13,21 @@ class RuleEngine {
       return sourceConflict;
     }
     
-    if (context) {
+    // This check for standard choice groups remains the same.
+    if (context && context.pageType === 'choice') {
       const maxChoicesConflict = this._checkMaxChoices(itemDef, source, context);
       if (maxChoicesConflict.isDisabled) {
           return maxChoicesConflict;
       }
     }
 
-    if (itemDef.itemType === 'perk' && source === 'independent-perk') {
-      const perkAffordability = this._checkPerkAffordability(itemDef);
-      if (perkAffordability.isDisabled) {
-        return perkAffordability;
+    // --- NEW: Generic check for any point-buy system ---
+    // The context will provide the page definition for point-buy pages.
+    if (context && context.pageDef && context.pageDef.pointPool) {
+      const affordability = this._checkAffordability(itemDef, context);
+      if (affordability.isDisabled) {
+        return affordability;
       }
-    }
-
-    if (source === 'equipment-and-loot') {
-        const affordability = this._checkEquipmentAffordability(itemDef);
-        if (affordability.isDisabled) {
-            return affordability;
-        }
     }
     
     return { isDisabled: false, reason: '' };
@@ -50,9 +45,6 @@ class RuleEngine {
     return { isDisabled: false, reason: '' };
   }
 
-  /**
-   * --- REPLACED: Logic to find the group definition within the new 'levels' structure. ---
-   */
   _checkMaxChoices(itemDef, source, context) {
     if (this.stateManager.itemManager.getSelection(itemDef.id, source)) {
       return { isDisabled: false, reason: '' };
@@ -71,8 +63,9 @@ class RuleEngine {
         }
     }
 
-    if (!groupDef || !groupDef.maxChoices) return { isDisabled: false, reason: '' };
-
+    if (!groupDef || !groupDef.maxChoices || groupDef.maxChoices === -1) {
+        return { isDisabled: false, reason: '' };
+    }
     if (groupDef.maxChoices === 1) return { isDisabled: false, reason: '' };
 
     const selectionsInGroup = this.stateManager.state.selections.filter(
@@ -89,33 +82,51 @@ class RuleEngine {
     return { isDisabled: false, reason: '' };
   }
 
-  _checkPerkAffordability(itemDef) {
-    if (this.stateManager.itemManager.getSelection(itemDef.id, 'independent-perk')) {
+  /**
+   * --- NEW: A generic method to check affordability against any point pool. ---
+   * It replaces _checkPerkAffordability and _checkEquipmentAffordability.
+   * @param {Object} itemDef - The definition of the item being selected.
+   * @param {Object} context - The context object, which must contain the pageDef.
+   */
+  _checkAffordability(itemDef, context) {
+    if (this.stateManager.itemManager.isItemSelected(itemDef.id)) {
+      return { isDisabled: false, reason: '' };
+    }
+
+    const { pageDef } = context;
+    if (!pageDef || !pageDef.pointPool) return { isDisabled: false, reason: '' };
+
+    // Find the group this item belongs to in order to get the cost property and modifier.
+    let itemGroup = null;
+    for (const level of pageDef.levels) {
+        if (level.groups) {
+            for (const group of Object.values(level.groups)) {
+                if (group.items.includes(itemDef.id)) {
+                    itemGroup = group;
+                    break;
+                }
+            }
+        }
+        if (itemGroup) break;
+    }
+
+    if (!itemGroup) return { isDisabled: false, reason: '' };
+
+    // We only check affordability for items that subtract points.
+    if (itemGroup.pointModifier !== 'subtract') {
         return { isDisabled: false, reason: '' };
     }
-      
-    const availablePoints = this.stateManager.getAvailableCharacterPoints();
-    const perkCost = itemDef.weight || 0;
 
-    if (perkCost > availablePoints) {
+    const pointSummary = this.stateManager.getPointPoolSummary(pageDef);
+    const itemCost = itemDef[itemGroup.costProperty || 'weight'] || 0;
+
+    if (itemCost > pointSummary.current) {
       return {
         isDisabled: true,
-        reason: `Requires ${perkCost} points, but you only have ${availablePoints} available.`
+        reason: `Requires ${itemCost} ${pointSummary.name}, but you only have ${pointSummary.current} available.`
       };
     }
-    return { isDisabled: false, reason: '' };
-  }
-
-  _checkEquipmentAffordability(itemDef) {
-    const { remaining } = this.stateManager.getEquipmentPointsSummary();
-    const itemCost = itemDef.weight || 0;
-
-    if (itemCost > remaining) {
-      return {
-        isDisabled: true,
-        reason: `Requires ${itemCost} points, but only ${remaining} are available.`
-      };
-    }
+    
     return { isDisabled: false, reason: '' };
   }
 }

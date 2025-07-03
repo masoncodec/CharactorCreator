@@ -1,89 +1,68 @@
 // equipmentAndLootPageHandler.js
-// REFACTORED: Handles the 'equipment-and-loot' page UI and logic.
+// REFACTORED: Now a simple handler that uses the generic PointBuyComponent.
 
-import { EquipmentSelectorComponent } from './EquipmentSelectorComponent.js';
+import { PointBuyComponent } from './PointBuyComponent.js';
 import { RuleEngine } from './RuleEngine.js';
 
 class EquipmentAndLootPageHandler {
   constructor(stateManager) {
     this.stateManager = stateManager;
     this.selectorPanel = null;
+    this.pointBuyComponent = null;
     this.ruleEngine = new RuleEngine(this.stateManager);
-    this.activeSelectors = [];
-
-    this._boundHandleStateChange = this._handleStateChange.bind(this);
+    this.pageDef = null;
     console.log('EquipmentAndLootPageHandler: Initialized (Refactored).');
   }
 
   setupPage(selectorPanel) {
     this.selectorPanel = selectorPanel;
-    const equipmentContainer = this.selectorPanel.querySelector('.equipment-column .scroll-area');
-    const lootContainer = this.selectorPanel.querySelector('.loot-column .scroll-area');
+    // Get the page definition loaded by the dataLoader
+    this.pageDef = this.stateManager.data.equipmentAndLootDef;
 
-    if (!equipmentContainer || !lootContainer) {
-      console.error('Could not find required column containers.');
-      return;
+    if (!this.pageDef) {
+        this.selectorPanel.innerHTML = '<p>Error: Equipment & Loot definition not found.</p>';
+        return;
     }
-
-    const allItems = this.stateManager.getItemData();
-    const SOURCE_ID = 'equipment-and-loot';
-
-    const equipmentData = Object.values(allItems).filter(item => item.itemType === 'equipment')
-      .reduce((acc, item) => ({ ...acc, [item.id]: item }), {});
-    const lootData = Object.values(allItems).filter(item => item.itemType === 'loot')
-      .reduce((acc, item) => ({ ...acc, [item.id]: item }), {});
-
-    this.activeSelectors.push(
-      new EquipmentSelectorComponent(equipmentContainer, equipmentData, SOURCE_ID, this.stateManager, this.ruleEngine),
-      new EquipmentSelectorComponent(lootContainer, lootData, SOURCE_ID, this.stateManager, this.ruleEngine)
-    );
     
-    this.activeSelectors.forEach(selector => selector.render());
-    document.addEventListener('wizard:stateChange', this._boundHandleStateChange);
-  }
+    const sourceId = 'equipment-and-loot';
 
-  _handleStateChange(event) {
-    if (event.detail.key === 'selections') {
-      this.activeSelectors.forEach(selector => selector.render());
-    }
+    // Create and render the new generic component
+    this.pointBuyComponent = new PointBuyComponent(this.selectorPanel, this.pageDef, sourceId, this.stateManager, this.ruleEngine);
+    this.pointBuyComponent.render();
   }
-
-  // --- NEW: Methods for delegated logic ---
 
   getInformerContent() {
-    const { spent, total } = this.stateManager.getEquipmentPointsSummary();
-    const equipmentSelections = this.stateManager.getState().selections.filter(sel => sel.source === 'equipment-and-loot');
-    const allItemDefs = this.stateManager.getItemData();
-
-    let inventoryListHtml = '';
-    if (equipmentSelections.length === 0) {
-      inventoryListHtml = '<p>Your inventory is empty.</p>';
-    } else {
-      inventoryListHtml = '<ul>' + equipmentSelections.map(sel => {
-        const itemDef = allItemDefs[sel.id];
-        const quantityText = (sel.quantity > 1) ? ` x${sel.quantity}` : '';
-        return `<li>${itemDef.name}${quantityText} (${itemDef.weight * sel.quantity} pts)</li>`;
-      }).join('') + '</ul>';
-    }
-
+    if (!this.pageDef) return '';
+    
+    const pointSummary = this.stateManager.getPointPoolSummary(this.pageDef);
     return `
-      <h3>Equipment & Loot</h3>
-      <div class="points-summary-container"><strong>Equipment Points: ${spent} / ${total}</strong></div>
-      <div id="current-inventory-list">${inventoryListHtml}</div>`;
+      <h3>${pointSummary.name}</h3>
+      <div class="points-summary-container">
+        <strong>${pointSummary.current} / ${pointSummary.total} Remaining</strong>
+      </div>
+    `;
   }
 
   isComplete(currentState) {
-    return true;
+    if (!this.pageDef) return true; // If no definition, nothing to validate.
+    
+    const pointSummary = this.stateManager.getPointPoolSummary(this.pageDef);
+    // This page is always considered completable, but we prevent overspending.
+    return pointSummary.current >= 0;
   }
 
   getCompletionError() {
-    return '';
+    if (!this.pageDef) return '';
+
+    const pointSummary = this.stateManager.getPointPoolSummary(this.pageDef);
+    if (pointSummary.current < 0) {
+      return `You have overspent by ${Math.abs(pointSummary.current)} equipment point(s).`;
+    }
+    return ''; // Page is always "complete", but RuleEngine prevents overspending.
   }
 
   cleanup() {
-    this.activeSelectors.forEach(selector => selector.cleanup());
-    this.activeSelectors = [];
-    document.removeEventListener('wizard:stateChange', this._boundHandleStateChange);
+    this.pointBuyComponent?.cleanup();
   }
 }
 

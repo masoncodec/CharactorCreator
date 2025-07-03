@@ -1,135 +1,71 @@
 // flawsAndPerksPageHandler.js
-// REFACTORED: This module handles the UI for the 'flaws-and-perks' page
-// and its associated completion and informer logic.
+// REFACTORED: Now a simple handler that uses the generic PointBuyComponent.
 
-import { ItemSelectorComponent } from './ItemSelectorComponent.js';
+import { PointBuyComponent } from './PointBuyComponent.js';
 import { RuleEngine } from './RuleEngine.js';
 
 class FlawsAndPerksPageHandler {
   constructor(stateManager) {
     this.stateManager = stateManager;
     this.selectorPanel = null;
-    this.flawSelectorComponent = null;
-    this.perkSelectorComponent = null;
+    this.pointBuyComponent = null;
     this.ruleEngine = new RuleEngine(this.stateManager);
-
-    this._handleStateChange = this._handleStateChange.bind(this);
+    this.pageDef = null;
     console.log('FlawsAndPerksPageHandler: Initialized (Refactored).');
   }
 
   setupPage(selectorPanel) {
     this.selectorPanel = selectorPanel;
-    const flawContainer = this.selectorPanel.querySelector('.flaws-grid-container');
-    const perkContainer = this.selectorPanel.querySelector('.perks-grid-container');
+    // Get the page definition loaded by the dataLoader
+    this.pageDef = this.stateManager.data.flawsAndPerksDef;
 
-    if (!flawContainer || !perkContainer) {
-      console.error('Could not find required .flaws-grid-container or .perks-grid-container.');
-      return;
+    if (!this.pageDef) {
+        this.selectorPanel.innerHTML = '<p>Error: Flaws & Perks definition not found.</p>';
+        return;
     }
-
-    const allItems = this.stateManager.getItemData();
-    const allFlawData = Object.values(allItems).filter(item => item.itemType === 'flaw')
-      .reduce((acc, item) => ({ ...acc, [item.id]: item }), {});
-    const allPerkData = Object.values(allItems).filter(item => item.itemType === 'perk')
-      .reduce((acc, item) => ({ ...acc, [item.id]: item }), {});
-
-    this.flawSelectorComponent = new ItemSelectorComponent(flawContainer, allFlawData, 'independent-flaw', this.stateManager, this.ruleEngine);
-    this.perkSelectorComponent = new ItemSelectorComponent(perkContainer, allPerkData, 'independent-perk', this.stateManager, this.ruleEngine);
-
-    this.flawSelectorComponent.render();
-    this.perkSelectorComponent.render();
     
-    document.addEventListener('wizard:stateChange', this._handleStateChange);
+    // The sourceId 'flaws-and-perks' should match the old sources ('independent-flaw', 'independent-perk')
+    // if you want to maintain compatibility with old characters. For this refactor, we'll use a single source.
+    const sourceId = 'flaws-and-perks';
+
+    // Create and render the new generic component
+    this.pointBuyComponent = new PointBuyComponent(this.selectorPanel, this.pageDef, sourceId, this.stateManager, this.ruleEngine);
+    this.pointBuyComponent.render();
   }
 
-  _handleStateChange(event) {
-    if (event.detail.key === 'selections') {
-      this.perkSelectorComponent?.render();
-      this.flawSelectorComponent?.render();
-    }
-  }
-  
   getInformerContent() {
-    const currentState = this.stateManager.getState();
-    const allItemDefs = this.stateManager.getItemData();
-    const independentSelections = currentState.selections.filter(sel => sel.source.startsWith('independent-'));
+    if (!this.pageDef) return '';
     
-    const renderIndependentItems = (itemType) => {
-        const items = independentSelections.filter(sel => allItemDefs[sel.id]?.itemType === itemType);
-        if (items.length === 0) return `<p>No ${itemType}s selected yet.</p>`;
-        return items.map(sel => {
-            const itemDef = allItemDefs[sel.id];
-            return `<div class="selected-item-display-card"><h5>${itemDef.name} (${itemDef.weight} pts)</h5></div>`;
-        }).join('');
-    };
-    
-    const availablePoints = this.stateManager.getAvailableCharacterPoints();
-
+    const pointSummary = this.stateManager.getPointPoolSummary(this.pageDef);
     return `
-      <h3>Flaws & Perks</h3>
-      <div class="points-summary-container"><strong>Available Points: ${availablePoints}</strong></div>
-      <hr/>
-      <div class="selected-items-columns">
-        <div class="selected-column">
-          <h4>Selected Flaws</h4>
-          ${renderIndependentItems('flaw')}
-        </div>
-        <div class="selected-column">
-          <h4>Selected Perks</h4>
-          ${renderIndependentItems('perk')}
-        </div>
-      </div>`;
+      <h3>${pointSummary.name}</h3>
+      <div class="points-summary-container">
+        <strong>Available Points: ${pointSummary.current}</strong>
+      </div>
+      <p>Select Flaws to gain more points. Spend points on Perks.</p>
+    `;
   }
 
   isComplete(currentState) {
-    const allItemDefs = this.stateManager.getItemData();
-    const choicesComplete = currentState.selections
-      .filter(sel => sel.source.startsWith('independent-'))
-      .every(sel => {
-        const itemDef = allItemDefs[sel.id];
-        return !(itemDef?.options && itemDef.maxChoices && sel.selections.length !== itemDef.maxChoices);
-      });
+    if (!this.pageDef) return true; // If no definition, nothing to validate.
     
-    const pointsValid = this.stateManager.getAvailableCharacterPoints() >= 0;
-    return choicesComplete && pointsValid;
+    const pointSummary = this.stateManager.getPointPoolSummary(this.pageDef);
+    // The page is complete as long as the user hasn't overspent their points.
+    return pointSummary.current >= 0;
   }
 
-  /**
-   * MODIFIED: Generates a detailed list of point deficits and incomplete choices.
-   * @returns {string} A comprehensive error message.
-   */
   getCompletionError() {
-    const currentState = this.stateManager.getState();
-    const allItemDefs = this.stateManager.getItemData();
-    const errors = [];
+    if (!this.pageDef) return '';
 
-    // Check for point balance
-    const points = this.stateManager.getAvailableCharacterPoints();
-    if (points < 0) {
-      errors.push(`You have overspent by ${Math.abs(points)} point(s). Please add Flaws or remove Perks.`);
+    const pointSummary = this.stateManager.getPointPoolSummary(this.pageDef);
+    if (pointSummary.current < 0) {
+      return `You have overspent by ${Math.abs(pointSummary.current)} point(s). Please add Flaws or remove Perks.`;
     }
-
-    // Check for incomplete nested choices
-    currentState.selections
-      .filter(sel => sel.source.startsWith('independent-'))
-      .forEach(sel => {
-        const itemDef = allItemDefs[sel.id];
-        if (itemDef?.options && itemDef.maxChoices && sel.selections.length < itemDef.maxChoices) {
-          errors.push(`The ${itemDef.itemType} "${itemDef.name}" requires a selection. Please make a choice.`);
-        }
-      });
-    
-    if (errors.length > 0) {
-      return errors.join('\n');
-    }
-
     return 'An unknown validation error occurred.';
   }
 
   cleanup() {
-    this.flawSelectorComponent?.cleanup();
-    this.perkSelectorComponent?.cleanup();
-    document.removeEventListener('wizard:stateChange', this._handleStateChange);
+    this.pointBuyComponent?.cleanup();
   }
 }
 

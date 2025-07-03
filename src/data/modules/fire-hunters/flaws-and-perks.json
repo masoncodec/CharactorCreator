@@ -1,0 +1,38 @@
+{
+    "id": "base-flaws-and-perks",
+    "name": "Flaws & Perks",
+    "description": "Select flaws to gain points, then spend those points on powerful perks.",
+    "pointPool": {
+        "id": "characterPoints",
+        "name": "Character Points",
+        "initialValue": 0
+    },
+    "levels": [
+        {
+            "level": 1,
+            "description": "Select from the available flaws and perks.",
+            "groups": {
+                "base_flaws": {
+                    "name": "Available Flaws",
+                    "type": "flaw",
+                    "pointModifier": "add",
+                    "items": [
+                        "frail", "stranger", "overconfidence", "arrogance", "code-of-honor", 
+                        "naive-idealism", "greed", "recklessness", "dogmatic", "zealotry", 
+                        "perfectionist", "stage-fright", "ego", "rivalry", "vulnerable", 
+                        "melodrama", "impulsive", "distraction"
+                    ]
+                },
+                "base_perks": {
+                    "name": "Available Perks",
+                    "type": "perk",
+                    "pointModifier": "subtract",
+                    "items": [
+                        "keen-eyes", "fast-learner", "lucky-break", "well-connected", 
+                        "iron-stomach", "adaptive-mind"
+                    ]
+                }
+            }
+        }
+    ]
+}

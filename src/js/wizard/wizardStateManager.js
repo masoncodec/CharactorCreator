@@ -146,6 +146,8 @@ class WizardStateManager {
       destinies: {}, purposes: {}, nurtures: {}, abilities: {}, flaws: {},
       perks: {}, equipment: {}, 
       communities: {}, relationships: {},
+      flawsAndPerksDef: {},
+      equipmentAndLootDef: {},
       allItems: {}
     };
     this.itemManager = new ItemManager(this);
@@ -187,6 +189,8 @@ class WizardStateManager {
     this.data.equipment = loadedData.equipmentAndLootData || {};
     this.data.communities = loadedData.communityData || {};
     this.data.relationships = loadedData.relationshipData || {};
+    this.data.flawsAndPerksDef = loadedData.flawsAndPerksDef || {};
+    this.data.equipmentAndLootDef = loadedData.equipmentAndLootDef || {};
     this.data.allItems = {};
 
     this._normalizeData();
@@ -303,23 +307,56 @@ class WizardStateManager {
   getItemData() { return this.data.allItems; }
   getItemDefinition(itemId) { return this.data.allItems[itemId] || null;
   }
-  getIndependentFlawTotalWeight() { return this.itemManager.getTotalWeightBySource('independent-flaw', this.data.allItems); }
-  getIndependentPerkTotalWeight() { return this.itemManager.getTotalWeightBySource('independent-perk', this.data.allItems); }
-  getAvailableCharacterPoints() {
-    const flawPoints = this.getIndependentFlawTotalWeight();
-    const perkPoints = this.getIndependentPerkTotalWeight();
-    return flawPoints - perkPoints;
-  }
-  getEquipmentPointsSummary() {
-    const TOTAL_POINTS = 20;
-    const spentPoints = this.state.selections
-      .filter(sel => sel.source === 'equipment-and-loot')
-      .reduce((total, sel) => {
-        const itemDef = this.data.allItems[sel.id];
+  /**
+   * --- NEW: A generic function to calculate the state of any point pool. ---
+   * @param {Object} pageDef - The definition object for the point-buy page (e.g., this.data.flawsAndPerksDef).
+   * @returns {Object} An object like { name, current, total }.
+   */
+  getPointPoolSummary(pageDef) {
+    if (!pageDef || !pageDef.pointPool) {
+      return { name: 'Invalid Pool', current: 0, total: 0 };
+    }
+
+    const pool = pageDef.pointPool;
+    let currentPoints = pool.initialValue;
+    const allGroups = new Map();
+
+    // Collect all available groups up to the character's target level
+    const targetLevel = this.get('creationLevel');
+    if (Array.isArray(pageDef.levels)) {
+      pageDef.levels.forEach(levelData => {
+        if (levelData.level <= targetLevel && levelData.groups) {
+          Object.entries(levelData.groups).forEach(([groupId, groupData]) => {
+            allGroups.set(groupId, groupData);
+          });
+        }
+      });
+    }
+
+    // Calculate spent/gained points from selections
+    this.state.selections.forEach(sel => {
+      if (sel.groupId && allGroups.has(sel.groupId)) {
+        const groupData = allGroups.get(sel.groupId);
+        const itemDef = this.getItemDefinition(sel.id);
+        if (!itemDef) return;
+
+        const cost = itemDef[groupData.costProperty || 'weight'] || 0;
         const quantity = sel.quantity || 1;
-        return total + ((itemDef?.weight || 0) * quantity);
-      }, 0);
-    return { total: TOTAL_POINTS, spent: spentPoints, remaining: TOTAL_POINTS - spentPoints };
+        const totalCost = cost * quantity;
+
+        if (groupData.pointModifier === 'add') {
+          currentPoints += totalCost;
+        } else if (groupData.pointModifier === 'subtract') {
+          currentPoints -= totalCost;
+        }
+      }
+    });
+
+    return {
+      name: pool.name,
+      current: currentPoints,
+      total: pool.initialValue
+    };
   }
   addOrUpdateInventoryItem(newItemData) {
     const existingItemIndex = this.state.inventory.findIndex(item => item.id === newItemData.id);
