@@ -370,7 +370,6 @@ class WizardStateManager {
 
   getCombinedAttributeBonuses() {
     const attributeBonuses = {};
-
     const sources = ['destiny', 'purpose', 'nurture'];
     const level = this.get('creationLevel');
 
@@ -379,22 +378,34 @@ class WizardStateManager {
         if (!sourceId) continue;
 
         const definition = this[`get${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)}`](sourceId);
+        // The check should be for definition.levels
         if (!definition || !Array.isArray(definition.levels)) continue;
 
+        // Iterate through each level object (e.g., level 1, level 2)
         for (const levelData of definition.levels) {
             if (levelData.level > level) continue;
 
-            const rewards = levelData.rewards;
-            if (!rewards || !rewards.attributes) continue;
-            
-            // Sum attribute bonuses
-            for (const attr in rewards.attributes) {
-                if (attributeBonuses[attr]) {
-                    attributeBonuses[attr] += rewards.attributes[attr];
-                } else {
-                    attributeBonuses[attr] = rewards.attributes[attr];
+            // --- START FIX ---
+            // If the level has no unlocks, skip it
+            if (!levelData.unlocks || !Array.isArray(levelData.unlocks)) continue;
+
+            // Now, iterate through the UNLOCKS within that level
+            for (const unlock of levelData.unlocks) {
+              // Check if this unlock is a reward AND if it has attribute bonuses
+              if (unlock.type === 'reward' && unlock.rewards?.attributes) {
+                
+                // Sum the attribute bonuses from this unlock
+                for (const attr in unlock.rewards.attributes) {
+                  const value = unlock.rewards.attributes[attr];
+                  if (attributeBonuses[attr]) {
+                      attributeBonuses[attr] += value;
+                  } else {
+                      attributeBonuses[attr] = value;
+                  }
                 }
+              }
             }
+            // --- END FIX ---
         }
     }
     return attributeBonuses;

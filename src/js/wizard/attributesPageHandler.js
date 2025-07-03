@@ -101,32 +101,31 @@ class AttributeAssignmentManager {
 }
 
 
+// attributesPageHandler.js
+
 class AttributesPageHandler {
   constructor(stateManager, alerter) {
     this.stateManager = stateManager;
     this.alerter = alerter;
     this.selectorPanel = null;
     this.assignmentManager = null;
-    this._boundStateChangeHandler = this._updateTotals.bind(this);
+    // --- CHANGE #1: Point to the new handler method name ---
+    this._boundStateChangeHandler = this._handleStateChange.bind(this); 
     console.log('AttributesPageHandler: Initialized (Refactored).');
   }
 
-  /**
-   * --- UPDATED: Now has a conditional path for level-up mode. ---
-   */
   setupPage(selectorPanel, informerPanel, pageNavigator, informerUpdater) {
     this.selectorPanel = selectorPanel;
     const isLevelUpMode = this.stateManager.get('isLevelUpMode');
 
     if (isLevelUpMode) {
-      // --- LEVEL-UP MODE: Render a read-only view and do nothing else. ---
       this._renderReadOnlyAttributeView();
     } else {
-      // --- CREATION MODE: Render the interactive table as before. ---
       this._renderAttributeTable();
       this._initAssignmentManager();
       document.addEventListener('wizard:stateChange', this._boundStateChangeHandler);
-      this._updateTotals(); // Initial call to set totals
+      // --- CHANGE #2: Call the new handler on initial setup ---
+      this._handleStateChange(); 
     }
   }
 
@@ -208,23 +207,36 @@ class AttributesPageHandler {
     this.selectorPanel.appendChild(table);
   }
 
-  _updateTotals() {
-      const bonuses = this.stateManager.getCombinedAttributeBonuses();
-      const assigned = this.stateManager.get('attributes');
-      const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
-      const attrNames = moduleData?.attributes?.names || [];
+  _handleStateChange() {
+    const bonuses = this.stateManager.getCombinedAttributeBonuses();
+    const assigned = this.stateManager.get('attributes');
+    const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
+    const attrNames = moduleData?.attributes?.names || [];
 
-      attrNames.forEach(attrName => {
-          const attrKey = attrName.toLowerCase();
-          const totalEl = this.selectorPanel.querySelector(`#${attrKey}-total`);
-          if (totalEl) {
-              const bonusValue = bonuses[attrKey] || 0;
-              const assignedValue = assigned[attrKey] || 0;
-              const total = assignedValue + bonusValue;
-              totalEl.textContent = total;
-          }
-      });
-  }
+    attrNames.forEach(attrName => {
+        const attrKey = attrName.toLowerCase();
+        const bonusValue = bonuses[attrKey] || 0;
+        const assignedValue = assigned[attrKey] || 0;
+        const total = assignedValue + bonusValue;
+        
+        // --- FIX: Add this block to find and update the 'Bonus' cell ---
+        const bonusCell = this.selectorPanel.querySelector(`tr[data-attribute="${attrKey}"] .bonus-cell`);
+        if (bonusCell) {
+          bonusCell.textContent = `+${bonusValue}`;
+        }
+        // --- END FIX ---
+
+        // This part updates the 'Total' cell
+        const totalEl = this.selectorPanel.querySelector(`#${attrKey}-total`);
+        if (totalEl) {
+            totalEl.textContent = total;
+        }
+    });
+    
+    // This part updates the informer panel
+    document.dispatchEvent(new CustomEvent('wizard:informerUpdate', { detail: { handler: this } }));
+}
+
 
   _initAssignmentManager() {
     const tableElement = this.selectorPanel.querySelector('.dice-assignment-table');
