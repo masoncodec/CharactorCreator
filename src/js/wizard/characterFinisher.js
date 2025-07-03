@@ -1,6 +1,5 @@
 // characterFinisher.js
-// This module handles the final validation of the character data and the saving process.
-// FINAL VERSION: Saves only categorized lists, not the raw selections array.
+// FINAL VERSION: Includes corrected logic for processing inventory from multiple sources.
 
 class CharacterFinisher {
   constructor(stateManager, db, alerter, EffectHandler, pageNavigator, pages, characterId = null) {
@@ -68,7 +67,6 @@ class CharacterFinisher {
     
     const finalInventory = this._processFinalInventory(categorizedSelections.inventory, currentState.inventory, allItemDefs);
 
-    // Assemble the final character object for saving.
     const character = {
       module: currentState.module,
       level: currentState.creationLevel,
@@ -78,7 +76,6 @@ class CharacterFinisher {
       attributes: finalAttributes,
       info: currentState.info,
       createdAt: new Date().toISOString(),
-      // --- FIX: The raw selections array is no longer saved. ---
       flaws: categorizedSelections.flaws,
       perks: categorizedSelections.perks,
       abilities: categorizedSelections.abilities,
@@ -167,6 +164,9 @@ class CharacterFinisher {
     return categorized;
   }
 
+  /**
+   * --- UPDATED: Correctly processes items with existing compound source strings. ---
+   */
   _processFinalInventory(rawInventorySelections, stateInventory, allItemDefs) {
     const finalInventory = [];
     const stackableMap = new Map();
@@ -180,7 +180,12 @@ class CharacterFinisher {
         }
         const entry = stackableMap.get(itemState.id);
         entry.quantity += itemState.quantity || 1; 
-        if (itemState.source) entry.sources.add(itemState.source);
+        
+        // --- FIX: Split existing source strings before adding to the Set ---
+        if (itemState.source) {
+            const sourcesToAdd = String(itemState.source).split(', ');
+            sourcesToAdd.forEach(s => entry.sources.add(s.trim()));
+        }
       } else {
         finalInventory.push(itemState);
       }
