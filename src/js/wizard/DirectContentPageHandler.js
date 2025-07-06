@@ -69,8 +69,21 @@ class DirectContentPageHandler {
 
   getInformerContent() {
     if (!this.pageDef) return '';
-    // The InformerContentBuilder can also be driven by this generic handler
-    const builder = new InformerContentBuilder(this.stateManager, this.config.sourceId, this.pageDef);
+
+    // --- START OF FIX ---
+
+    // Create a temporary definition object for the builder that includes the page name.
+    // This ensures a 'displayName' property always exists.
+    const definitionForBuilder = {
+      ...this.pageDef,
+      displayName: this.config.pageName // Uses the name from the handler's config
+    };
+
+    // Pass this new, complete definition object to the builder.
+    const builder = new InformerContentBuilder(this.stateManager, this.config.sourceId, definitionForBuilder);
+    
+    // --- END OF FIX ---
+    
     return builder.build();
   }
 

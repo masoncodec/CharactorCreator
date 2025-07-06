@@ -13,23 +13,38 @@ class ItemManager {
     const { id } = itemDef;
     const isAlreadySelected = this.state.selections.some(sel => sel.id === id && sel.source === source);
 
-    // --- REPLACED: Logic to find the unlock definition in the new structure ---
+    // --- START OF FIX ---
+
+    let groupDef = null;
     const parentDef = this.stateManager.getDefinitionForSource(source);
-    let unlockDef = null;
-    if (groupId && parentDef && Array.isArray(parentDef.levels)) {
-        for (const levelData of parentDef.levels) {
-            if (levelData.unlocks) {
-                const foundUnlock = levelData.unlocks.find(u => u.id === groupId);
-                if (foundUnlock) {
-                    unlockDef = foundUnlock;
-                    break;
+
+    // If the parent page definition is found...
+    if (parentDef) {
+        // ...and it's a point-buy system, look for the group inside its 'groups' object.
+        if (parentDef.unlocks?.some(u => u.type === 'pointBuy')) {
+            const pointBuyUnlock = parentDef.unlocks.find(u => u.type === 'pointBuy');
+            groupDef = pointBuyUnlock?.groups?.[groupId];
+        } else {
+            // ...otherwise, look for the group in the top-level unlocks (for Choice pages).
+            if (Array.isArray(parentDef.levels)) {
+                for (const levelData of parentDef.levels) {
+                    if (levelData.unlocks) {
+                        const foundUnlock = levelData.unlocks.find(u => u.id === groupId);
+                        if (foundUnlock) {
+                            groupDef = foundUnlock;
+                            break;
+                        }
+                    }
                 }
             }
         }
     }
-    // --- END REPLACEMENT ---
+    
+    // Use the maxChoices from the found group definition, NOT the item itself.
+    const maxChoices = groupDef?.maxChoices;
+    
+    // --- END OF FIX ---
 
-    const maxChoices = unlockDef?.maxChoices ?? itemDef.maxChoices;
 
     if (isAlreadySelected) {
       if (groupId && maxChoices === 1 && ['destiny', 'purpose', 'nurture'].includes(source)) {
@@ -49,12 +64,18 @@ class ItemManager {
         }
     }
 
-    let newSelections = [...this.state.selections];
+    // --- START OF FIX ---
 
+    // This is the radio-button logic. It needs to operate on the real state array.
     if (groupId && maxChoices === 1) {
-      newSelections = newSelections.filter(
-        sel => !(sel.groupId === groupId && sel.source === source)
+      // Find the index of an existing item from this exclusive group.
+      const existingSelectionIndex = this.state.selections.findIndex(
+        sel => sel.groupId === groupId && sel.source === source
       );
+      // If one is found, remove it.
+      if (existingSelectionIndex > -1) {
+        this.state.selections.splice(existingSelectionIndex, 1);
+      }
     }
     
     const newSelectionData = { 
@@ -67,9 +88,13 @@ class ItemManager {
         newSelectionData.groupId = groupId;
     }
 
-    newSelections.push(newSelectionData);
-    this.stateManager.set('selections', newSelections);
-    console.log(`ItemManager: Selected new item '${id}'.`, newSelectionData);
+    // Directly push the new selection to the master state array.
+    this.state.selections.push(newSelectionData);
+    
+    // Now, trigger the update by calling set() with the mutated state array.
+    this.stateManager.set('selections', this.state.selections);
+
+    // --- END OF FIX ---
   }
 
   deselectItem(itemId, source) {

@@ -8,19 +8,24 @@ class RuleEngine {
   }
 
   getValidationState(itemDef, source, context = null) {
+    // --- START OF FIX ---
+    
+    // First, always check for source conflicts. This is unchanged.
     const sourceConflict = this._checkSourceConflict(itemDef, source);
     if (sourceConflict.isDisabled) {
       return sourceConflict;
     }
     
-    // This check now works correctly for pages using the 'unlocks' format.
-    if (context?.pageType === 'choice') { 
+    // Second, ALWAYS check for maxChoices rules if the item belongs to a group.
+    // This is the key change: this check is no longer inside an "if (context?.pageType === 'choice')".
+    if (itemDef.groupId) {
       const maxChoicesConflict = this._checkMaxChoices(itemDef, source, context);
       if (maxChoicesConflict.isDisabled) {
-          return maxChoicesConflict;
+        return maxChoicesConflict;
       }
     }
 
+    // Third, if the item is part of a point-buy system, check for affordability.
     if (context?.unlock?.type === 'pointBuy') {
       const affordability = this._checkAffordability(itemDef, context.unlock);
       if (affordability.isDisabled) {
@@ -28,7 +33,10 @@ class RuleEngine {
       }
     }
     
+    // If no rules failed, the item is valid.
     return { isDisabled: false, reason: '' };
+    
+    // --- END OF FIX ---
   }
 
   _checkSourceConflict(itemDef, currentSource) {
@@ -47,39 +55,44 @@ class RuleEngine {
   }
 
   _checkMaxChoices(itemDef, source, context) {
+    // This first part is unchanged
     if (this.stateManager.itemManager.getSelection(itemDef.id, source)) {
       return { isDisabled: false, reason: '' };
     }
     if (!context || !itemDef.groupId) return { isDisabled: false, reason: '' };
 
-    // --- START DEBUGGING ---
-    console.log(`--- Checking Max Choices for item: "${itemDef.id}" in group: "${itemDef.groupId}" ---`);
-    // --- END DEBUGGING ---
+    // --- START OF FIX ---
 
-    const mainDefinition = context.getDefinition();
-    let unlockDef = null;
-    if (mainDefinition && Array.isArray(mainDefinition.levels)) {
-        for (const levelData of mainDefinition.levels) {
-            if (levelData.unlocks) {
-                const foundUnlock = levelData.unlocks.find(u => u.id === itemDef.groupId);
-                if (foundUnlock) {
-                    unlockDef = foundUnlock;
-                    break;
+    let groupDef = null; // Use a more generic name
+
+    // If the context tells us we're inside a point-buy unlock,
+    // look for the group definition within its 'groups' property.
+    if (context.unlock?.type === 'pointBuy') {
+        groupDef = context.unlock.groups?.[itemDef.groupId];
+    } else {
+        // Otherwise, use the original logic for finding a top-level 'choice' unlock.
+        const mainDefinition = context.getDefinition();
+        if (mainDefinition && Array.isArray(mainDefinition.levels)) {
+            for (const levelData of mainDefinition.levels) {
+                if (levelData.unlocks) {
+                    const foundUnlock = levelData.unlocks.find(u => u.id === itemDef.groupId);
+                    if (foundUnlock) {
+                        groupDef = foundUnlock;
+                        break;
+                    }
                 }
             }
         }
     }
 
-    // --- START DEBUGGING ---
-    if (unlockDef) {
-        console.log(`Found matching unlock definition. ID: "${unlockDef.id}", maxChoices: ${unlockDef.maxChoices}`);
-    } else {
-        console.error(`ERROR: Could NOT find an unlock definition with ID: "${itemDef.groupId}"`);
-        return { isDisabled: false, reason: 'Configuration Error' }; // Exit early if no unlock is found
+    // This error check now works correctly
+    if (!groupDef) {
+        console.error(`ERROR: Could NOT find a group/unlock definition with ID: "${itemDef.groupId}"`);
+        return { isDisabled: false, reason: 'Configuration Error' }; 
     }
-    // --- END DEBUGGING ---
 
-    if (!unlockDef.maxChoices || unlockDef.maxChoices === -1 || unlockDef.maxChoices === 1) {
+    // The rest of the function now uses 'groupDef' instead of 'unlockDef'
+    if (!groupDef.maxChoices || groupDef.maxChoices === -1 || groupDef.maxChoices === 1) {
         return { isDisabled: false, reason: '' };
     }
 
@@ -87,16 +100,15 @@ class RuleEngine {
         sel => sel.source === source && sel.groupId === itemDef.groupId
     );
 
-    // --- START DEBUGGING ---
-    console.log(`Found ${selectionsInGroup.length} item(s) already selected in this group.`);
-    // --- END DEBUGGING ---
-
-    if (selectionsInGroup.length >= unlockDef.maxChoices) {
+    if (selectionsInGroup.length >= groupDef.maxChoices) {
         return {
             isDisabled: true,
-            reason: `You have already selected the maximum of ${unlockDef.maxChoices} item(s) from this group.`
+            reason: `You have already selected the maximum of ${groupDef.maxChoices} item(s) from this group.`
         };
     }
+
+    // --- END OF FIX ---
+
     return { isDisabled: false, reason: '' };
   }
 
