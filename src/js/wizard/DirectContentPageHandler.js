@@ -88,22 +88,23 @@ class DirectContentPageHandler {
   }
 
   isComplete() {
-    const selections = this.stateManager.get('selections');
+    const allSelections = this.stateManager.get('selections');
     const availableUnlocks = this._getUnlocksForCurrentState();
 
-    // 1. --- NEW: Check if all required main choices have been made. ---
+    // --- FIX: Filter selections to only those relevant to the current page ---
+    const selectionsForThisPage = allSelections.filter(sel =>
+      sel.source.startsWith(this.config.sourceId)
+    );
+
+    // 1. Check if all required main choices on this page have been made.
     const mainChoicesComplete = availableUnlocks.every(unlock => {
-      // If the unlock isn't a choice group that requires a specific number of selections,
-      // it doesn't block completion.
       if (unlock.type !== 'choice' || !unlock.maxChoices || unlock.maxChoices <= 0) {
         return true;
       }
-      
-      // Count how many items have been selected from this specific group.
-      const selectionsInGroup = selections.filter(
-        sel => sel.groupId === unlock.id && sel.source.startsWith(this.config.sourceId)
+      // Use the filtered selections array for the check
+      const selectionsInGroup = selectionsForThisPage.filter(
+        sel => sel.groupId === unlock.id
       );
-      
       return selectionsInGroup.length === unlock.maxChoices;
     });
 
@@ -111,7 +112,7 @@ class DirectContentPageHandler {
       return false;
     }
 
-    // 2. --- EXISTING: Check for point-buy overspending. ---
+    // 2. Check for point-buy overspending (this is already page-specific).
     const pointBuyUnlock = availableUnlocks.find(u => u.type === 'pointBuy');
     if (pointBuyUnlock) {
       const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
@@ -120,27 +121,32 @@ class DirectContentPageHandler {
       }
     }
 
-    // 3. --- EXISTING: Check for incomplete nested options within selected items. ---
-    if (!this.stateManager.itemManager.hasAllNestedOptionsSelected(selections)) {
+    // 3. Check for incomplete nested options, but only within items selected on this page.
+    if (!this.stateManager.itemManager.hasAllNestedOptionsSelected(selectionsForThisPage)) {
       return false;
     }
 
-    // If all checks pass, the page is complete.
-    return true;
+    return true; // All checks for this specific page have passed.
   }
 
   getCompletionError() {
     const errorMessages = [];
-    const selections = this.stateManager.get('selections');
+    const allSelections = this.stateManager.get('selections');
     const availableUnlocks = this._getUnlocksForCurrentState();
 
-    // --- NEW: Add error messages for incomplete main choices ---
+    // --- FIX: Filter selections to only those relevant to the current page ---
+    const selectionsForThisPage = allSelections.filter(sel =>
+      sel.source.startsWith(this.config.sourceId)
+    );
+
+    // Get errors for incomplete main choices on this page
     availableUnlocks.forEach(unlock => {
       if (unlock.type !== 'choice' || !unlock.maxChoices || unlock.maxChoices <= 0) {
         return;
       }
-      const selectionsInGroup = selections.filter(
-        sel => sel.groupId === unlock.id && sel.source.startsWith(this.config.sourceId)
+      // Use the filtered selections array for the check
+      const selectionsInGroup = selectionsForThisPage.filter(
+        sel => sel.groupId === unlock.id
       );
       const needed = unlock.maxChoices;
       const chosen = selectionsInGroup.length;
@@ -152,7 +158,7 @@ class DirectContentPageHandler {
       }
     });
 
-    // --- EXISTING: Get point-buy error ---
+    // Get point-buy error (this is already page-specific)
     const pointBuyUnlock = availableUnlocks.find(u => u.type === 'pointBuy');
     if (pointBuyUnlock) {
       const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
@@ -161,8 +167,8 @@ class DirectContentPageHandler {
       }
     }
 
-    // --- EXISTING: Add error messages for nested options ---
-    const nestedOptionErrors = this.stateManager.itemManager.getNestedOptionsCompletionErrors(selections);
+    // Add error messages for nested options selected on this page
+    const nestedOptionErrors = this.stateManager.itemManager.getNestedOptionsCompletionErrors(selectionsForThisPage);
     
     return errorMessages.concat(nestedOptionErrors).join('\n');
   }
