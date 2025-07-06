@@ -88,24 +88,42 @@ class DirectContentPageHandler {
   }
 
   isComplete() {
-    // This generic completion logic might need adjustment if rules vary wildly,
-    // but for point-buy systems, it's often the same.
-    if (!this.pageDef) return true;
+    // Run existing point-buy check
     const pointBuyUnlock = this.pageDef.unlocks?.find(u => u.type === 'pointBuy');
-    if (!pointBuyUnlock) return true;
-    const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
-    return pointSummary.current >= 0;
+    if (pointBuyUnlock) {
+      const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
+      if (pointSummary.current < 0) {
+        return false; // Overspent, so incomplete.
+      }
+    }
+
+    // --- NEW: Add the check for nested options ---
+    const selections = this.stateManager.get('selections');
+    if (!this.stateManager.itemManager.hasAllNestedOptionsSelected(selections)) {
+      return false; // Incomplete nested options found.
+    }
+
+    return true; // All checks passed.
   }
 
   getCompletionError() {
-     if (!this.pageDef) return '';
+    let errorMessages = [];
+    const selections = this.stateManager.get('selections');
+
+    // Get existing point-buy error
     const pointBuyUnlock = this.pageDef.unlocks?.find(u => u.type === 'pointBuy');
-    if (!pointBuyUnlock) return '';
-    const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
-    if (pointSummary.current < 0) {
-      return `You have overspent by ${Math.abs(pointSummary.current)} point(s).`;
+    if (pointBuyUnlock) {
+      const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
+      if (pointSummary.current < 0) {
+        errorMessages.push(`You have overspent by ${Math.abs(pointSummary.current)} point(s).`);
+      }
     }
-    return '';
+
+    // --- NEW: Add error messages for nested options ---
+    const nestedOptionErrors = this.stateManager.itemManager.getNestedOptionsCompletionErrors(selections);
+    errorMessages = errorMessages.concat(nestedOptionErrors);
+    
+    return errorMessages.join('\n');
   }
 
   cleanup() {

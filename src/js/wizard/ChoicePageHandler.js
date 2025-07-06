@@ -181,25 +181,32 @@ class ChoicePageHandler {
     const currentId = currentState[this.config.stateKey];
     if (!currentId) return false;
 
+    // Run existing check to see if top-level items are chosen
     const availableUnlocks = this._getUnlocksForCurrentState();
-    if (availableUnlocks.length === 0) return true;
-
-    // Check every 'choice' unlock to see if it's satisfied
-    return availableUnlocks.every(unlock => {
-        if (unlock.type !== 'choice') return true; // Ignore non-choice unlocks
-
+    const mainChoicesComplete = availableUnlocks.every(unlock => {
+        if (unlock.type !== 'choice') return true;
         const selectionsInGroup = currentState.selections.filter(
             sel => sel.groupId === unlock.id && sel.source === this.config.stateKey
         );
         return selectionsInGroup.length === unlock.maxChoices;
     });
+
+    if (!mainChoicesComplete) return false;
+
+    // --- NEW: Add the check for nested options ---
+    if (!this.stateManager.itemManager.hasAllNestedOptionsSelected(currentState.selections)) {
+      return false;
+    }
+
+    return true;
   }
   
   getCompletionError() {
     const currentState = this.stateManager.getState();
-    const errors = [];
+    let errors = [];
     const availableUnlocks = this._getUnlocksForCurrentState();
 
+    // Get existing errors for top-level item choices
     availableUnlocks.forEach(unlock => {
         if (unlock.type !== 'choice') return;
 
@@ -216,6 +223,10 @@ class ChoicePageHandler {
             errors.push(`From "${unlock.name}", you must make ${remaining} more ${itemLabel}.`);
         }
     });
+    
+    // --- NEW: Add error messages for nested options ---
+    const nestedOptionErrors = this.stateManager.itemManager.getNestedOptionsCompletionErrors(currentState.selections);
+    errors = errors.concat(nestedOptionErrors);
     
     return errors.length > 0 ? errors.join('\n') : `Please complete all required choices.`;
   }

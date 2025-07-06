@@ -150,6 +150,61 @@ class ItemManager {
         return total + (itemDef?.weight || 0);
       }, 0);
   }
+
+  /**
+   * --- NEW: Checks if all selected items have their required nested options selected. ---
+   * @param {Array} selectionsArray - The array of current selections to check.
+   * @returns {boolean} - True if all nested option requirements are met.
+   */
+  hasAllNestedOptionsSelected(selectionsArray) {
+    const allItemDefs = this.stateManager.getItemData();
+
+    // .every() will stop and return false on the first item that is incomplete.
+    return selectionsArray.every(selection => {
+      const itemDef = allItemDefs[selection.id];
+      
+      // Check if the item definition exists and has options that require a choice.
+      if (itemDef && Array.isArray(itemDef.options) && itemDef.options.length > 0) {
+        const required = itemDef.maxChoices || 0;
+        const chosen = selection.selections?.length || 0;
+        
+        // If a specific number of choices is required and not met, the item is incomplete.
+        // If required is 0 or -1, this check is skipped.
+        if (required > 0 && chosen < required) {
+          return false; // This item is incomplete.
+        }
+      }
+      
+      return true; // This item is complete, or doesn't have required options.
+    });
+  }
+
+  /**
+   * --- NEW: Generates specific error messages for items with missing options. ---
+   * @param {Array} selectionsArray - The array of current selections to check.
+   * @returns {Array<string>} - A list of error messages.
+   */
+  getNestedOptionsCompletionErrors(selectionsArray) {
+    const allItemDefs = this.stateManager.getItemData();
+    const errors = [];
+
+    for (const selection of selectionsArray) {
+      const itemDef = allItemDefs[selection.id];
+      
+      if (itemDef && Array.isArray(itemDef.options) && itemDef.options.length > 0) {
+        const required = itemDef.maxChoices || 0;
+        const chosen = selection.selections?.length || 0;
+        
+        if (required > 0 && chosen < required) {
+          const remaining = required - chosen;
+          const itemLabel = remaining === 1 ? 'option' : 'options';
+          errors.push(`For "${itemDef.name}", you must select ${remaining} more ${itemLabel}.`);
+        }
+      }
+    }
+    
+    return errors;
+  }
 }
 
 
