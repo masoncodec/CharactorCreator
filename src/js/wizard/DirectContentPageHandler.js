@@ -88,30 +88,72 @@ class DirectContentPageHandler {
   }
 
   isComplete() {
-    // Run existing point-buy check
-    const pointBuyUnlock = this.pageDef.unlocks?.find(u => u.type === 'pointBuy');
+    const selections = this.stateManager.get('selections');
+    const availableUnlocks = this._getUnlocksForCurrentState();
+
+    // 1. --- NEW: Check if all required main choices have been made. ---
+    const mainChoicesComplete = availableUnlocks.every(unlock => {
+      // If the unlock isn't a choice group that requires a specific number of selections,
+      // it doesn't block completion.
+      if (unlock.type !== 'choice' || !unlock.maxChoices || unlock.maxChoices <= 0) {
+        return true;
+      }
+      
+      // Count how many items have been selected from this specific group.
+      const selectionsInGroup = selections.filter(
+        sel => sel.groupId === unlock.id && sel.source.startsWith(this.config.sourceId)
+      );
+      
+      return selectionsInGroup.length === unlock.maxChoices;
+    });
+
+    if (!mainChoicesComplete) {
+      return false;
+    }
+
+    // 2. --- EXISTING: Check for point-buy overspending. ---
+    const pointBuyUnlock = availableUnlocks.find(u => u.type === 'pointBuy');
     if (pointBuyUnlock) {
       const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
       if (pointSummary.current < 0) {
-        return false; // Overspent, so incomplete.
+        return false;
       }
     }
 
-    // --- NEW: Add the check for nested options ---
-    const selections = this.stateManager.get('selections');
+    // 3. --- EXISTING: Check for incomplete nested options within selected items. ---
     if (!this.stateManager.itemManager.hasAllNestedOptionsSelected(selections)) {
-      return false; // Incomplete nested options found.
+      return false;
     }
 
-    return true; // All checks passed.
+    // If all checks pass, the page is complete.
+    return true;
   }
 
   getCompletionError() {
-    let errorMessages = [];
+    const errorMessages = [];
     const selections = this.stateManager.get('selections');
+    const availableUnlocks = this._getUnlocksForCurrentState();
 
-    // Get existing point-buy error
-    const pointBuyUnlock = this.pageDef.unlocks?.find(u => u.type === 'pointBuy');
+    // --- NEW: Add error messages for incomplete main choices ---
+    availableUnlocks.forEach(unlock => {
+      if (unlock.type !== 'choice' || !unlock.maxChoices || unlock.maxChoices <= 0) {
+        return;
+      }
+      const selectionsInGroup = selections.filter(
+        sel => sel.groupId === unlock.id && sel.source.startsWith(this.config.sourceId)
+      );
+      const needed = unlock.maxChoices;
+      const chosen = selectionsInGroup.length;
+
+      if (chosen < needed) {
+        const remaining = needed - chosen;
+        const itemLabel = remaining === 1 ? 'choice' : 'choices';
+        errorMessages.push(`From "${unlock.name}", you must make ${remaining} more ${itemLabel}.`);
+      }
+    });
+
+    // --- EXISTING: Get point-buy error ---
+    const pointBuyUnlock = availableUnlocks.find(u => u.type === 'pointBuy');
     if (pointBuyUnlock) {
       const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
       if (pointSummary.current < 0) {
@@ -119,11 +161,10 @@ class DirectContentPageHandler {
       }
     }
 
-    // --- NEW: Add error messages for nested options ---
+    // --- EXISTING: Add error messages for nested options ---
     const nestedOptionErrors = this.stateManager.itemManager.getNestedOptionsCompletionErrors(selections);
-    errorMessages = errorMessages.concat(nestedOptionErrors);
     
-    return errorMessages.join('\n');
+    return errorMessages.concat(nestedOptionErrors).join('\n');
   }
 
   cleanup() {
