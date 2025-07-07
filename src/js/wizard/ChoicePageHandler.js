@@ -1,4 +1,5 @@
 // js/wizard/ChoicePageHandler.js
+// REFACTORED: Now renders all content into a single, scrollable page area.
 
 import { InformerContentBuilder } from './InformerContentBuilder.js';
 import { PageContentRenderer } from './PageContentRenderer.js';
@@ -10,6 +11,7 @@ class ChoicePageHandler {
     this.config = config;
     this.selectorPanel = null;
     this.contentRenderer = null;
+    this.contentContainer = null; // A dedicated container for unlock content.
 
     this._boundOptionClickHandler = this._handleOptionClick.bind(this);
     this._boundHandleStateChange = this._handleStateChange.bind(this);
@@ -17,8 +19,20 @@ class ChoicePageHandler {
 
   setupPage(selectorPanel) {
     this.selectorPanel = selectorPanel;
+
+    // --- FIX: Create and target a new container for the content unlocks ---
+    // This replaces the logic that used the separate scroll box.
+    const contentContainerId = `${this.config.stateKey}-content-container`;
+    let contentContainer = this.selectorPanel.querySelector(`#${contentContainerId}`);
+    if (!contentContainer) {
+      contentContainer = document.createElement('div');
+      contentContainer.id = contentContainerId;
+      this.selectorPanel.appendChild(contentContainer);
+    }
+    this.contentContainer = contentContainer;
+    
     this.contentRenderer = new PageContentRenderer(
-      this.selectorPanel.querySelector(this.config.contentScrollAreaClass),
+      this.contentContainer, // Render directly into our new container
       this.stateManager,
       new RuleEngine(this.stateManager)
     );
@@ -71,6 +85,9 @@ class ChoicePageHandler {
       const optionDiv = this.selectorPanel.querySelector(`${this.config.optionClassName}[${this.config.dataAttribute}="${currentId}"]`);
       optionDiv?.classList.add('selected');
       this._renderPageContent();
+    } else {
+        // If no state is restored, ensure the content area is empty.
+        this.contentContainer.innerHTML = '';
     }
   }
 
@@ -121,29 +138,19 @@ class ChoicePageHandler {
     const container = this.selectorPanel.querySelector(this.config.optionsContainerId);
     if (!container) return;
     container.innerHTML = '';
-    const isLevelUpMode = this.stateManager.get('isLevelUpMode');
-    if (isLevelUpMode) {
-        const selectedId = this.stateManager.get(this.config.stateKey);
-        if (selectedId) {
-            const optionDef = this.stateManager[this.config.getDataMethodName](selectedId);
-            if (optionDef) {
-                container.innerHTML += `<div class="${this.config.optionClassName.substring(1)} selected" ${this.config.dataAttribute}="${selectedId}"><span class="${this.config.stateKey}-name">${optionDef.displayName}</span></div>`;
-            }
-        }
-    } else {
-        const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
-        const options = moduleData ? moduleData[this.config.getOptionsKey] : [];
-        if (!options || options.length === 0) {
-            container.innerHTML = `<p>No ${this.config.pageName}s available for this module.</p>`;
-            return;
-        }
-        options.forEach(optionId => {
-            const optionDef = this.stateManager[this.config.getDataMethodName](optionId);
-            if (optionDef) {
-                container.innerHTML += `<div class="${this.config.optionClassName.substring(1)}" ${this.config.dataAttribute}="${optionId}"><span class="${this.config.stateKey}-name">${optionDef.displayName}</span></div>`;
-            }
-        });
+    
+    const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
+    const options = moduleData ? moduleData[this.config.getOptionsKey] : [];
+    if (!options || options.length === 0) {
+        container.innerHTML = `<p>No ${this.config.pageName}s available for this module.</p>`;
+        return;
     }
+    options.forEach(optionId => {
+        const optionDef = this.stateManager[this.config.getDataMethodName](optionId);
+        if (optionDef) {
+            container.innerHTML += `<div class="${this.config.optionClassName.substring(1)}" ${this.config.dataAttribute}="${optionId}"><span class="${this.config.stateKey}-name">${optionDef.displayName}</span></div>`;
+        }
+    });
   }
   
   getInformerContent() {
@@ -163,10 +170,6 @@ class ChoicePageHandler {
       return false;
     }
     
-    // We need to get the unlocks to check against.
-    // NOTE: We need a way to get unlocks without triggering a full re-render, 
-    // so we call a helper. If this helper doesn't exist, we might need to duplicate logic.
-    // For now, let's assume `_getUnlocksForCurrentState` can be used as a private helper.
     const availableUnlocks = this._getUnlocksForCurrentState();
 
     const mainChoicesComplete = availableUnlocks.every(unlock => {
