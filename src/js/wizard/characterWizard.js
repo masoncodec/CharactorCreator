@@ -1,6 +1,6 @@
 // characterWizard.js
 // This is the main orchestrator for the character creation wizard.
-// FINAL VERSION: Includes level-up mode and all state cleanup logic.
+// FINAL CORRECTED VERSION: Includes level-up mode and all state cleanup logic.
 
 // --- Core Modules ---
 import { loadGameModules, loadDataForModule } from '../dataLoader.js';
@@ -28,8 +28,12 @@ class CharacterWizard {
   constructor(moduleSystemData, db, characterToLoad = null) {
     this.db = db;
     this.stateManager = new WizardStateManager(moduleSystemData);
+    
+    // --- FIX 1: Always initialize with the full list of pages. ---
+    // The filtering logic has been moved out of the constructor.
     this.pages = ['module', 'frame', 'destiny', 'purpose', 'nurture', 'attributes', 'flaws-and-perks', 'equipment-and-loot', 'info'];
     
+    // If in level-up mode, just populate the state for now.
     if (characterToLoad) {
       this.stateManager.populateFromCharacter(characterToLoad, characterToLoad.id);
     }
@@ -46,6 +50,7 @@ class CharacterWizard {
       info: new InfoPageHandler(this.stateManager)
     };
 
+    // Initialize PageNavigator with the FULL list of pages for now.
     this.pageNavigator = new PageNavigator(this.pages, this.stateManager, this.pageHandlers, {
       loadPage: this.loadPage.bind(this)
     });
@@ -62,8 +67,20 @@ class CharacterWizard {
     console.log('CharacterWizard.init: Setting up global event listeners and initial page.');
     this.pageNavigator.initNavListeners();
     
+    // This listener handles general UI updates for the navigator.
     document.addEventListener('wizard:stateChange', () => {
         this.pageNavigator.updateNav();
+    });
+
+    // --- FIX 2: A new, specific listener to filter pages ONLY when the level changes. ---
+    document.addEventListener('wizard:stateChange', (event) => {
+      // We only run this logic in level-up mode, and only when 'creationLevel' is the key that changed.
+      if (this.stateManager.get('isLevelUpMode') && event.detail.key === 'creationLevel') {
+        console.log('Creation level changed, re-calculating relevant pages...');
+        const relevantPages = this._getRelevantLevelUpPages();
+        this.pages = relevantPages;
+        this.pageNavigator.setPages(relevantPages);
+      }
     });
     
     this.loadPage(this.pages[0]);
@@ -135,6 +152,39 @@ class CharacterWizard {
       this.informerUpdater.update(this.activePageHandler);
     }
   }
+
+  /**
+   * --- NO CHANGE HERE ---
+   * This method's logic is correct, it was just being called at the wrong time.
+   */
+  _getRelevantLevelUpPages() {
+    const originalLevel = this.stateManager.get('originalLevel');
+    const targetLevel = this.stateManager.get('creationLevel');
+    const potentialPages = ['destiny', 'purpose', 'nurture', 'flaws-and-perks', 'equipment-and-loot'];
+    
+    const relevantPages = potentialPages.filter(pageKey => {
+      let mainDefinition;
+      if (pageKey === 'flaws-and-perks') {
+        mainDefinition = this.stateManager.data.flawsAndPerksDef;
+      } else if (pageKey === 'equipment-and-loot') {
+        mainDefinition = this.stateManager.data.equipmentAndLootDef;
+      } else {
+        mainDefinition = this.stateManager.getDefinitionForSource(pageKey);
+      }
+      
+      if (!mainDefinition || !mainDefinition.levels) {
+        return false;
+      }
+      
+      return mainDefinition.levels.some(levelData => 
+        levelData.level > originalLevel && 
+        levelData.level <= targetLevel && 
+        levelData.unlocks?.length > 0
+      );
+    });
+
+    return ['module', ...relevantPages];
+  }
 }
 
 // --- Application Entry Point ---
@@ -145,7 +195,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
   
-  // --- NEW: Add listener to the home button to clean up the level-up state. ---
   const homeButton = document.querySelector('.nav-item--home');
   if (homeButton) {
       homeButton.addEventListener('click', () => {
@@ -188,7 +237,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const moduleSpecificData = await loadDataForModule(moduleDef);
       
       const wizard = new CharacterWizard(moduleSystemData, db, characterToLoad);
+      
+      // Load the data into the state manager first.
       wizard.stateManager.loadModuleData(moduleSpecificData);
+      
       wizard.init();
 
     } else {
