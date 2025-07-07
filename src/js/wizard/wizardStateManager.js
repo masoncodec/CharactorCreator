@@ -1,6 +1,5 @@
 // wizardStateManager.js
-// This module manages the central state of the character creation wizard
-// and provides access to all loaded game data.
+// UPDATED: The ItemManager now understands the new 'unlocks' data structure.
 
 import { alerter } from '../alerter.js';
 
@@ -14,23 +13,38 @@ class ItemManager {
     const { id } = itemDef;
     const isAlreadySelected = this.state.selections.some(sel => sel.id === id && sel.source === source);
 
-    const parentDef = {
-        'destiny': this.stateManager.getDestiny(this.state.destiny),
-        'purpose': this.stateManager.getPurpose(this.state.purpose),
-        'nurture': this.stateManager.getNurture(this.state.nurture)
-    }[source] || {};
-    
+    // --- START OF FIX ---
+
     let groupDef = null;
-    if (groupId && parentDef && Array.isArray(parentDef.levels)) {
-        for (const levelData of parentDef.levels) {
-            if (levelData.choiceGroups && levelData.choiceGroups[groupId]) {
-                groupDef = levelData.choiceGroups[groupId];
-                break;
+    const parentDef = this.stateManager.getDefinitionForSource(source);
+
+    // If the parent page definition is found...
+    if (parentDef) {
+        // ...and it's a point-buy system, look for the group inside its 'groups' object.
+        if (parentDef.unlocks?.some(u => u.type === 'pointBuy')) {
+            const pointBuyUnlock = parentDef.unlocks.find(u => u.type === 'pointBuy');
+            groupDef = pointBuyUnlock?.groups?.[groupId];
+        } else {
+            // ...otherwise, look for the group in the top-level unlocks (for Choice pages).
+            if (Array.isArray(parentDef.levels)) {
+                for (const levelData of parentDef.levels) {
+                    if (levelData.unlocks) {
+                        const foundUnlock = levelData.unlocks.find(u => u.id === groupId);
+                        if (foundUnlock) {
+                            groupDef = foundUnlock;
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
+    
+    // Use the maxChoices from the found group definition, NOT the item itself.
+    const maxChoices = groupDef?.maxChoices;
+    
+    // --- END OF FIX ---
 
-    const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
 
     if (isAlreadySelected) {
       if (groupId && maxChoices === 1 && ['destiny', 'purpose', 'nurture'].includes(source)) {
@@ -50,12 +64,18 @@ class ItemManager {
         }
     }
 
-    let newSelections = [...this.state.selections];
+    // --- START OF FIX ---
 
+    // This is the radio-button logic. It needs to operate on the real state array.
     if (groupId && maxChoices === 1) {
-      newSelections = newSelections.filter(
-        sel => !(sel.groupId === groupId && sel.source === source)
+      // Find the index of an existing item from this exclusive group.
+      const existingSelectionIndex = this.state.selections.findIndex(
+        sel => sel.groupId === groupId && sel.source === source
       );
+      // If one is found, remove it.
+      if (existingSelectionIndex > -1) {
+        this.state.selections.splice(existingSelectionIndex, 1);
+      }
     }
     
     const newSelectionData = { 
@@ -68,9 +88,13 @@ class ItemManager {
         newSelectionData.groupId = groupId;
     }
 
-    newSelections.push(newSelectionData);
-    this.stateManager.set('selections', newSelections);
-    console.log(`ItemManager: Selected new item '${id}'.`, newSelectionData);
+    // Directly push the new selection to the master state array.
+    this.state.selections.push(newSelectionData);
+    
+    // Now, trigger the update by calling set() with the mutated state array.
+    this.stateManager.set('selections', this.state.selections);
+
+    // --- END OF FIX ---
   }
 
   deselectItem(itemId, source) {
@@ -126,6 +150,61 @@ class ItemManager {
         return total + (itemDef?.weight || 0);
       }, 0);
   }
+
+  /**
+   * --- NEW: Checks if all selected items have their required nested options selected. ---
+   * @param {Array} selectionsArray - The array of current selections to check.
+   * @returns {boolean} - True if all nested option requirements are met.
+   */
+  hasAllNestedOptionsSelected(selectionsArray) {
+    const allItemDefs = this.stateManager.getItemData();
+
+    // .every() will stop and return false on the first item that is incomplete.
+    return selectionsArray.every(selection => {
+      const itemDef = allItemDefs[selection.id];
+      
+      // Check if the item definition exists and has options that require a choice.
+      if (itemDef && Array.isArray(itemDef.options) && itemDef.options.length > 0) {
+        const required = itemDef.maxChoices || 0;
+        const chosen = selection.selections?.length || 0;
+        
+        // If a specific number of choices is required and not met, the item is incomplete.
+        // If required is 0 or -1, this check is skipped.
+        if (required > 0 && chosen < required) {
+          return false; // This item is incomplete.
+        }
+      }
+      
+      return true; // This item is complete, or doesn't have required options.
+    });
+  }
+
+  /**
+   * --- NEW: Generates specific error messages for items with missing options. ---
+   * @param {Array} selectionsArray - The array of current selections to check.
+   * @returns {Array<string>} - A list of error messages.
+   */
+  getNestedOptionsCompletionErrors(selectionsArray) {
+    const allItemDefs = this.stateManager.getItemData();
+    const errors = [];
+
+    for (const selection of selectionsArray) {
+      const itemDef = allItemDefs[selection.id];
+      
+      if (itemDef && Array.isArray(itemDef.options) && itemDef.options.length > 0) {
+        const required = itemDef.maxChoices || 0;
+        const chosen = selection.selections?.length || 0;
+        
+        if (required > 0 && chosen < required) {
+          const remaining = required - chosen;
+          const itemLabel = remaining === 1 ? 'option' : 'options';
+          errors.push(`For "${itemDef.name}", you must select ${remaining} more ${itemLabel}.`);
+        }
+      }
+    }
+    
+    return errors;
+  }
 }
 
 
@@ -144,8 +223,10 @@ class WizardStateManager {
     this.data = {
       modules: moduleSystemData || {},
       destinies: {}, purposes: {}, nurtures: {}, abilities: {}, flaws: {},
-      perks: {}, equipment: {}, 
-      communities: {}, relationships: {},
+      perks: {}, equipment: {}, communities: {}, relationships: {},
+      // --- NEW: Storing the new page definitions ---
+      flawsAndPerksDef: {},
+      equipmentAndLootDef: {},
       allItems: {}
     };
     this.itemManager = new ItemManager(this);
@@ -187,11 +268,13 @@ class WizardStateManager {
     this.data.equipment = loadedData.equipmentAndLootData || {};
     this.data.communities = loadedData.communityData || {};
     this.data.relationships = loadedData.relationshipData || {};
-    this.data.allItems = {};
+    // --- NEW: Storing the loaded page definitions ---
+    this.data.flawsAndPerksDef = loadedData.flawsAndPerksDef || {};
+    this.data.equipmentAndLootDef = loadedData.equipmentAndLootDef || {};
 
+    this.data.allItems = {};
     this._normalizeData();
-    
-    console.log('WizardStateManager: New module data loaded. Item map now contains', Object.keys(this.data.allItems).length, 'items.');
+    console.log('WizardStateManager: New module data loaded.');
     document.dispatchEvent(new CustomEvent('wizard:dataLoaded'));
   }
 
@@ -224,39 +307,56 @@ class WizardStateManager {
   set(key, value) {
     if (this.state.hasOwnProperty(key)) {
       
-      // --- NEW: Logic to remove selections from levels that are no longer accessible ---
+      // --- START OF REPLACEMENT LOGIC ---
       if (key === 'creationLevel') {
         const oldLevel = this.state.creationLevel;
         const newLevel = value;
         
+        // Only run this logic if the level is actually being decreased.
         if (newLevel < oldLevel) {
-          const invalidGroupIds = new Set();
-          const sources = ['destiny', 'purpose', 'nurture'];
+          console.log(`Level decreased from ${oldLevel} to ${newLevel}. Clearing selections from invalid levels.`);
+          const invalidUnlockIds = new Set();
+          
+          // Define all page sources that can have leveled unlocks.
+          const pageSources = ['destiny', 'purpose', 'nurture', 'flaws-and-perks', 'equipment-and-loot'];
 
-          // Find all choice group IDs from the levels that are being removed
-          sources.forEach(sourceType => {
-            const sourceId = this.get(sourceType);
-            if (!sourceId) return;
+          pageSources.forEach(pageKey => {
+            let mainDefinition;
+            // Get the correct page definition based on the page type.
+            if (pageKey === 'flaws-and-perks') {
+              mainDefinition = this.data.flawsAndPerksDef;
+            } else if (pageKey === 'equipment-and-loot') {
+              mainDefinition = this.data.equipmentAndLootDef;
+            } else {
+              mainDefinition = this.getDefinitionForSource(pageKey);
+            }
 
-            const definition = this[`get${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)}`](sourceId);
-            if (!definition || !Array.isArray(definition.levels)) return;
-
-            definition.levels.forEach(levelData => {
-              if (levelData.level > newLevel) {
-                if (levelData.choiceGroups) {
-                  Object.keys(levelData.choiceGroups).forEach(groupId => invalidGroupIds.add(groupId));
+            if (mainDefinition && mainDefinition.levels) {
+              // Find all levels that are now inaccessible.
+              mainDefinition.levels.forEach(levelData => {
+                if (levelData.level > newLevel) {
+                  // Add the ID of every unlock from that level to our set.
+                  levelData.unlocks?.forEach(unlock => {
+                    invalidUnlockIds.add(unlock.id);
+                  });
                 }
-              }
-            });
+              });
+            }
           });
 
-          // Filter the selections array, removing any item belonging to an invalid group
-          if (invalidGroupIds.size > 0) {
-            this.state.selections = this.state.selections.filter(sel => !invalidGroupIds.has(sel.groupId));
+          // If we found any invalid unlock IDs, filter the selections array.
+          if (invalidUnlockIds.size > 0) {
+            const originalCount = this.state.selections.length;
+            // A selection is kept only if its groupId is NOT in the set of invalid unlock IDs.
+            this.state.selections = this.state.selections.filter(sel => !invalidUnlockIds.has(sel.groupId));
+            const removedCount = originalCount - this.state.selections.length;
+            if (removedCount > 0) {
+              console.log(`Removed ${removedCount} selection(s) from higher levels.`);
+            }
           }
         }
       }
-      // --- END NEW ---
+      // --- END OF REPLACEMENT LOGIC ---
 
       this.state[key] = value;
       document.dispatchEvent(new CustomEvent('wizard:stateChange', {
@@ -303,23 +403,49 @@ class WizardStateManager {
   getItemData() { return this.data.allItems; }
   getItemDefinition(itemId) { return this.data.allItems[itemId] || null;
   }
-  getIndependentFlawTotalWeight() { return this.itemManager.getTotalWeightBySource('independent-flaw', this.data.allItems); }
-  getIndependentPerkTotalWeight() { return this.itemManager.getTotalWeightBySource('independent-perk', this.data.allItems); }
-  getAvailableCharacterPoints() {
-    const flawPoints = this.getIndependentFlawTotalWeight();
-    const perkPoints = this.getIndependentPerkTotalWeight();
-    return flawPoints - perkPoints;
-  }
-  getEquipmentPointsSummary() {
-    const TOTAL_POINTS = 20;
-    const spentPoints = this.state.selections
-      .filter(sel => sel.source === 'equipment-and-loot')
-      .reduce((total, sel) => {
-        const itemDef = this.data.allItems[sel.id];
+  /**
+   * --- NEW: A generic function to calculate the state of any point pool. ---
+   * @param {Object} pointBuyUnlock - The `pointBuy` unlock object from the JSON definition.
+   * @returns {Object} An object like { name, current, total, id }.
+   */
+  getPointPoolSummary(pointBuyUnlock) {
+    if (!pointBuyUnlock || !pointBuyUnlock.pointPool) {
+      return { name: 'Invalid Pool', current: 0, total: 0, id: null };
+    }
+
+    const pool = pointBuyUnlock.pointPool;
+    let currentPoints = pool.initialValue;
+    const allItemDefs = this.getItemData();
+
+    // Find all groups associated with this point-buy unlock
+    const groupsInSystem = new Map(Object.entries(pointBuyUnlock.groups || {}));
+
+    // Calculate spent/gained points from selections
+    this.state.selections.forEach(sel => {
+      // A selection belongs to this pool if its groupId is one of the groups in the system
+      if (sel.groupId && groupsInSystem.has(sel.groupId)) {
+        const groupData = groupsInSystem.get(sel.groupId);
+        const itemDef = allItemDefs[sel.id];
+        if (!itemDef) return;
+
+        const cost = itemDef.weight || 0; // Assumes cost is always 'weight'
         const quantity = sel.quantity || 1;
-        return total + ((itemDef?.weight || 0) * quantity);
-      }, 0);
-    return { total: TOTAL_POINTS, spent: spentPoints, remaining: TOTAL_POINTS - spentPoints };
+        const totalCost = cost * quantity;
+
+        if (groupData.pointModifier === 'add') {
+          currentPoints += totalCost;
+        } else if (groupData.pointModifier === 'subtract') {
+          currentPoints -= totalCost;
+        }
+      }
+    });
+
+    return {
+      id: pool.id,
+      name: pool.name,
+      current: currentPoints,
+      total: pool.initialValue
+    };
   }
   addOrUpdateInventoryItem(newItemData) {
     const existingItemIndex = this.state.inventory.findIndex(item => item.id === newItemData.id);
@@ -341,7 +467,6 @@ class WizardStateManager {
 
   getCombinedAttributeBonuses() {
     const attributeBonuses = {};
-
     const sources = ['destiny', 'purpose', 'nurture'];
     const level = this.get('creationLevel');
 
@@ -350,25 +475,48 @@ class WizardStateManager {
         if (!sourceId) continue;
 
         const definition = this[`get${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)}`](sourceId);
+        // The check should be for definition.levels
         if (!definition || !Array.isArray(definition.levels)) continue;
 
+        // Iterate through each level object (e.g., level 1, level 2)
         for (const levelData of definition.levels) {
             if (levelData.level > level) continue;
 
-            const rewards = levelData.rewards;
-            if (!rewards || !rewards.attributes) continue;
-            
-            // Sum attribute bonuses
-            for (const attr in rewards.attributes) {
-                if (attributeBonuses[attr]) {
-                    attributeBonuses[attr] += rewards.attributes[attr];
-                } else {
-                    attributeBonuses[attr] = rewards.attributes[attr];
+            // --- START FIX ---
+            // If the level has no unlocks, skip it
+            if (!levelData.unlocks || !Array.isArray(levelData.unlocks)) continue;
+
+            // Now, iterate through the UNLOCKS within that level
+            for (const unlock of levelData.unlocks) {
+              // Check if this unlock is a reward AND if it has attribute bonuses
+              if (unlock.type === 'reward' && unlock.rewards?.attributes) {
+                
+                // Sum the attribute bonuses from this unlock
+                for (const attr in unlock.rewards.attributes) {
+                  const value = unlock.rewards.attributes[attr];
+                  if (attributeBonuses[attr]) {
+                      attributeBonuses[attr] += value;
+                  } else {
+                      attributeBonuses[attr] = value;
+                  }
                 }
+              }
             }
+            // --- END FIX ---
         }
     }
     return attributeBonuses;
+  }
+
+  getDefinitionForSource(source) {
+    const sourceId = this.get(source);
+    if (!sourceId) return null;
+
+    const getterName = `get${source.charAt(0).toUpperCase() + source.slice(1)}`;
+    if (typeof this[getterName] === 'function') {
+      return this[getterName](sourceId);
+    }
+    return null;
   }
 }
 

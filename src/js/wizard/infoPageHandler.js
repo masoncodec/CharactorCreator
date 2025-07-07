@@ -5,12 +5,29 @@ class InfoPageHandler {
   constructor(stateManager) {
     this.stateManager = stateManager;
     this.selectorPanel = null;
+
+    // --- NEW: Bind the new state change handler ---
+    this._boundStateChangeHandler = this._handleStateChange.bind(this);
   }
 
   setupPage(selectorPanel) {
     this.selectorPanel = selectorPanel;
     this._attachEventListeners();
     this._restoreState();
+
+    // --- NEW: Add the event listener ---
+    document.addEventListener('wizard:stateChange', this._boundStateChangeHandler);
+  }
+  
+  // --- NEW: Add this entire method ---
+  /**
+   * Listens for changes to the 'info' state and tells the informer to update.
+   * @param {CustomEvent} event The state change event.
+   */
+  _handleStateChange(event) {
+    if (event.detail.key === 'info') {
+      document.dispatchEvent(new CustomEvent('wizard:informerUpdate', { detail: { handler: this } }));
+    }
   }
 
   _attachEventListeners() {
@@ -38,8 +55,6 @@ class InfoPageHandler {
     if (charBioInput) charBioInput.value = infoState.bio || '';
   }
 
-  // --- NEW: Methods for delegated logic ---
-
   getInformerContent() {
     const currentState = this.stateManager.getState();
     return `
@@ -49,7 +64,9 @@ class InfoPageHandler {
   }
 
   isComplete(currentState) {
-    return !!currentState.info.name?.trim();
+    // We now receive currentState from the PageNavigator, so we should use it.
+    const info = currentState.info || {};
+    return !!info.name?.trim();
   }
 
   getCompletionError() {
@@ -59,6 +76,9 @@ class InfoPageHandler {
   cleanup() {
     this.selectorPanel.querySelector('#characterName')?.removeEventListener('input', this._boundNameInputHandler);
     this.selectorPanel.querySelector('#characterBio')?.removeEventListener('input', this._boundBioInputHandler);
+    
+    // --- NEW: Remove the state change listener ---
+    document.removeEventListener('wizard:stateChange', this._boundStateChangeHandler);
   }
 }
 

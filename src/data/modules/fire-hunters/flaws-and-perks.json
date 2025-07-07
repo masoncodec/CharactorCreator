@@ -1,0 +1,36 @@
+{
+    "id": "flaws-and-perks-page",
+    "name": "Flaws & Perks",
+    "description": "Select flaws to gain points, then spend those points on powerful perks.",
+    "levels": [
+        {
+            "level": 1,
+            "unlocks": [
+                {
+                    "type": "pointBuy",
+                    "id": "character_points_system",
+                    "name": "Character Point System",
+                    "pointPool": {
+                        "id": "characterPoints",
+                        "name": "Character Points",
+                        "initialValue": 0
+                    },
+                    "groups": {
+                        "base_flaws": {
+                            "name": "Available Flaws",
+                            "pointModifier": "add",
+                            "type": "flaw",
+                            "items": [ "frail", "stranger", "overconfidence", "arrogance", "code-of-honor", "naive-idealism", "greed", "recklessness", "dogmatic", "zealotry", "perfectionist", "stage-fright", "ego", "rivalry", "vulnerable", "melodrama", "impulsive", "distraction" ]
+                        },
+                        "base_perks": {
+                            "name": "Available Perks",
+                            "pointModifier": "subtract",
+                            "type": "perk",
+                            "items": [ "keen-eyes", "fast-learner", "lucky-break", "well-connected", "iron-stomach", "adaptive-mind" ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

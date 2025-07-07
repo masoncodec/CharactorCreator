@@ -1,135 +1,30 @@
 // flawsAndPerksPageHandler.js
-// REFACTORED: This module handles the UI for the 'flaws-and-perks' page
-// and its associated completion and informer logic.
+// REFACTORED: Now a thin wrapper around the generic DirectContentPageHandler.
 
-import { ItemSelectorComponent } from './ItemSelectorComponent.js';
-import { RuleEngine } from './RuleEngine.js';
+import { DirectContentPageHandler } from './DirectContentPageHandler.js';
 
-class FlawsAndPerksPageHandler {
+// Configuration specific to the Flaws & Perks page
+const flawsAndPerksConfig = {
+  pageName: 'Flaws & Perks',
+  sourceId: 'flaws-and-perks',
+  definitionKey: 'flawsAndPerksDef'
+};
+
+class FlawsAndPerksPageHandler extends DirectContentPageHandler {
   constructor(stateManager) {
-    this.stateManager = stateManager;
-    this.selectorPanel = null;
-    this.flawSelectorComponent = null;
-    this.perkSelectorComponent = null;
-    this.ruleEngine = new RuleEngine(this.stateManager);
-
-    this._handleStateChange = this._handleStateChange.bind(this);
-    console.log('FlawsAndPerksPageHandler: Initialized (Refactored).');
+    super(stateManager, flawsAndPerksConfig);
   }
 
-  setupPage(selectorPanel) {
-    this.selectorPanel = selectorPanel;
-    const flawContainer = this.selectorPanel.querySelector('.flaws-grid-container');
-    const perkContainer = this.selectorPanel.querySelector('.perks-grid-container');
-
-    if (!flawContainer || !perkContainer) {
-      console.error('Could not find required .flaws-grid-container or .perks-grid-container.');
-      return;
-    }
-
-    const allItems = this.stateManager.getItemData();
-    const allFlawData = Object.values(allItems).filter(item => item.itemType === 'flaw')
-      .reduce((acc, item) => ({ ...acc, [item.id]: item }), {});
-    const allPerkData = Object.values(allItems).filter(item => item.itemType === 'perk')
-      .reduce((acc, item) => ({ ...acc, [item.id]: item }), {});
-
-    this.flawSelectorComponent = new ItemSelectorComponent(flawContainer, allFlawData, 'independent-flaw', this.stateManager, this.ruleEngine);
-    this.perkSelectorComponent = new ItemSelectorComponent(perkContainer, allPerkData, 'independent-perk', this.stateManager, this.ruleEngine);
-
-    this.flawSelectorComponent.render();
-    this.perkSelectorComponent.render();
-    
-    document.addEventListener('wizard:stateChange', this._handleStateChange);
-  }
-
-  _handleStateChange(event) {
-    if (event.detail.key === 'selections') {
-      this.perkSelectorComponent?.render();
-      this.flawSelectorComponent?.render();
-    }
-  }
-  
-  getInformerContent() {
-    const currentState = this.stateManager.getState();
-    const allItemDefs = this.stateManager.getItemData();
-    const independentSelections = currentState.selections.filter(sel => sel.source.startsWith('independent-'));
-    
-    const renderIndependentItems = (itemType) => {
-        const items = independentSelections.filter(sel => allItemDefs[sel.id]?.itemType === itemType);
-        if (items.length === 0) return `<p>No ${itemType}s selected yet.</p>`;
-        return items.map(sel => {
-            const itemDef = allItemDefs[sel.id];
-            return `<div class="selected-item-display-card"><h5>${itemDef.name} (${itemDef.weight} pts)</h5></div>`;
-        }).join('');
-    };
-    
-    const availablePoints = this.stateManager.getAvailableCharacterPoints();
-
-    return `
-      <h3>Flaws & Perks</h3>
-      <div class="points-summary-container"><strong>Available Points: ${availablePoints}</strong></div>
-      <hr/>
-      <div class="selected-items-columns">
-        <div class="selected-column">
-          <h4>Selected Flaws</h4>
-          ${renderIndependentItems('flaw')}
-        </div>
-        <div class="selected-column">
-          <h4>Selected Perks</h4>
-          ${renderIndependentItems('perk')}
-        </div>
-      </div>`;
-  }
-
-  isComplete(currentState) {
-    const allItemDefs = this.stateManager.getItemData();
-    const choicesComplete = currentState.selections
-      .filter(sel => sel.source.startsWith('independent-'))
-      .every(sel => {
-        const itemDef = allItemDefs[sel.id];
-        return !(itemDef?.options && itemDef.maxChoices && sel.selections.length !== itemDef.maxChoices);
-      });
-    
-    const pointsValid = this.stateManager.getAvailableCharacterPoints() >= 0;
-    return choicesComplete && pointsValid;
-  }
-
-  /**
-   * MODIFIED: Generates a detailed list of point deficits and incomplete choices.
-   * @returns {string} A comprehensive error message.
-   */
+  // You can still override methods here if this page has unique behavior.
+  // For example, if the error message needs to be more specific:
   getCompletionError() {
-    const currentState = this.stateManager.getState();
-    const allItemDefs = this.stateManager.getItemData();
-    const errors = [];
-
-    // Check for point balance
-    const points = this.stateManager.getAvailableCharacterPoints();
-    if (points < 0) {
-      errors.push(`You have overspent by ${Math.abs(points)} point(s). Please add Flaws or remove Perks.`);
+    const pointBuyUnlock = this.pageDef?.unlocks?.find(u => u.type === 'pointBuy');
+    if (!pointBuyUnlock) return '';
+    const pointSummary = this.stateManager.getPointPoolSummary(pointBuyUnlock);
+    if (pointSummary.current < 0) {
+      return `You have overspent by ${Math.abs(pointSummary.current)} Character Point(s).`;
     }
-
-    // Check for incomplete nested choices
-    currentState.selections
-      .filter(sel => sel.source.startsWith('independent-'))
-      .forEach(sel => {
-        const itemDef = allItemDefs[sel.id];
-        if (itemDef?.options && itemDef.maxChoices && sel.selections.length < itemDef.maxChoices) {
-          errors.push(`The ${itemDef.itemType} "${itemDef.name}" requires a selection. Please make a choice.`);
-        }
-      });
-    
-    if (errors.length > 0) {
-      return errors.join('\n');
-    }
-
-    return 'An unknown validation error occurred.';
-  }
-
-  cleanup() {
-    this.flawSelectorComponent?.cleanup();
-    this.perkSelectorComponent?.cleanup();
-    document.removeEventListener('wizard:stateChange', this._handleStateChange);
+    return '';
   }
 }
 

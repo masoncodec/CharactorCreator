@@ -1,12 +1,6 @@
 // dataLoader.js
-// This module centralizes all asynchronous data loading operations for the game.
-// REFACTORED: To intuit data file paths based on the module's ID.
+// UPDATED: Now loads the new definition files for refactored pages.
 
-/**
- * Loads the initial list of all available game modules.
- * This runs once when the application first starts.
- * @returns {Promise<Object>} A promise that resolves with the module system data.
- */
 export async function loadGameModules() {
   console.log('dataLoader: Starting to load all game modules...');
   try {
@@ -28,13 +22,6 @@ export async function loadGameModules() {
   }
 }
 
-/**
- * Loads all data files associated with a single, specific module.
- * This is called on-demand when a user selects a module in the wizard.
- * This function now dynamically constructs file paths.
- * @param {Object} moduleDef - The module's definition object from module.json.
- * @returns {Promise<Object>} A promise that resolves with all data for that module.
- */
 export async function loadDataForModule(moduleDef) {
   console.log(`dataLoader: Loading all data for module '${moduleDef.id}'...`);
   if (!moduleDef || !moduleDef.id || !moduleDef.dataFiles) {
@@ -44,8 +31,10 @@ export async function loadDataForModule(moduleDef) {
   try {
     const dataFileMap = moduleDef.dataFiles;
     const moduleId = moduleDef.id;
-    // Add data types to the array
-    const dataTypes = ["abilities", "flaws", "perks", "equipmentAndLoot", "communities", "relationships"];
+    const dataTypes = [
+        "abilities", "flaws", "perks", "equipmentAndLoot", "communities", "relationships",
+        "flawsAndPerksDef", "equipmentAndLootDef" // ADDED
+    ];
     const fetchPromises = {};
 
     dataTypes.forEach(type => {
@@ -53,7 +42,6 @@ export async function loadDataForModule(moduleDef) {
         const path = `data/modules/${moduleId}/${dataFileMap[type]}`;
         fetchPromises[type] = fetch(path).then(res => res.json());
       } else {
-        // If a data file isn't specified for a type, resolve with an empty object.
         fetchPromises[type] = Promise.resolve({});
       }
     });
@@ -68,24 +56,14 @@ export async function loadDataForModule(moduleDef) {
       fetch(`data/modules/${moduleId}/nurtures/${nurtureId}.json`).then(r => r.json())
     );
 
-    // Await the data promises
     const [
-      abilityData,
-      flawData,
-      perkData,
-      equipmentAndLootData,
-      communityData,
-      relationshipData,
-      destinyResults,
-      purposeResults,
-      nurtureResults
+      abilityData, flawData, perkData, equipmentAndLootData, communityData, relationshipData,
+      flawsAndPerksDef, equipmentAndLootDef, // ADDED
+      destinyResults, purposeResults, nurtureResults
     ] = await Promise.all([
-      fetchPromises.abilities,
-      fetchPromises.flaws,
-      fetchPromises.perks,
-      fetchPromises.equipmentAndLoot,
-      fetchPromises.communities,
-      fetchPromises.relationships,
+      fetchPromises.abilities, fetchPromises.flaws, fetchPromises.perks, fetchPromises.equipmentAndLoot,
+      fetchPromises.communities, fetchPromises.relationships,
+      fetchPromises.flawsAndPerksDef, fetchPromises.equipmentAndLootDef, // ADDED
       Promise.all(destinyPromises),
       Promise.all(purposePromises),
       Promise.all(nurturePromises)
@@ -106,17 +84,10 @@ export async function loadDataForModule(moduleDef) {
 
     console.log(`dataLoader: All data for module '${moduleId}' loaded successfully.`);
 
-    // Return the data
     return {
-      abilityData,
-      flawData,
-      perkData,
-      equipmentAndLootData,
-      communityData,
-      relationshipData,
-      destinyData,
-      purposeData,
-      nurtureData
+      abilityData, flawData, perkData, equipmentAndLootData, communityData, relationshipData,
+      flawsAndPerksDef, equipmentAndLootDef, // ADDED
+      destinyData, purposeData, nurtureData
     };
 
   } catch (error) {

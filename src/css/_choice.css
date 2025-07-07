@@ -1,0 +1,100 @@
+/* css/_choice-page.css */
+/* Unified styles for all "Choice" pages (Destiny, Purpose, Nurture) */
+
+/* ---------------------------------- */
+/* --- Layout Fix and Level Groups -- */
+/* ---------------------------------- */
+
+.level-container {
+  /* Adds spacing between Level 1, Level 2, etc. containers */
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #444;
+}
+
+.level-container:first-child {
+  /* Removes the extra top margin and border from the very first level container */
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.level-header {
+  margin-bottom: 1.5rem;
+  color: #FFD700;
+  font-size: 1.25rem;
+}
+
+/* FIX: This ensures all unlock groups inside a level stack vertically */
+.level-content-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; /* Defines the space between unlock groups within a level */
+}
+
+
+/* ---------------------------------- */
+/* --- Top-Level Option Buttons ----- */
+/* ---------------------------------- */
+
+/* Target all option containers at once */
+#destiny-options-container,
+#purpose-options-container,
+#nurture-options-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 2rem; /* Add space between the buttons and the content below */
+}
+
+/* Target all option buttons at once */
+.destiny-option,
+.purpose-option,
+.nurture-option {
+    flex: 1 1 calc(50% - 10px); /* 2 items per row, accounts for gap */
+    box-sizing: border-box;
+    padding: 15px;
+    background-color: #252525;
+    color: #E0E0E0;
+    border: 1px solid #444;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease-in-out;
+    font-weight: bold;
+    font-size: 0.95rem;
+    position: relative;
+}
+
+.destiny-option:hover,
+.purpose-option:hover,
+.nurture-option:hover {
+    background-color: #3A3A3A;
+    border-color: #FFD700;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.destiny-option.selected,
+.purpose-option.selected,
+.nurture-option.selected {
+    background-color: #B22222;
+    border-color: #FFD700;
+    color: white;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.destiny-option.selected:hover,
+.purpose-option.selected:hover,
+.nurture-option.selected:hover {
+    background-color: #C23232;
+    border-color: #FFD700;
+}
+
+.destiny-option .destiny-name,
+.purpose-option .purpose-name,
+.nurture-option .nurture-name {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+}

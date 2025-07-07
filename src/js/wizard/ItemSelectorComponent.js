@@ -1,6 +1,5 @@
 // ItemSelectorComponent.js
-// A reusable component to render and manage a grid of selectable items.
-// REVERTED: The 'isLocked' logic has been removed as it is no longer needed.
+// FINAL VERSION: Correctly finds group definitions within the new 'unlocks' structure.
 
 class ItemSelectorComponent {
   constructor(containerElement, itemsToRender, source, stateManager, ruleEngine, context = null) {
@@ -31,20 +30,29 @@ class ItemSelectorComponent {
     this.container.addEventListener('click', this._boundHandleClick);
   }
   
+  /**
+   * --- REPLACED: Now correctly finds the unlock definition from the new data structure. ---
+   */
   _getGroupDefinition(itemDef) {
     if (!this.context || !itemDef.groupId) return null;
+    
+    // The getDefinition function will return the full page definition (e.g., Destiny object).
     const mainDefinition = this.context.getDefinition();
-    // This now correctly finds the groupDef within the levels array
-    let groupDef = null;
-    if (mainDefinition && Array.isArray(mainDefinition.levels)) {
-        for (const levelData of mainDefinition.levels) {
-            if (levelData.choiceGroups && levelData.choiceGroups[itemDef.groupId]) {
-                groupDef = levelData.choiceGroups[itemDef.groupId];
+    if (!mainDefinition || !Array.isArray(mainDefinition.levels)) return null;
+
+    let unlockDef = null;
+    // Search through all unlocks across all levels to find the one that matches our groupId.
+    for (const levelData of mainDefinition.levels) {
+        if (levelData.unlocks) {
+            // The item's groupId is the unlock's id.
+            const foundUnlock = levelData.unlocks.find(u => u.id === itemDef.groupId);
+            if (foundUnlock) {
+                unlockDef = foundUnlock;
                 break;
             }
         }
     }
-    return groupDef;
+    return unlockDef;
   }
 
   _createCardHTML(itemDef, selectionState, validationState) {
@@ -53,12 +61,13 @@ class ItemSelectorComponent {
     const disabledClass = isDisabled ? 'disabled-for-selection' : '';
     const selectedClass = isSelected ? 'selected' : '';
     
-    const groupDef = this._getGroupDefinition(itemDef);
+    // The 'group definition' is now the 'unlock definition'.
+    const unlockDef = this._getGroupDefinition(itemDef);
     
-    const maxChoices = groupDef?.maxChoices ?? itemDef.maxChoices;
+    const maxChoices = unlockDef?.maxChoices ?? itemDef.maxChoices;
     const inputType = (maxChoices === 1) ? 'radio' : 'checkbox';
     
-    const inputName = groupDef ? `group-${this.source}` : `item-${itemDef.id}`;
+    const inputName = unlockDef ? `group-${this.source}-${unlockDef.id}` : `item-${itemDef.id}`;
 
     return `
       <div class="item-container">
@@ -114,13 +123,6 @@ class ItemSelectorComponent {
   }
 
   _handleClick(e) {
-    // --- NEW: Prevent all clicks if the component is locked ---
-    if (this.isLocked) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-    }
-    
     const card = e.target.closest('.ability-card');
     if (!card || card.classList.contains('disabled-for-selection')) {
       return;

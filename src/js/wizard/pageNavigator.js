@@ -101,6 +101,14 @@ class PageNavigator {
     this.navItems.forEach(item => {
       const page = item.dataset.page;
       const index = this.pages.indexOf(page);
+
+      // --- START OF MODIFICATION ---
+      // If the page is not in our (potentially filtered) list of pages, hide it.
+      const isRelevant = this.pages.includes(page);
+      item.style.display = isRelevant ? '' : 'none';
+      if (!isRelevant) return; // Don't process it further if it's hidden.
+      // --- END OF MODIFICATION ---
+
       const canAccess = this._canAccessPage(index, currentState);
       const isCompleted = this.isPageCompleted(page, currentState);
 
@@ -174,6 +182,17 @@ class PageNavigator {
         this.loadPageCallback(this.pages[currentPageIndex - 1]);
       }
     }
+  }
+
+  /**
+   * --- NEW: Allows the wizard to update the list of pages after initialization. ---
+   * @param {string[]} newPagesArray - The new, filtered array of page names.
+   */
+  setPages(newPagesArray) {
+    this.pages = newPagesArray;
+    // After updating the page list, we must immediately update the navigation
+    // to reflect the changes (e.g., hiding irrelevant links).
+    this.updateNav();
   }
 
   getCompletionError(pageName) {
