@@ -1,5 +1,5 @@
 // js/wizard/PageContentRenderer.js
-// FINAL CORRECTED VERSION: Creates a standardized context for all sub-components.
+// REFACTORED: Now groups content by level.
 
 import { ItemSelectorComponent } from './ItemSelectorComponent.js';
 import { EquipmentSelectorComponent } from './EquipmentSelectorComponent.js';
@@ -14,42 +14,66 @@ class PageContentRenderer {
   }
 
   /**
-   * @param {Array} unlocks - The list of unlock objects to render.
+   * REFACTORED: This method now drives the rendering process by looping through levels.
    * @param {string} sourceId - The source key for this page (e.g., 'destiny').
    * @param {Object} mainPageDefinition - The full definition object for the page.
    */
-  render(unlocks, sourceId, mainPageDefinition) {
+  render(sourceId, mainPageDefinition) {
     this.cleanup();
     this.container.innerHTML = '';
     const allItemDefs = this.stateManager.getItemData();
 
-    if (!unlocks || unlocks.length === 0) return;
+    if (!mainPageDefinition || !mainPageDefinition.levels) return;
 
-    unlocks.forEach(unlock => {
-      // --- FIX: This context object is now created correctly and consistently. ---
-      const context = {
-        getDefinition: () => mainPageDefinition,
-        unlock: unlock,
-        pageType: unlock.type // Pass the unlock type for the RuleEngine
-      };
+    const isLevelUpMode = this.stateManager.get('isLevelUpMode');
+    const originalLevel = this.stateManager.get('originalLevel');
+    const targetLevel = this.stateManager.get('creationLevel');
 
-      switch (unlock.type) {
-        case 'reward':
-          this.renderRewardUnlock(unlock);
-          break;
-        case 'choice':
-          this.renderChoiceUnlock(unlock, sourceId, allItemDefs, context);
-          break;
-        case 'pointBuy':
-          this.renderPointBuyUnlock(unlock, sourceId, context);
-          break;
-        default:
-          console.warn(`Unknown unlock type: ${unlock.type}`);
-      }
+    // 1. Loop through each level defined in the page data.
+    mainPageDefinition.levels.forEach(levelData => {
+      // Rule Checks
+      if (levelData.level > targetLevel) return;
+      if (isLevelUpMode && levelData.level <= originalLevel) return;
+      if (!levelData.unlocks || levelData.unlocks.length === 0) return;
+
+      // 2. Create the container and header for this level group.
+      const levelContainer = document.createElement('div');
+      levelContainer.className = 'level-container';
+      levelContainer.innerHTML = `<h4 class="level-header">Level ${levelData.level}</h4>`;
+      
+      const contentGrid = document.createElement('div');
+      contentGrid.className = 'level-content-grid';
+      levelContainer.appendChild(contentGrid);
+
+      // 3. Loop through the unlocks FOR THIS LEVEL and render them into the container.
+      levelData.unlocks.forEach(unlock => {
+        const context = {
+          getDefinition: () => mainPageDefinition,
+          unlock: unlock,
+          pageType: unlock.type
+        };
+
+        switch (unlock.type) {
+          case 'reward':
+            this.renderRewardUnlock(unlock, contentGrid);
+            break;
+          case 'choice':
+            this.renderChoiceUnlock(unlock, sourceId, allItemDefs, context, contentGrid);
+            break;
+          case 'pointBuy':
+            this.renderPointBuyUnlock(unlock, sourceId, context, contentGrid);
+            break;
+          default:
+            console.warn(`Unknown unlock type: ${unlock.type}`);
+        }
+      });
+      
+      // 4. Append the completed level container to the main panel.
+      this.container.appendChild(levelContainer);
     });
   }
 
-  renderRewardUnlock(unlock) {
+  renderRewardUnlock(unlock, parentContainer) {
     const rewardEl = document.createElement('div');
     rewardEl.className = 'reward-unlock-container';
     let content = `<h5 class="group-header">${unlock.name || 'Automatic Reward'}</h5>`;
@@ -62,10 +86,10 @@ class PageContentRenderer {
       }
     }
     rewardEl.innerHTML = content;
-    this.container.appendChild(rewardEl);
+    parentContainer.appendChild(rewardEl);
   }
 
-  renderChoiceUnlock(unlock, sourceId, allItemDefs, context) {
+  renderChoiceUnlock(unlock, sourceId, allItemDefs, context, parentContainer) {
     const groupContainer = document.createElement('div');
     groupContainer.className = 'ability-group-container';
     const maxChoicesText = unlock.maxChoices === 1 ? 'Choose 1' : unlock.maxChoices === -1 ? 'Choose any' : `Choose up to ${unlock.maxChoices}`;
@@ -74,7 +98,7 @@ class PageContentRenderer {
     const componentContainer = document.createElement('div');
     componentContainer.className = 'abilities-grid-container';
     groupContainer.appendChild(componentContainer);
-    this.container.appendChild(groupContainer);
+    parentContainer.appendChild(groupContainer);
 
     const itemsForGroup = (unlock.items || []).reduce((acc, itemId) => {
         const itemData = allItemDefs[itemId];
@@ -94,10 +118,10 @@ class PageContentRenderer {
     selector.render();
   }
 
-  renderPointBuyUnlock(unlock, sourceId, context) {
+  renderPointBuyUnlock(unlock, sourceId, context, parentContainer) {
     const pointBuyContainer = document.createElement('div');
     pointBuyContainer.className = 'embedded-point-buy-system';
-    this.container.appendChild(pointBuyContainer);
+    parentContainer.appendChild(pointBuyContainer);
     
     const componentSourceId = `${sourceId}-${unlock.id}`;
     

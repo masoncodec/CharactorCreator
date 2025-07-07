@@ -1,5 +1,4 @@
 // js/wizard/ChoicePageHandler.js
-// FINAL VERSION: Correctly passes data to the PageContentRenderer.
 
 import { InformerContentBuilder } from './InformerContentBuilder.js';
 import { PageContentRenderer } from './PageContentRenderer.js';
@@ -35,31 +34,22 @@ class ChoicePageHandler {
   }
 
   _handleStateChange(event) {
-    // --- REPLACED: This logic is now more comprehensive ---
     const key = event.detail.key;
-
-    // Define which state changes should trigger an informer update for this page
     const needsInformerUpdate = [
         'selections', 
         'creationLevel', 
-        this.config.stateKey // This now correctly listens for 'destiny', 'purpose', etc.
+        this.config.stateKey
     ].includes(key);
 
     if (needsInformerUpdate) {
-        // Only re-render the main content panel if selections or level change,
-        // as changing the main choice (e.g. Destiny) handles its own re-render.
         if (key === 'selections' || key === 'creationLevel') {
             this._renderPageContent();
         }
-        
-        // Always dispatch the informer update if a relevant key changed.
         document.dispatchEvent(new CustomEvent('wizard:informerUpdate', { detail: { handler: this } }));
     }
   }
 
   _handleOptionClick(e) {
-    if (this.stateManager.get('isLevelUpMode')) return;
-    
     const optionDiv = e.target.closest(this.config.optionClassName);
     if (!optionDiv) return;
 
@@ -84,19 +74,13 @@ class ChoicePageHandler {
     }
   }
 
-  /**
-   * --- UPDATED: Passes the correct data to the PageContentRenderer. ---
-   */
   _renderPageContent() {
     if (this.contentRenderer) {
-      const allUnlocks = this._getUnlocksForCurrentState();
-      // Get the entire definition object for the current page (e.g., the full Destiny object)
       const mainDefinition = this.stateManager.getDefinitionForSource(this.config.stateKey);
-      // Pass the unlocks, the source key, and the full definition to the renderer
-      this.contentRenderer.render(allUnlocks, this.config.stateKey, mainDefinition);
+      this.contentRenderer.render(this.config.stateKey, mainDefinition);
     }
   }
-
+  
   _getUnlocksForCurrentState() {
     const isLevelUpMode = this.stateManager.get('isLevelUpMode');
     const originalLevel = this.stateManager.get('originalLevel');
@@ -143,7 +127,7 @@ class ChoicePageHandler {
         if (selectedId) {
             const optionDef = this.stateManager[this.config.getDataMethodName](selectedId);
             if (optionDef) {
-                container.innerHTML += `<div class="${this.config.optionClassName.substring(1)} selected disabled" ${this.config.dataAttribute}="${selectedId}"><span class="${this.config.stateKey}-name">${optionDef.displayName}</span></div>`;
+                container.innerHTML += `<div class="${this.config.optionClassName.substring(1)} selected" ${this.config.dataAttribute}="${selectedId}"><span class="${this.config.stateKey}-name">${optionDef.displayName}</span></div>`;
             }
         }
     } else {
@@ -162,10 +146,6 @@ class ChoicePageHandler {
     }
   }
   
-  /**
-   * --- REPLACED ---
-   * This method now delegates the complex HTML generation to the InformerContentBuilder.
-   */
   getInformerContent() {
     const currentId = this.stateManager.get(this.config.stateKey);
     if (!currentId) return `<p class="informer-placeholder">Select your ${this.config.pageName}.</p>`;
@@ -179,21 +159,30 @@ class ChoicePageHandler {
   
   isComplete(currentState) {
     const currentId = currentState[this.config.stateKey];
-    if (!currentId) return false;
-
-    // Run existing check to see if top-level items are chosen
+    if (!currentId) {
+      return false;
+    }
+    
+    // We need to get the unlocks to check against.
+    // NOTE: We need a way to get unlocks without triggering a full re-render, 
+    // so we call a helper. If this helper doesn't exist, we might need to duplicate logic.
+    // For now, let's assume `_getUnlocksForCurrentState` can be used as a private helper.
     const availableUnlocks = this._getUnlocksForCurrentState();
+
     const mainChoicesComplete = availableUnlocks.every(unlock => {
-        if (unlock.type !== 'choice') return true;
-        const selectionsInGroup = currentState.selections.filter(
-            sel => sel.groupId === unlock.id && sel.source === this.config.stateKey
-        );
-        return selectionsInGroup.length === unlock.maxChoices;
+      if (unlock.type !== 'choice' || !unlock.maxChoices || unlock.maxChoices <= 0) {
+        return true;
+      }
+      const selectionsInGroup = currentState.selections.filter(
+        sel => sel.groupId === unlock.id && sel.source === this.config.stateKey
+      );
+      return selectionsInGroup.length === unlock.maxChoices;
     });
 
-    if (!mainChoicesComplete) return false;
+    if (!mainChoicesComplete) {
+      return false;
+    }
 
-    // --- NEW: Add the check for nested options ---
     if (!this.stateManager.itemManager.hasAllNestedOptionsSelected(currentState.selections)) {
       return false;
     }
@@ -201,34 +190,31 @@ class ChoicePageHandler {
     return true;
   }
   
-  getCompletionError() {
-    const currentState = this.stateManager.getState();
-    let errors = [];
+  getCompletionError(currentState) {
+    const errors = [];
     const availableUnlocks = this._getUnlocksForCurrentState();
 
-    // Get existing errors for top-level item choices
     availableUnlocks.forEach(unlock => {
-        if (unlock.type !== 'choice') return;
+      if (unlock.type !== 'choice' || !unlock.maxChoices || unlock.maxChoices <= 0) {
+        return;
+      }
+      const selectionsInGroup = currentState.selections.filter(
+        sel => sel.groupId === unlock.id && sel.source === this.config.stateKey
+      );
+      const needed = unlock.maxChoices;
+      const chosen = selectionsInGroup.length;
 
-        const selectionsInGroup = currentState.selections.filter(
-            sel => sel.groupId === unlock.id && sel.source === this.config.stateKey
-        );
-        
-        const needed = unlock.maxChoices;
-        const chosen = selectionsInGroup.length;
-
-        if (chosen < needed) {
-            const remaining = needed - chosen;
-            const itemLabel = remaining === 1 ? 'choice' : 'choices';
-            errors.push(`From "${unlock.name}", you must make ${remaining} more ${itemLabel}.`);
-        }
+      if (chosen < needed) {
+        const remaining = needed - chosen;
+        const itemLabel = remaining === 1 ? 'choice' : 'choices';
+        errors.push(`From "${unlock.name}", you must make ${remaining} more ${itemLabel}.`);
+      }
     });
     
-    // --- NEW: Add error messages for nested options ---
     const nestedOptionErrors = this.stateManager.itemManager.getNestedOptionsCompletionErrors(currentState.selections);
-    errors = errors.concat(nestedOptionErrors);
+    errors.push(...nestedOptionErrors);
     
-    return errors.length > 0 ? errors.join('\n') : `Please complete all required choices.`;
+    return errors.join('\n');
   }
 
   cleanup() {
