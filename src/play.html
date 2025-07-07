@@ -7,36 +7,47 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div class="character-creator play-area">
-        <a href="index.html" class="home-link">← Return to Home</a>
+    <div class="play-container">
 
-        <div class="play-area-content">
-            <div class="panel character-sheet">
-                <h2><span id="characterNameHeader">Character Sheet</span></h2>
-                <div id="characterDetails">
-                    </div>
-
-                <div class="character-actions">
-                    <button id="levelUpBtn" class="btn btn-primary">Level Up</button>
-                    <button id="exportSingleCharacterBtn" class="btn btn-secondary">Export Character</button>
-                    <a href="character-selector.html" class="btn btn-secondary">Change Character</a>
+        <nav class="play-nav-top">
+            <a href="index.html" class="btn btn-secondary">← Home</a>
+            <div id="character-header-info">
                 </div>
-            </div>
+            <div class="nav-spacer"></div> </nav>
 
-            <div class="panel tools-panel">
-                <h2>Tools</h2>
-                <div class="dice-container">
-                    <button id="rollD20" class="btn btn-primary">Roll D20</button>
-                    <div id="diceResult"></div>
+        <main class="play-content-scrollable">
+            <nav class="tabs-nav">
+                <button class="tab-button active" data-tab="main-panel">Main</button>
+                <button class="tab-button" data-tab="abilities-panel">Abilities</button>
+                <button class="tab-button" data-tab="profile-panel">Profile</button>
+                <button class="tab-button" data-tab="inventory-panel">Inventory</button>
+            </nav>
+
+            <div id="main-panel" class="tab-panel active">
                 </div>
+            <div id="abilities-panel" class="tab-panel">
+                </div>
+            <div id="profile-panel" class="tab-panel">
+                </div>
+            <div id="inventory-panel" class="tab-panel">
+                </div>
+        </main>
+
+        <nav class="play-nav-bottom">
+            <div class="character-actions">
+                <button id="levelUpBtn" class="btn btn-primary">Level Up</button>
+                <button id="exportSingleCharacterBtn" class="btn btn-secondary">Export Character</button>
+                <a href="character-selector.html" class="btn btn-secondary">Change Character</a>
             </div>
-        </div>
+        </nav>
     </div>
 
     <script src="js/db.js"></script>
     <script type="module" src="js/alerter.js"></script>
     <script type="module" src="js/effectHandler.js"></script>
     <script type="module" src="js/dataLoader.js"></script>
+    <script type="module" src="js/RollManager.js"></script>
+    <script type="module" src="js/play-ui.js"></script> 
     <script type="module" src="js/play.js"></script>
 </body>
 </html>
