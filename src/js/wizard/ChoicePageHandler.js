@@ -1,5 +1,5 @@
 // js/wizard/ChoicePageHandler.js
-// FINAL VERSION: Correctly triggers auto-selection logic.
+// FINAL VERSION: Correctly scopes completion validation to the specific page.
 
 import { InformerContentBuilder } from './InformerContentBuilder.js';
 import { PageContentRenderer } from './PageContentRenderer.js';
@@ -45,9 +45,6 @@ class ChoicePageHandler {
     document.addEventListener('wizard:stateChange', this._boundHandleStateChange);
   }
 
-  /**
-   * This method now calls _autoSelectUnlocks when the level changes.
-   */
   _handleStateChange(event) {
     const key = event.detail.key;
     const needsInformerUpdate = [
@@ -57,13 +54,10 @@ class ChoicePageHandler {
     ].includes(key);
 
     if (needsInformerUpdate) {
-        // If the level changes, run auto-selection logic again
-        // to grant any newly available automatic unlocks.
         if (key === 'creationLevel') {
             this._autoSelectUnlocks();
             this._renderPageContent();
         } else if (key === 'selections') {
-            // Re-render for selection changes, but no need to auto-select again.
             this._renderPageContent();
         }
         
@@ -86,10 +80,6 @@ class ChoicePageHandler {
     this._renderPageContent();
   }
 
-  /**
-   * This method now calls _autoSelectUnlocks to handle page loads
-   * where a choice is already made (like in level-up mode).
-   */
   _restoreState() {
     const currentId = this.stateManager.get(this.config.stateKey);
     if (currentId) {
@@ -97,13 +87,12 @@ class ChoicePageHandler {
       const optionDiv = this.selectorPanel.querySelector(`${this.config.optionClassName}[${this.config.dataAttribute}="${currentId}"]`);
       optionDiv?.classList.add('selected');
       
-      // Call auto-select here to handle initial page load
-      // in level-up mode or when returning to a page in creation mode.
       this._autoSelectUnlocks();
-      
       this._renderPageContent();
     } else {
-        this.contentContainer.innerHTML = '';
+        if (this.contentContainer) {
+          this.contentContainer.innerHTML = '';
+        }
     }
   }
 
@@ -124,7 +113,6 @@ class ChoicePageHandler {
     let availableUnlocks = [];
     mainDefinition.levels.forEach(levelData => {
       if (levelData.level > targetLevel) return;
-      // In level-up mode, only get unlocks for NEW levels.
       if (isLevelUpMode && levelData.level <= originalLevel) return;
       if (levelData.unlocks) {
         availableUnlocks.push(...levelData.unlocks);
@@ -156,8 +144,6 @@ class ChoicePageHandler {
     if (!container) return;
     container.innerHTML = '';
     
-    // In level-up mode, we show the chosen option, but it's not clickable to change.
-    // The handler for this was changed in a previous step.
     if (this.stateManager.get('isLevelUpMode')) {
         const selectedId = this.stateManager.get(this.config.stateKey);
         if (selectedId) {
@@ -166,10 +152,9 @@ class ChoicePageHandler {
                 container.innerHTML += `<div class="${this.config.optionClassName.substring(1)} selected" ${this.config.dataAttribute}="${selectedId}"><span class="${this.config.stateKey}-name">${optionDef.displayName}</span></div>`;
             }
         }
-        return; // End here for level-up mode
+        return;
     }
 
-    // Standard creation mode rendering
     const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
     const options = moduleData ? moduleData[this.config.getOptionsKey] : [];
     if (!options || options.length === 0) {
@@ -201,14 +186,20 @@ class ChoicePageHandler {
       return false;
     }
     
+    // --- FIX: Filter selections to only those relevant to THIS page ---
+    const selectionsForThisPage = currentState.selections.filter(
+      sel => sel.source === this.config.stateKey
+    );
+    
     const availableUnlocks = this._getUnlocksForCurrentState();
 
     const mainChoicesComplete = availableUnlocks.every(unlock => {
       if (unlock.type !== 'choice' || !unlock.maxChoices || unlock.maxChoices <= 0) {
         return true;
       }
-      const selectionsInGroup = currentState.selections.filter(
-        sel => sel.groupId === unlock.id && sel.source === this.config.stateKey
+      // Use the filtered selections array for this check
+      const selectionsInGroup = selectionsForThisPage.filter(
+        sel => sel.groupId === unlock.id
       );
       return selectionsInGroup.length === unlock.maxChoices;
     });
@@ -217,7 +208,8 @@ class ChoicePageHandler {
       return false;
     }
 
-    if (!this.stateManager.itemManager.hasAllNestedOptionsSelected(currentState.selections)) {
+    // Use the filtered selections array for the nested options check as well
+    if (!this.stateManager.itemManager.hasAllNestedOptionsSelected(selectionsForThisPage)) {
       return false;
     }
 
@@ -226,14 +218,21 @@ class ChoicePageHandler {
   
   getCompletionError(currentState) {
     const errors = [];
+    
+    // --- FIX: Filter selections to only those relevant to THIS page ---
+    const selectionsForThisPage = currentState.selections.filter(
+      sel => sel.source === this.config.stateKey
+    );
+
     const availableUnlocks = this._getUnlocksForCurrentState();
 
     availableUnlocks.forEach(unlock => {
       if (unlock.type !== 'choice' || !unlock.maxChoices || unlock.maxChoices <= 0) {
         return;
       }
-      const selectionsInGroup = currentState.selections.filter(
-        sel => sel.groupId === unlock.id && sel.source === this.config.stateKey
+      // Use the filtered selections array for this check
+      const selectionsInGroup = selectionsForThisPage.filter(
+        sel => sel.groupId === unlock.id
       );
       const needed = unlock.maxChoices;
       const chosen = selectionsInGroup.length;
@@ -245,7 +244,8 @@ class ChoicePageHandler {
       }
     });
     
-    const nestedOptionErrors = this.stateManager.itemManager.getNestedOptionsCompletionErrors(currentState.selections);
+    // Use the filtered selections array for the nested options check
+    const nestedOptionErrors = this.stateManager.itemManager.getNestedOptionsCompletionErrors(selectionsForThisPage);
     errors.push(...nestedOptionErrors);
     
     return errors.join('\n');

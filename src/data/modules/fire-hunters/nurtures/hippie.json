@@ -44,7 +44,7 @@
                     "id": "domain_abilities",
                     "name": "Domain Abilities",
                     "itemType": "ability",
-                    "maxChoices": 2,
+                    "maxChoices": 1,
                     "items": ["small-domain", "medium-domain", "large-domain"]
                 }
             ]
