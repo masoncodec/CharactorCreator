@@ -1,6 +1,5 @@
 // characterWizard.js
-// This is the main orchestrator for the character creation wizard.
-// FINAL CORRECTED VERSION: Includes level-up mode and all state cleanup logic.
+// FINAL VERSION: Includes corrected dynamic page filtering for character creation mode.
 
 // --- Core Modules ---
 import { loadGameModules, loadDataForModule } from '../dataLoader.js';
@@ -29,11 +28,9 @@ class CharacterWizard {
     this.db = db;
     this.stateManager = new WizardStateManager(moduleSystemData);
     
-    // --- FIX 1: Always initialize with the full list of pages. ---
-    // The filtering logic has been moved out of the constructor.
-    this.pages = ['module', 'frame', 'destiny', 'purpose', 'nurture', 'attributes', 'flaws-and-perks', 'equipment-and-loot', 'info'];
+    this.masterPageList = ['module', 'frame', 'destiny', 'purpose', 'nurture', 'attributes', 'flaws-and-perks', 'equipment-and-loot', 'info'];
+    this.pages = [...this.masterPageList];
     
-    // If in level-up mode, just populate the state for now.
     if (characterToLoad) {
       this.stateManager.populateFromCharacter(characterToLoad, characterToLoad.id);
     }
@@ -50,7 +47,6 @@ class CharacterWizard {
       info: new InfoPageHandler(this.stateManager)
     };
 
-    // Initialize PageNavigator with the FULL list of pages for now.
     this.pageNavigator = new PageNavigator(this.pages, this.stateManager, this.pageHandlers, {
       loadPage: this.loadPage.bind(this)
     });
@@ -67,20 +63,12 @@ class CharacterWizard {
     console.log('CharacterWizard.init: Setting up global event listeners and initial page.');
     this.pageNavigator.initNavListeners();
     
-    // This listener handles general UI updates for the navigator.
-    document.addEventListener('wizard:stateChange', () => {
-        this.pageNavigator.updateNav();
-    });
-
-    // --- FIX 2: A new, specific listener to filter pages ONLY when the level changes. ---
     document.addEventListener('wizard:stateChange', (event) => {
-      // We only run this logic in level-up mode, and only when 'creationLevel' is the key that changed.
-      if (this.stateManager.get('isLevelUpMode') && event.detail.key === 'creationLevel') {
-        console.log('Creation level changed, re-calculating relevant pages...');
-        const relevantPages = this._getRelevantLevelUpPages();
-        this.pages = relevantPages;
-        this.pageNavigator.setPages(relevantPages);
+      const key = event.detail.key;
+      if (key === 'creationLevel' || key === 'module') {
+        this._updateVisiblePages();
       }
+      this.pageNavigator.updateNav();
     });
     
     this.loadPage(this.pages[0]);
@@ -89,7 +77,79 @@ class CharacterWizard {
       this.pageNavigator.setFinishButtonText('Complete Level Up');
     }
   }
-  
+
+  _updateVisiblePages() {
+    let relevantPages = [];
+    if (this.stateManager.get('isLevelUpMode')) {
+      relevantPages = this._getRelevantLevelUpPages();
+    } else {
+      relevantPages = this._getRelevantCreationPages();
+    }
+    this.pages = relevantPages;
+    this.pageNavigator.setPages(relevantPages);
+  }
+
+  /**
+   * --- REWRITTEN: This method now contains the correct filtering logic for creation mode. ---
+   */
+  _getRelevantCreationPages() {
+    const creationLevel = this.stateManager.get('creationLevel');
+    // These pages are always visible in creation mode per your rules.
+    const staticPages = ['module', 'frame', 'attributes', 'info'];
+    // These pages will be checked for level-based content.
+    const dynamicPages = ['destiny', 'purpose', 'nurture', 'flaws-and-perks', 'equipment-and-loot'];
+
+    const relevantDynamicPages = dynamicPages.filter(pageKey => {
+      let definitionsToCheck = [];
+
+      // Collect the definitions that need to be checked for this page key.
+      if (pageKey === 'flaws-and-perks') {
+        definitionsToCheck.push(this.stateManager.data.flawsAndPerksDef);
+      } else if (pageKey === 'equipment-and-loot') {
+        definitionsToCheck.push(this.stateManager.data.equipmentAndLootDef);
+      } else {
+        // --- START OF FIX ---
+        // This mapping corrects the 'destiny' vs 'destinies' typo and makes the code more robust.
+        const pluralMap = {
+          destiny: 'destinies',
+          purpose: 'purposes',
+          nurture: 'nurtures'
+        };
+        const dataKey = pluralMap[pageKey];
+        const dataSet = this.stateManager.data[dataKey];
+        // --- END OF FIX ---
+        
+        if (dataSet) {
+          definitionsToCheck = Object.values(dataSet);
+        }
+      }
+      
+      if (definitionsToCheck.length === 0 || definitionsToCheck.every(d => d === undefined)) {
+        return false;
+      }
+
+      // A page is relevant if ANY of its possible definitions meet the criteria.
+      return definitionsToCheck.some(definition => {
+        if (!definition || !definition.levels || definition.levels.length === 0) {
+          return true; // Per your rule, show if no level data exists.
+        }
+        // A definition is relevant if it has any unlocks AT OR BELOW the current creationLevel.
+        return definition.levels.some(levelData => 
+          levelData.level <= creationLevel && 
+          levelData.unlocks?.length > 0
+        );
+      });
+    });
+
+    const finalPages = [...staticPages, ...relevantDynamicPages];
+    // Re-sort the final list to match the original intended order.
+    finalPages.sort((a, b) => this.masterPageList.indexOf(a) - this.masterPageList.indexOf(b));
+
+    return finalPages;
+  }
+
+  // --- No changes to the methods below this point ---
+
   async selectModule(moduleId) {
     if (!moduleId || this.stateManager.get('isLevelUpMode')) return;
     
@@ -153,10 +213,6 @@ class CharacterWizard {
     }
   }
 
-  /**
-   * --- NO CHANGE HERE ---
-   * This method's logic is correct, it was just being called at the wrong time.
-   */
   _getRelevantLevelUpPages() {
     const originalLevel = this.stateManager.get('originalLevel');
     const targetLevel = this.stateManager.get('creationLevel');
@@ -187,7 +243,7 @@ class CharacterWizard {
   }
 }
 
-// --- Application Entry Point ---
+// Application Entry Point
 document.addEventListener('DOMContentLoaded', async () => {
   if (typeof db === 'undefined') {
     console.error("CharacterWizard: Database module 'db' not found.");
@@ -198,13 +254,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const homeButton = document.querySelector('.nav-item--home');
   if (homeButton) {
       homeButton.addEventListener('click', () => {
-          console.log('Home button clicked, clearing level-up state.');
           sessionStorage.removeItem('levelUpCharacterId');
       });
   }
 
-  console.log('CharacterWizard: DOMContentLoaded. Checking for mode...');
-  
   let characterToLoad = null;
   const characterIdToLoad = sessionStorage.getItem('levelUpCharacterId');
 
@@ -212,12 +265,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const { moduleSystemData } = await loadGameModules();
 
     if (characterIdToLoad) {
-      // --- LEVEL-UP MODE ---
-      console.log(`CharacterWizard: Level-Up Mode activated for character ID: ${characterIdToLoad}`);
+      // LEVEL-UP MODE
       characterToLoad = await db.getCharacterById(parseInt(characterIdToLoad));
-      
       if (!characterToLoad) throw new Error(`Character with ID ${characterIdToLoad} not found.`);
-
       const reconstructSelections = (char) => {
           const selections = [];
           const sources = ['abilities', 'perks', 'flaws', 'communities', 'relationships'];
@@ -226,30 +276,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                   selections.push(...char[sourceKey]);
               }
           });
-          console.log(`Reconstructed ${selections.length} selections for level-up process.`);
           return selections;
       };
       characterToLoad.selections = reconstructSelections(characterToLoad);
-
       const moduleDef = moduleSystemData[characterToLoad.module];
       if (!moduleDef) throw new Error(`Module '${characterToLoad.module}' not found for loaded character.`);
-      
       const moduleSpecificData = await loadDataForModule(moduleDef);
-      
       const wizard = new CharacterWizard(moduleSystemData, db, characterToLoad);
-      
-      // Load the data into the state manager first.
       wizard.stateManager.loadModuleData(moduleSpecificData);
-      
       wizard.init();
-
     } else {
-      // --- CREATION MODE ---
-      console.log("CharacterWizard: Creation Mode activated.");
+      // CREATION MODE
       const wizard = new CharacterWizard(moduleSystemData, db);
       wizard.init();
     }
-
   } catch (error) {
     console.error('CharacterWizard: A critical error occurred during initialization:', error);
     alerter.show(`Failed to load critical data: ${error.message}. The application cannot start.`, 'error');
