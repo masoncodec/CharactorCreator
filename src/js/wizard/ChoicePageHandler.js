@@ -1,5 +1,5 @@
 // js/wizard/ChoicePageHandler.js
-// REFACTORED: Now renders all content into a single, scrollable page area.
+// FINAL VERSION: Correctly triggers auto-selection logic.
 
 import { InformerContentBuilder } from './InformerContentBuilder.js';
 import { PageContentRenderer } from './PageContentRenderer.js';
@@ -11,7 +11,7 @@ class ChoicePageHandler {
     this.config = config;
     this.selectorPanel = null;
     this.contentRenderer = null;
-    this.contentContainer = null; // A dedicated container for unlock content.
+    this.contentContainer = null;
 
     this._boundOptionClickHandler = this._handleOptionClick.bind(this);
     this._boundHandleStateChange = this._handleStateChange.bind(this);
@@ -20,8 +20,6 @@ class ChoicePageHandler {
   setupPage(selectorPanel) {
     this.selectorPanel = selectorPanel;
 
-    // --- FIX: Create and target a new container for the content unlocks ---
-    // This replaces the logic that used the separate scroll box.
     const contentContainerId = `${this.config.stateKey}-content-container`;
     let contentContainer = this.selectorPanel.querySelector(`#${contentContainerId}`);
     if (!contentContainer) {
@@ -32,7 +30,7 @@ class ChoicePageHandler {
     this.contentContainer = contentContainer;
     
     this.contentRenderer = new PageContentRenderer(
-      this.contentContainer, // Render directly into our new container
+      this.contentContainer,
       this.stateManager,
       new RuleEngine(this.stateManager)
     );
@@ -47,6 +45,9 @@ class ChoicePageHandler {
     document.addEventListener('wizard:stateChange', this._boundHandleStateChange);
   }
 
+  /**
+   * This method now calls _autoSelectUnlocks when the level changes.
+   */
   _handleStateChange(event) {
     const key = event.detail.key;
     const needsInformerUpdate = [
@@ -56,9 +57,16 @@ class ChoicePageHandler {
     ].includes(key);
 
     if (needsInformerUpdate) {
-        if (key === 'selections' || key === 'creationLevel') {
+        // If the level changes, run auto-selection logic again
+        // to grant any newly available automatic unlocks.
+        if (key === 'creationLevel') {
+            this._autoSelectUnlocks();
+            this._renderPageContent();
+        } else if (key === 'selections') {
+            // Re-render for selection changes, but no need to auto-select again.
             this._renderPageContent();
         }
+        
         document.dispatchEvent(new CustomEvent('wizard:informerUpdate', { detail: { handler: this } }));
     }
   }
@@ -78,15 +86,23 @@ class ChoicePageHandler {
     this._renderPageContent();
   }
 
+  /**
+   * This method now calls _autoSelectUnlocks to handle page loads
+   * where a choice is already made (like in level-up mode).
+   */
   _restoreState() {
     const currentId = this.stateManager.get(this.config.stateKey);
     if (currentId) {
       this._renderOptions();
       const optionDiv = this.selectorPanel.querySelector(`${this.config.optionClassName}[${this.config.dataAttribute}="${currentId}"]`);
       optionDiv?.classList.add('selected');
+      
+      // Call auto-select here to handle initial page load
+      // in level-up mode or when returning to a page in creation mode.
+      this._autoSelectUnlocks();
+      
       this._renderPageContent();
     } else {
-        // If no state is restored, ensure the content area is empty.
         this.contentContainer.innerHTML = '';
     }
   }
@@ -108,6 +124,7 @@ class ChoicePageHandler {
     let availableUnlocks = [];
     mainDefinition.levels.forEach(levelData => {
       if (levelData.level > targetLevel) return;
+      // In level-up mode, only get unlocks for NEW levels.
       if (isLevelUpMode && levelData.level <= originalLevel) return;
       if (levelData.unlocks) {
         availableUnlocks.push(...levelData.unlocks);
@@ -139,6 +156,20 @@ class ChoicePageHandler {
     if (!container) return;
     container.innerHTML = '';
     
+    // In level-up mode, we show the chosen option, but it's not clickable to change.
+    // The handler for this was changed in a previous step.
+    if (this.stateManager.get('isLevelUpMode')) {
+        const selectedId = this.stateManager.get(this.config.stateKey);
+        if (selectedId) {
+            const optionDef = this.stateManager[this.config.getDataMethodName](selectedId);
+            if (optionDef) {
+                container.innerHTML += `<div class="${this.config.optionClassName.substring(1)} selected" ${this.config.dataAttribute}="${selectedId}"><span class="${this.config.stateKey}-name">${optionDef.displayName}</span></div>`;
+            }
+        }
+        return; // End here for level-up mode
+    }
+
+    // Standard creation mode rendering
     const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
     const options = moduleData ? moduleData[this.config.getOptionsKey] : [];
     if (!options || options.length === 0) {

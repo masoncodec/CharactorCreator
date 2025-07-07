@@ -307,39 +307,56 @@ class WizardStateManager {
   set(key, value) {
     if (this.state.hasOwnProperty(key)) {
       
-      // --- NEW: Logic to remove selections from levels that are no longer accessible ---
+      // --- START OF REPLACEMENT LOGIC ---
       if (key === 'creationLevel') {
         const oldLevel = this.state.creationLevel;
         const newLevel = value;
         
+        // Only run this logic if the level is actually being decreased.
         if (newLevel < oldLevel) {
-          const invalidGroupIds = new Set();
-          const sources = ['destiny', 'purpose', 'nurture'];
+          console.log(`Level decreased from ${oldLevel} to ${newLevel}. Clearing selections from invalid levels.`);
+          const invalidUnlockIds = new Set();
+          
+          // Define all page sources that can have leveled unlocks.
+          const pageSources = ['destiny', 'purpose', 'nurture', 'flaws-and-perks', 'equipment-and-loot'];
 
-          // Find all choice group IDs from the levels that are being removed
-          sources.forEach(sourceType => {
-            const sourceId = this.get(sourceType);
-            if (!sourceId) return;
+          pageSources.forEach(pageKey => {
+            let mainDefinition;
+            // Get the correct page definition based on the page type.
+            if (pageKey === 'flaws-and-perks') {
+              mainDefinition = this.data.flawsAndPerksDef;
+            } else if (pageKey === 'equipment-and-loot') {
+              mainDefinition = this.data.equipmentAndLootDef;
+            } else {
+              mainDefinition = this.getDefinitionForSource(pageKey);
+            }
 
-            const definition = this[`get${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)}`](sourceId);
-            if (!definition || !Array.isArray(definition.levels)) return;
-
-            definition.levels.forEach(levelData => {
-              if (levelData.level > newLevel) {
-                if (levelData.choiceGroups) {
-                  Object.keys(levelData.choiceGroups).forEach(groupId => invalidGroupIds.add(groupId));
+            if (mainDefinition && mainDefinition.levels) {
+              // Find all levels that are now inaccessible.
+              mainDefinition.levels.forEach(levelData => {
+                if (levelData.level > newLevel) {
+                  // Add the ID of every unlock from that level to our set.
+                  levelData.unlocks?.forEach(unlock => {
+                    invalidUnlockIds.add(unlock.id);
+                  });
                 }
-              }
-            });
+              });
+            }
           });
 
-          // Filter the selections array, removing any item belonging to an invalid group
-          if (invalidGroupIds.size > 0) {
-            this.state.selections = this.state.selections.filter(sel => !invalidGroupIds.has(sel.groupId));
+          // If we found any invalid unlock IDs, filter the selections array.
+          if (invalidUnlockIds.size > 0) {
+            const originalCount = this.state.selections.length;
+            // A selection is kept only if its groupId is NOT in the set of invalid unlock IDs.
+            this.state.selections = this.state.selections.filter(sel => !invalidUnlockIds.has(sel.groupId));
+            const removedCount = originalCount - this.state.selections.length;
+            if (removedCount > 0) {
+              console.log(`Removed ${removedCount} selection(s) from higher levels.`);
+            }
           }
         }
       }
-      // --- END NEW ---
+      // --- END OF REPLACEMENT LOGIC ---
 
       this.state[key] = value;
       document.dispatchEvent(new CustomEvent('wizard:stateChange', {
