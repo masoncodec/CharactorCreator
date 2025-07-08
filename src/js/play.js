@@ -224,26 +224,49 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // --- Inventory Equip/Unequip Listener ---
         document.getElementById('inventory-panel').addEventListener('click', async (event) => {
-            const target = event.target.closest('.btn-equip');
-            if (!target || !activeCharacter) return;
-
-            const itemId = target.dataset.itemId;
-            const newInventory = activeCharacter.inventory.map(item => {
-                if (item.id === itemId) {
-                    // Return a new object with the 'equipped' property toggled
-                    return { ...item, equipped: !item.equipped };
+            if (!activeCharacter) return;
+        
+            const equipButton = event.target.closest('.btn-equip');
+            const useButton = event.target.closest('.btn-use');
+            const craftButton = event.target.closest('.btn-craft');
+        
+            // Handle Equip/Unequip Action
+            if (equipButton) {
+                const itemId = equipButton.dataset.itemId;
+                const newInventory = activeCharacter.inventory.map(item => {
+                    if (item.id === itemId) {
+                        // Return a new object with the 'equipped' property toggled
+                        return { ...item, equipped: !item.equipped };
+                    }
+                    return item;
+                });
+        
+                try {
+                    // Assume db.updateCharacter can update specific parts of a character
+                    const updatedCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory });
+                    activeCharacter = updatedCharacter; // Update local state
+                    processAndRenderAll(activeCharacter); // Trigger a seamless re-render
+                } catch (err) {
+                    console.error('Failed to update inventory:', err);
+                    alerter.show('Failed to update inventory state.', 'error');
                 }
-                return item;
-            });
-
-            try {
-                // Assume db.updateCharacter can update specific parts of a character
-                const updatedCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory });
-                activeCharacter = updatedCharacter; // Update local state
-                processAndRenderAll(activeCharacter); // Trigger a seamless re-render
-            } catch (err) {
-                console.error('Failed to update inventory:', err);
-                alerter.show('Failed to update inventory state.', 'error');
+            }
+        
+            // Handle "Use" Action (Placeholder)
+            if (useButton) {
+                const itemId = useButton.dataset.itemId;
+                const itemName = useButton.dataset.itemName;
+                console.log("Using item:", itemId);
+                alerter.show(`Using ${itemName}`, 'info');
+                // TODO: Add logic here to consume the item and apply its effects.
+            }
+        
+            // Handle "Craft" Action (Placeholder)
+            if (craftButton) {
+                const itemId = craftButton.dataset.itemId;
+                console.log("Crafting with item:", itemId);
+                alerter.show('Crafting system not yet implemented.', 'info');
+                // TODO: Add logic here to open a crafting menu or handle the crafting action.
             }
         });
 

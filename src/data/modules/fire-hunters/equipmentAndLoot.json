@@ -161,6 +161,7 @@
   "example-healing-potion": {
     "id": "example-healing-potion",
     "type": "loot",
+    "category": "potion",
     "name": "Potion of Minor Healing",
     "description": "A small vial filled with a shimmering red liquid, capable of mending minor wounds.",
     "rarity": "common",
@@ -444,6 +445,7 @@
   "example-gold-coin": {
     "id": "example-gold-coin",
     "type": "loot",
+    "category": "currency",
     "name": "Gold Coin",
     "description": "A standard unit of currency.",
     "rarity": "common",
@@ -455,6 +457,7 @@
   "example-iron-ore": {
     "id": "example-iron-ore",
     "type": "loot",
+    "category": "material",
     "name": "Iron Ore",
     "description": "Raw iron suitable for crafting.",
     "rarity": "uncommon",
@@ -466,6 +469,7 @@
   "example-gold-bag": {
     "id": "example-gold-bag",
     "type": "loot",
+    "category": "currency",
     "name": "Gold Bag",
     "description": "hella cash",
     "rarity": "rare",

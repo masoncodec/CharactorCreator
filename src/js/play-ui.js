@@ -147,10 +147,9 @@ export function renderProfileTab(character, flawData, perkData) {
 }
 
 /**
- * Renders the content for the 'Inventory' tab as an interactive table.
- * UPDATED: Now shows proper names and an "Actions" column with Equip/Unequip buttons.
+ * Renders the content for the 'Inventory' tab, separating equipment and other items.
  * @param {object} character - The character object.
- * @param {object} equipmentData - A map of all equipment definitions.
+ * @param {object} equipmentData - A map of all equipment and loot definitions.
  */
 export function renderInventoryTab(character, equipmentData) {
     const panel = document.getElementById('inventory-panel');
@@ -161,35 +160,117 @@ export function renderInventoryTab(character, equipmentData) {
         return;
     }
 
-    const tableRows = character.inventory.map(item => {
-        const itemDef = equipmentData ? equipmentData[item.id] : null;
-        const itemName = itemDef ? itemDef.name : item.id.replace(/-/g, ' ');
+    const equipmentItems = [];
+    const lootItems = [];
 
-        // Only render a button if the item is defined as equippable.
-        const actionButton = (itemDef && itemDef.type === 'equipment')
-            ? `<button class="btn btn-secondary btn-sm btn-equip" data-item-id="${item.id}">
-                   ${item.equipped ? 'Unequip' : 'Equip'}
-               </button>`
-            : '—'; // Render a dash if not equippable.
+    // Separate items based on their definition type
+    character.inventory.forEach(item => {
+        const itemDef = equipmentData ? equipmentData[item.id] : null;
+        if (itemDef) {
+            if (itemDef.type === 'equipment') {
+                equipmentItems.push({ ...item, definition: itemDef });
+            } else if (itemDef.type === 'loot') {
+                lootItems.push({ ...item, definition: itemDef });
+            }
+        }
+    });
+
+    // Render both tables
+    panel.innerHTML = `
+        ${renderEquipmentTable(equipmentItems)}
+        ${renderLootTable(lootItems)}
+    `;
+}
+
+/**
+ * Renders the Equipment table.
+ * @param {Array} equipmentItems - Array of equipment items with their definitions.
+ */
+function renderEquipmentTable(equipmentItems) {
+    if (equipmentItems.length === 0) {
+        return '<div class="panel"><h2>Equipment</h2><p>No equipment.</p></div>';
+    }
+
+    const tableRows = equipmentItems.map(item => {
+        const itemDef = item.definition;
+        const actionButton = `<button class="btn btn-secondary btn-sm btn-equip" data-item-id="${item.id}">
+                                ${item.equipped ? 'Unequip' : 'Equip'}
+                              </button>`;
 
         return `
             <tr>
-                <td>${itemName}</td>
-                <td>${item.quantity || 1}</td>
+                <td>${itemDef.name}</td>
+                <td>${itemDef.category.charAt(0).toUpperCase() + itemDef.category.slice(1)}</td>
+                <td>${itemDef.rarity.charAt(0).toUpperCase() + itemDef.rarity.slice(1)}</td>
                 <td>${item.equipped ? 'Yes' : 'No'}</td>
                 <td>${actionButton}</td>
             </tr>
         `;
     }).join('');
 
-    panel.innerHTML = `
+    return `
         <div class="panel">
+            <h2>Equipment</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Rarity</th>
+                        <th>Equipped</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+/**
+ * Renders the Loot & Items table.
+ * @param {Array} lootItems - Array of loot items with their definitions.
+ */
+function renderLootTable(lootItems) {
+    if (lootItems.length === 0) {
+        return '<div class="panel"><h2>Loot & Items</h2><p>No other items.</p></div>';
+    }
+
+    const tableRows = lootItems.map(item => {
+        const itemDef = item.definition;
+        const quantity = item.quantity || 1;
+        const totalValue = (itemDef.value || 0) * quantity;
+        
+        let actionButton = '—'; // Default: no button
+
+        // Add button based on loot category
+        if (itemDef.category === 'potion') {
+            actionButton = `<button class="btn btn-info btn-sm btn-use" data-item-id="${item.id}" data-item-name="${itemDef.name}">Use</button>`;
+        } else if (itemDef.category === 'material') {
+            actionButton = `<button class="btn btn-warning btn-sm btn-craft" data-item-id="${item.id}" data-item-name="${itemDef.name}">Craft</button>`;
+        }
+
+        return `
+            <tr>
+                <td>${itemDef.name}</td>
+                <td>${quantity}</td>
+                <td>${totalValue}</td>
+                <td>${actionButton}</td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <div class="panel">
+            <h2>Loot & Items</h2>
             <table>
                 <thead>
                     <tr>
                         <th>Name</th>
                         <th>Quantity</th>
-                        <th>Equipped</th>
+                        <th>Total Value</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
