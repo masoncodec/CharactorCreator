@@ -86,7 +86,7 @@ function renderAbilities(allAbilities, character) {
 
         let description = abilityDef.description.replace(/\${([^}]+)}/g, (match, p1) => { /* ... description parsing ... */ });
 
-        if (abilityDef.type === "active") {
+        if (ability.itemType === "active") {
             const isOn = character.activeAbilityIds && character.activeAbilityIds.has(ability.instancedId) ? 'selected' : '';
             activeAbilitiesHtml.push(
                 `<li class="ability-list-item">

@@ -3,11 +3,11 @@
 
 /**
  * Creates a master list of all available abilities from a character and their equipped items.
- * It generates a unique "instancedId" for each ability to prevent conflicts and enable state tracking.
+ * It generates a unique "instancedId" and a top-level "itemType" for each ability.
  * @param {object} character - The character object, which must have `abilities` and `inventory` arrays.
  * @param {object} abilityData - A map of all base ability definitions.
  * @param {object} equipmentData - A map of all equipment definitions.
- * @returns {Array<object>} A combined list of all available abilities, each with a unique instancedId.
+ * @returns {Array<object>} A combined list of all available abilities.
  */
 export function aggregateAllAbilities(character, abilityData, equipmentData) {
     const combinedAbilities = [];
@@ -21,6 +21,7 @@ export function aggregateAllAbilities(character, abilityData, equipmentData) {
                     instancedId: `character:${abilityState.id}`,
                     sourceType: 'character',
                     sourceName: 'Innate',
+                    itemType: definition.type || 'passive', // Add top-level type from definition
                     definition: definition
                 });
             }
@@ -38,11 +39,22 @@ export function aggregateAllAbilities(character, abilityData, equipmentData) {
                         ...(itemDef.abilities.active || [])
                     ];
                     allItemAbilities.forEach(abilityDef => {
+                        const itemType = itemDef.abilities.active?.some(a => {
+                            // --- ADD THIS LINE FOR DEBUGGING ---
+                            console.log(`Comparing item ability ID: '${a.id}' with master list ability ID: '${abilityDef.id}'`);
+                            // ------------------------------------
+                            return a.id === abilityDef.id;
+                        }) ? 'active' : 'passive';
+                    
+                        // --- AND ADD THIS LINE ---
+                        console.log(`Resulting itemType for ${abilityDef.name}: ${itemType}`);
+                        
                         combinedAbilities.push({
                             instancedId: `equipment:${itemState.id}:${abilityDef.id}`,
                             sourceType: 'equipment',
                             sourceName: itemDef.name,
-                            definition: { ...abilityDef, type: itemDef.abilities.active?.some(a => a.id === abilityDef.id) ? 'active' : 'passive' }
+                            itemType: itemType, // Add the new top-level property
+                            definition: abilityDef // The definition is now the original, unmodified object
                         });
                     });
                 }

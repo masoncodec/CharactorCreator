@@ -19,7 +19,12 @@
               "name": "Modifier",
               "attribute": "speed",
               "modifier": 3
-            } 
+            },
+            {
+              "type": "max_health_mod",
+              "name": "Health",
+              "value": 1
+            }
           ]
         },
         {

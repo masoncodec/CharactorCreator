@@ -1,4 +1,4 @@
-// effectHandler.js
+// effectHandler.js (Updated)
 // This module centralizes the logic for processing and applying character effects.
 
 export const EffectHandler = {
@@ -6,6 +6,7 @@ export const EffectHandler = {
 
     /**
      * Processes a pre-aggregated list of abilities, plus flaws and perks, to compile their effects.
+     * UPDATED: Now uses the new top-level itemType property from the aggregated ability objects.
      * @param {Array<object>} allAbilities - The master list of abilities from the abilityAggregator.
      * @param {object} character - The character object, needed for flaws and perks.
      * @param {object} flawData - A map of all flaw definitions by ID.
@@ -23,17 +24,25 @@ export const EffectHandler = {
                 const abilityDef = ability.definition;
                 if (!abilityDef || !abilityDef.effect) return;
 
-                const isEffectivelyActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(ability.instancedId));
+                // UPDATED: Check the top-level `ability.itemType` property now, not ability.definition.type
+                const isEffectivelyActive = (ability.itemType === "passive") || (ability.itemType === "active" && activeAbilityStates.has(ability.instancedId));
 
                 if (isEffectivelyActive) {
                     abilityDef.effect.forEach(effect => {
-                        this.activeEffects.push({ ...effect, itemName: abilityDef.name, itemId: ability.instancedId, sourceType: ability.sourceType });
+                        // UPDATED: Add the itemType to the effect object for later use.
+                        this.activeEffects.push({
+                            ...effect,
+                            itemType: ability.itemType, // Pass the type ('active' or 'passive') along
+                            itemName: abilityDef.name,
+                            itemId: ability.instancedId,
+                            sourceType: ability.sourceType
+                        });
                     });
                 }
             });
         }
 
-        // Process Flaws and Perks (This logic remains the same)
+        // Process Flaws and Perks (This logic is unchanged)
         if (character.flaws && flawData) {
             character.flaws.forEach(flawState => {
                 const flawDef = flawData[flawState.id];
@@ -41,10 +50,10 @@ export const EffectHandler = {
                     flawDef.effect.forEach(effect => {
                         this.activeEffects.push({
                             ...effect,
-                            itemName: flawDef.name, // Use flaw name for context
-                            itemId: flawState.id, // Include flaw ID
-                            itemType: "passive", // Treat functionally as passive for effect processing
-                            sourceType: "flaw" // Indicate source is a flaw
+                            itemName: flawDef.name,
+                            itemId: flawState.id,
+                            itemType: "passive", // Treat functionally as passive
+                            sourceType: "flaw"
                         });
                     });
                 }
@@ -57,10 +66,10 @@ export const EffectHandler = {
                     perkDef.effect.forEach(effect => {
                         this.activeEffects.push({
                             ...effect,
-                            itemName: perkDef.name, // Use perk name for context
-                            itemId: perkState.id, // Include perk ID
-                            itemType: "passive", // Treat functionally as passive for effect processing
-                            sourceType: "perk" // Indicate source is a perk
+                            itemName: perkDef.name,
+                            itemId: perkState.id,
+                            itemType: "passive", // Treat functionally as passive
+                            sourceType: "perk"
                         });
                     });
                 }
@@ -149,15 +158,18 @@ export const EffectHandler = {
                     // If source is a flaw or perk, it's always considered 'passive' for this effect,
                     // applying in 'wizard' context as per your requirement.
                     // Existing abilities still use their specific type (active/passive).
-                    const isPassiveEffect = effect.itemType === 'passive' || effect.sourceType === 'flaw' || effect.sourceType === 'perk';
+                    const isPassiveEffect = effect.itemType === 'passive'; // Simplified check
 
                     if (context === 'wizard' && isPassiveEffect) {
                         if (modifiedCharacter.calculatedHealth) {
                             modifiedCharacter.calculatedHealth.currentMax += effect.value;
                         }
-                    } else if (context === 'play' && effect.itemType === 'active') { // Only active abilities apply in 'play' context here
-                        if (modifiedCharacter.calculatedHealth) {
-                            modifiedCharacter.calculatedHealth.currentMax += effect.value;
+                    } else if (context === 'play') {
+                        // Apply effect if ability is active OR if it's a passive effect from equipment
+                        if (effect.itemType === 'active' || (isPassiveEffect && effect.sourceType === 'equipment')) {
+                            if (modifiedCharacter.calculatedHealth) {
+                                modifiedCharacter.calculatedHealth.currentMax += effect.value;
+                            }
                         }
                     }
                     break;
