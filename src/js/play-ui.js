@@ -260,6 +260,11 @@ function renderKOBUI(effectedCharacter) {
     return attributesHtml;
 }
 
+/**
+ * Renders the UI for the Hope/Fear attribute system.
+ * UPDATED: Now uses EffectHandler.getCombinedAttributeValue to display the final modified value.
+ * @param {object} effectedCharacter - The character object after effects have been processed.
+ */
 function renderHopeFearUI(effectedCharacter) {
     if (!effectedCharacter.attributes) return '';
     
@@ -269,10 +274,13 @@ function renderHopeFearUI(effectedCharacter) {
 
     const attributeButtons = Object.keys(effectedCharacter.attributes).map(attr => {
         const baseValue = effectedCharacter.attributes[attr];
+        // Call the new centralized function to get the final value for display.
+        const finalValue = EffectHandler.getCombinedAttributeValue(attr, baseValue);
+
         return `
             <div class="hope-fear-attribute" style="${attributeStyle}">
                 <span class="hope-fear-name">${attr.charAt(0).toUpperCase() + attr.slice(1)}</span>
-                <span class="hope-fear-value" style="${valueStyle}">${baseValue >= 0 ? '+' : ''}${baseValue}</span>
+                <span class="hope-fear-value" style="${valueStyle}">${finalValue >= 0 ? '+' : ''}${finalValue}</span>
                 <button class="btn-roll hope-fear-roll-btn" data-attribute="${attr}">Roll</button>
             </div>
         `;

@@ -94,6 +94,18 @@ export const EffectHandler = {
     },
 
     /**
+     * NEW: Calculates the final value of an attribute by adding all active numerical modifiers.
+     * @param {string} attributeName - The name of the attribute to calculate.
+     * @param {number} baseValue - The character's base value for that attribute.
+     * @returns {number} The final, combined value of the attribute.
+     */
+    getCombinedAttributeValue: function(attributeName, baseValue) {
+        const numericalModifiers = this.getEffectsForAttribute(attributeName, 'modifier');
+        const totalModifier = numericalModifiers.reduce((sum, effect) => sum + (effect.modifier || 0), 0);
+        return baseValue + totalModifier;
+    },
+
+    /**
      * Applies all currently active effects to a character object.
      * This function creates a new character object with effects applied,
      * it does NOT modify the original character object.

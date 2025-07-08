@@ -145,6 +145,11 @@ function updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModif
     }
 }
 
+/**
+ * Attaches event listeners for the Hope/Fear rolling system.
+ * UPDATED: Passes the pre-calculated combined value to the RollManager.
+ * @param {object} effectedCharacter - The character object after effects have been processed.
+ */
 function attachHopeFearRollListeners(effectedCharacter) {
     document.querySelectorAll('.hope-fear-roll-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -154,14 +159,17 @@ function attachHopeFearRollListeners(effectedCharacter) {
             const diceNumEffects = EffectHandler.getEffectsForAttribute(attributeName, 'die_num');
             
             const baseValue = effectedCharacter.attributes[attributeName] || 0;
+            // Get the final combined value from our new centralized function.
+            const combinedValue = EffectHandler.getCombinedAttributeValue(attributeName, baseValue);
 
             const modifierData = {
                 totalNumerical: numericalEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
                 totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
                 sources: [...numericalEffects, ...diceNumEffects]
             };
-
-            const rollManager = new RollManager(attributeName.charAt(0).toUpperCase() + attributeName.slice(1), modifierData, baseValue);
+            
+            // Pass the pre-calculated combinedValue to the RollManager constructor.
+            const rollManager = new RollManager(attributeName, combinedValue, modifierData, baseValue);
             rollManager.show();
         });
     });

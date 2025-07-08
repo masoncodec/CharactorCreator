@@ -3,14 +3,17 @@
 
 export class RollManager {
   /**
-   * @param {string} attributeName - The name of the attribute being rolled (e.g., "Whimsy").
+   * UPDATED: Constructor now accepts the pre-calculated combinedValue.
+   * @param {string} attributeName - The name of the attribute being rolled.
+   * @param {number} combinedValue - The final, pre-calculated numerical value (base + modifiers).
    * @param {object} modifierData - An object containing processed modifier information.
-   * @param {number} baseValue - The character's base value for the attribute.
+   * @param {number} baseValue - The character's original base value.
    */
-  constructor(attributeName, modifierData, baseValue) {
+  constructor(attributeName, combinedValue, modifierData, baseValue) {
     this.attributeName = attributeName;
+    this.combinedValue = combinedValue; // Store the pre-calculated value
     this.modifierData = modifierData;
-    this.baseValue = baseValue;
+    this.baseValue = baseValue; // Still needed for display purposes in the breakdown
     this.modalElement = null;
     this._boundClose = this.close.bind(this);
     this._boundHandleRoll = this._handleRoll.bind(this);
@@ -81,7 +84,7 @@ export class RollManager {
         totalResultEl.classList.add('critical-text');
         totalBoxEl.classList.add('critical-success');
     } else {
-        const finalTotal = highestHope + highestFear + totalNumerical + this.baseValue + d6Modifier;
+        const finalTotal = highestHope + highestFear + this.combinedValue + d6Modifier;
         totalResultEl.textContent = finalTotal;
 
         if (highestHope > highestFear) {
@@ -106,10 +109,7 @@ export class RollManager {
     ).join('');
     
     // The Base Value is still listed as a source, as requested.
-    const baseValueHTML = `<li><strong>Base Value (${this.attributeName}):</strong> ${this.baseValue >= 0 ? '+' : ''}${this.baseValue}</li>`;
-
-    // Calculate the combined numerical modifier for the total display.
-    const combinedNumericalMod = this.baseValue + totalNumerical;
+    const baseValueHTML = `<li><strong>Base Value:</strong> ${this.baseValue >= 0 ? '+' : ''}${this.baseValue}</li>`;
 
     let d6BoxHTML = '';
     let gridClass = 'two-col';
@@ -129,12 +129,12 @@ export class RollManager {
         <div class="roll-modal-backdrop"></div>
         <div class="roll-modal-content">
           <button class="roll-modal-close">&times;</button>
-          <h2 class="roll-modal-header">${this.attributeName}</h2>
+          <h2 class="roll-modal-header">${this.attributeName.charAt(0).toUpperCase() + this.attributeName.slice(1)}</h2>
           
           <div class="roll-modal-section modifiers-section">
             <h4>Modifiers Breakdown</h4>
             <div class="modifier-totals">
-              <span>Total Numerical Mod: <strong>${combinedNumericalMod >= 0 ? '+' : ''}${combinedNumericalMod}</strong></span>
+              <span>Total Numerical Mod: <strong>${this.combinedValue >= 0 ? '+' : ''}${this.combinedValue}</strong></span>
               <span>Dice Num: <strong>${totalDiceNum >= 0 ? '+' : ''}${totalDiceNum}d6</strong></span>
             </div>
             <ul class="modifier-sources">
