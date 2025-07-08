@@ -57,7 +57,7 @@ class CharacterFinisher {
         tempCharForEffects, data.abilities, data.flaws, data.perks, new Set(), 'wizard'
     );
     this._addLevelRewardsToEffects(currentState);
-    const modifiedCharacter = this.EffectHandler.applyEffectsToCharacter(tempCharForEffects, 'wizard');
+    const modifiedCharacter = this.EffectHandler.applyEffectsToCharacter(tempCharForEffects, 'wizard', new Set());
 
     const attributeBonuses = this.stateManager.getCombinedAttributeBonuses();
     const finalAttributes = { ...currentState.attributes };

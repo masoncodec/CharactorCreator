@@ -106,8 +106,11 @@ export const EffectHandler = {
      * @param {string} context - The context for applying effects ('wizard' or 'play').
      * @returns {object} A new character object with effects applied.
      */
-    applyEffectsToCharacter: function(character, context) {
+    applyEffectsToCharacter: function(character, context, activeAbilityStates) {
         let modifiedCharacter = JSON.parse(JSON.stringify(character)); // Deep clone to avoid direct mutation
+
+        // This makes the returned object a complete package for the renderer.
+        modifiedCharacter.activeAbilityIds = activeAbilityStates;
 
         // Initialize or reset dynamic values that will be recalculated by effects
         // Store base max health if not already present, to allow modifications

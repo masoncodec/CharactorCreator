@@ -27,13 +27,16 @@ function processAndRenderAll(character) {
     }
 
     // Process effects first
-    EffectHandler.processActiveAbilities(character, abilityData, flawData, perkData, activeAbilityStates, 'play'); //
-    const effectedCharacter = EffectHandler.applyEffectsToCharacter(character, 'play'); //
+    EffectHandler.processActiveAbilities(character, abilityData, flawData, perkData, activeAbilityStates, 'play');
+    
+    // Pass activeAbilityStates to applyEffectsToCharacter so it can be attached to the result
+    const effectedCharacter = EffectHandler.applyEffectsToCharacter(character, 'play', activeAbilityStates);
 
     // Render all components of the new UI
     renderTopNav(effectedCharacter, moduleDefinitions);
     renderMainTab(effectedCharacter, moduleDefinitions);
-    renderAbilitiesTab(effectedCharacter, abilityData, activeAbilityStates);
+    // The call to renderAbilitiesTab is now simpler
+    renderAbilitiesTab(effectedCharacter, abilityData);
     renderProfileTab(effectedCharacter, flawData, perkData);
     renderInventoryTab(effectedCharacter);
 

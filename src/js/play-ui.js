@@ -61,10 +61,11 @@ export function renderMainTab(character, moduleDefinitions) {
 /**
  * Renders the content for the 'Abilities' tab.
  */
-export function renderAbilitiesTab(character, abilityData, activeAbilityStates) {
+export function renderAbilitiesTab(character, abilityData) {
     const panel = document.getElementById('abilities-panel');
     if (!panel) return;
-    panel.innerHTML = renderAbilities(character, abilityData, activeAbilityStates);
+    // The call to the helper function is also simplified.
+    panel.innerHTML = renderAbilities(character, abilityData);
 }
 
 /**
@@ -256,11 +257,12 @@ function renderPerks(character, perkData) {
     }).join('')}</ul>`;
 }
 
-function renderAbilities(character, abilityData, activeAbilityStates) {
-    if (!character.abilities || character.abilities.length === 0) return ''; //
+function renderAbilities(character, abilityData) {
+    if (!character.abilities || character.abilities.length === 0) return '';
     const activeAbilitiesHtml = [];
     const passiveAbilitiesHtml = [];
-    character.abilities.forEach(abilityState => { //
+
+    character.abilities.forEach(abilityState => {
         const abilityDef = abilityData[abilityState.id];
         if (!abilityDef) return;
         
@@ -273,8 +275,10 @@ function renderAbilities(character, abilityData, activeAbilityStates) {
             } catch (e) { return match; }
         });
 
-        if (abilityDef.type === "active") { //
-            const isOn = activeAbilityStates.has(abilityState.id) ? 'selected' : '';
+        if (abilityDef.type === "active") {
+            // This is the key change: Check for the active state on the character object.
+            const isOn = character.activeAbilityIds && character.activeAbilityIds.has(abilityState.id) ? 'selected' : '';
+            
             activeAbilitiesHtml.push(`<li class="ability-list-item"><button class="ability-button ability-card ${isOn}" data-ability-id="${abilityState.id}"><strong>${abilityDef.name}</strong> <span class="ability-type-tag active">ACTIVE</span><p>${description}</p></button></li>`);
         } else {
             passiveAbilitiesHtml.push(`<li class="ability-card passive-ability-item"><strong>${abilityDef.name}</strong> <span class="ability-type-tag passive">PASSIVE</span><p>${description}</p></li>`);
