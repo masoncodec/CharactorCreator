@@ -41,7 +41,7 @@ function processAndRenderAll(character) {
     // The call to renderAbilitiesTab is now simpler
     renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);
-    renderInventoryTab(effectedCharacter);
+    renderInventoryTab(effectedCharacter, equipmentData);
 
     // Re-attach listeners that might be on elements inside the rendered tabs
     attachDynamicListeners(effectedCharacter);
@@ -212,6 +212,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                     panel.classList.add('active');
                 }
             });
+        });
+
+        // --- Inventory Equip/Unequip Listener ---
+        document.getElementById('inventory-panel').addEventListener('click', async (event) => {
+            const target = event.target.closest('.btn-equip');
+            if (!target || !activeCharacter) return;
+
+            const itemId = target.dataset.itemId;
+            const newInventory = activeCharacter.inventory.map(item => {
+                if (item.id === itemId) {
+                    // Return a new object with the 'equipped' property toggled
+                    return { ...item, equipped: !item.equipped };
+                }
+                return item;
+            });
+
+            try {
+                // Assume db.updateCharacter can update specific parts of a character
+                const updatedCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory });
+                activeCharacter = updatedCharacter; // Update local state
+                processAndRenderAll(activeCharacter); // Trigger a seamless re-render
+            } catch (err) {
+                console.error('Failed to update inventory:', err);
+                alerter.show('Failed to update inventory state.', 'error');
+            }
         });
 
         // Level Up Button

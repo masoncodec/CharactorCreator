@@ -10,10 +10,23 @@
     "abilities": {
       "passive": [
         {
-          "abilityID": "pas_longsword_training",
+          "id": "speedy_slashy",
+          "name": "Speedy Slashy",
+          "description": "You be going quicker now",
+          "effect": [
+            {
+              "type": "modifier",
+              "name": "Modifier",
+              "attribute": "speed",
+              "modifier": 3
+            } 
+          ]
+        },
+        {
+          "id": "pas_longsword_training",
           "name": "Bonus to Attack",
           "description": "Grants a +1 bonus to attack rolls.",
-          "effects": [
+          "effect": [
             {
               "type": "MOD_STAT",
               "target": "self",
@@ -28,12 +41,25 @@
       ],
       "active": [
         {
-          "abilityID": "act_longsword_slash",
+          "id": "super_speedy_slashy",
+          "name": "Super Speedy Slashy",
+          "description": "You be going quicker now",
+          "effect": [
+            {
+              "type": "modifier",
+              "name": "Modifier",
+              "attribute": "speed",
+              "modifier": 3
+            } 
+          ]
+        },
+        {
+          "id": "act_longsword_slash",
           "name": "Slash",
           "type": "ATTACK",
           "cost": { "stamina": 5 },
           "description": "A standard slashing attack. Versatile (1d10).",
-          "effects": [
+          "effect": [
             {
               "type": "DAMAGE",
               "target": "single_enemy",
@@ -46,12 +72,12 @@
           ]
         },
         {
-          "abilityID": "act_longsword_thrust",
+          "id": "act_longsword_thrust",
           "name": "Thrust",
           "type": "ATTACK",
           "cost": { "stamina": 3 },
           "description": "A finesse piercing attack.",
-          "effects": [
+          "effect": [
             {
               "type": "DAMAGE",
               "target": "single_enemy",
@@ -77,10 +103,10 @@
     "abilities": {
       "passive": [
         {
-          "abilityID": "pas_leather_ac",
+          "id": "pas_leather_ac",
           "name": "Base Armor",
           "description": "Provides a base Armor Class of 11 + DEX modifier (max 2).",
-          "effects": [
+          "effect": [
             {
               "type": "SET_STAT",
               "target": "self",
@@ -94,10 +120,10 @@
           ]
         },
         {
-          "abilityID": "pas_leather_slash_resist",
+          "id": "pas_leather_slash_resist",
           "name": "Minor Slashing Resistance",
           "description": "Reduces incoming slashing damage by 2.",
-          "effects": [
+          "effect": [
             {
               "type": "DAMAGE_REDUCTION",
               "target": "self",
@@ -109,10 +135,10 @@
           ]
         },
         {
-          "abilityID": "pas_leather_stealth",
+          "id": "pas_leather_stealth",
           "name": "Stealth Advantage",
           "description": "Grants advantage on stealth checks.",
-          "effects": [
+          "effect": [
             {
               "type": "MOD_STAT",
               "target": "self",
@@ -140,11 +166,11 @@
       "passive": [],
       "active": [
         {
-          "abilityID": "use_healing_potion_minor",
+          "id": "use_healing_potion_minor",
           "name": "Drink Potion",
           "type": "UTILITY",
           "description": "Restores 2d4 + 2 hit points.",
-          "effects": [
+          "effect": [
             {
               "type": "HEAL",
               "target": "self",
@@ -171,10 +197,10 @@
     "abilities": {
       "passive": [
         {
-          "abilityID": "pas_ring_ac",
+          "id": "pas_ring_ac",
           "name": "Deflection",
           "description": "Grants a +1 bonus to Armor Class.",
-          "effects": [
+          "effect": [
             {
               "type": "MOD_STAT",
               "target": "self",
@@ -187,10 +213,10 @@
           ]
         },
         {
-          "abilityID": "pas_ring_saves",
+          "id": "pas_ring_saves",
           "name": "Warding Magic",
           "description": "Grants a +1 bonus to all saving throws.",
-          "effects": [
+          "effect": [
             {
               "type": "MOD_STAT",
               "target": "self",
@@ -217,10 +243,10 @@
     "abilities": {
       "passive": [
         {
-          "abilityID": "pas_greatshield_ac",
+          "id": "pas_greatshield_ac",
           "name": "Shield Block",
           "description": "Grants a +2 bonus to Armor Class.",
-          "effects": [
+          "effect": [
             {
               "type": "MOD_STAT",
               "target": "self",
@@ -233,10 +259,10 @@
           ]
         },
         {
-          "abilityID": "pas_greatshield_force_resist",
+          "id": "pas_greatshield_force_resist",
           "name": "Resistance to Force",
           "description": "Provides minor resistance to force damage.",
-          "effects": [
+          "effect": [
             {
               "type": "DAMAGE_RESISTANCE",
               "target": "self",
@@ -250,12 +276,12 @@
       ],
       "active": [
         {
-          "abilityID": "act_greatshield_bash",
+          "id": "act_greatshield_bash",
           "name": "Shield Bash",
           "type": "REACTION",
           "cost": { "stamina": 5 },
           "description": "As a reaction, push back an attacker 5ft on a successful block. Usable once per turn.",
-          "effects": [
+          "effect": [
             {
               "type": "PUSH",
               "target": "attacker",
@@ -281,12 +307,12 @@
       "passive": [],
       "active": [
         {
-          "abilityID": "act_moonstaff_strike",
+          "id": "act_moonstaff_strike",
           "name": "Strike",
           "type": "ATTACK",
           "cost": { "stamina": 4 },
           "description": "A standard bludgeoning attack. Versatile (1d8).",
-          "effects": [
+          "effect": [
             {
               "type": "DAMAGE",
               "target": "single_enemy",
@@ -298,12 +324,12 @@
           ]
         },
         {
-          "abilityID": "act_moonstaff_sparks",
+          "id": "act_moonstaff_sparks",
           "name": "Disorienting Sparks",
           "type": "ATTACK",
           "cost": { "stamina": 2 },
           "description": "On hit, the target has disadvantage on its next attack roll.",
-          "effects": [
+          "effect": [
             {
               "type": "APPLY_STATUS",
               "target": "single_enemy",
@@ -329,10 +355,10 @@
     "abilities": {
       "passive": [
         {
-          "abilityID": "pas_mothwing_ac",
+          "id": "pas_mothwing_ac",
           "name": "Fey Guile",
           "description": "Provides a base Armor Class of 12 + DEX modifier.",
-          "effects": [
+          "effect": [
             {
               "type": "SET_STAT",
               "target": "self",
@@ -345,10 +371,10 @@
           ]
         },
         {
-          "abilityID": "pas_mothwing_charm_save",
+          "id": "pas_mothwing_charm_save",
           "name": "Fey Mind",
           "description": "Grants advantage on saving throws against being charmed.",
-          "effects": [
+          "effect": [
             {
               "type": "MOD_STAT",
               "target": "self",
@@ -374,10 +400,10 @@
     "abilities": {
       "passive": [
         {
-          "abilityID": "pas_pixie_charm",
+          "id": "pas_pixie_charm",
           "name": "Mischievous Charm",
           "description": "Grants a +1 bonus to Persuasion checks.",
-          "effects": [
+          "effect": [
             {
               "type": "MOD_STAT",
               "target": "self",
@@ -392,11 +418,11 @@
       ],
       "active": [
         {
-          "abilityID": "act_pixie_signal",
+          "id": "act_pixie_signal",
           "name": "Fey Signal",
           "type": "UTILITY",
           "description": "Once per day, you may blow the whistle to attract the attention of nearby, non-hostile fey or curious small animals.",
-          "effects": [
+          "effect": [
             {
               "type": "UTILITY_EFFECT",
               "target": "area",
@@ -419,7 +445,7 @@
     "weight": 0.02,
     "value": 1,
     "stackable": true,
-    "effects": []
+    "effect": []
   },
   "example-iron-ore": {
     "id": "example-iron-ore",
@@ -430,7 +456,7 @@
     "weight": 2,
     "value": 10,
     "stackable": true,
-    "effects": []
+    "effect": []
   },
   "example-gold-bag": {
     "id": "example-gold-bag",
@@ -441,6 +467,6 @@
     "weight": 10,
     "value": 2,
     "stackable": false,
-    "effects": []
+    "effect": []
   }
 }

@@ -61,16 +61,16 @@ export function renderMainTab(character, moduleDefinitions) {
 /**
  * Renders the content for the 'Abilities' tab using the aggregated list.
  */
-export function renderAbilitiesTab(allAbilities, character) { // Changed signature
+export function renderAbilitiesTab(allAbilities, character) {
     const panel = document.getElementById('abilities-panel');
     if (!panel) return;
-    panel.innerHTML = renderAbilities(allAbilities, character); // Pass new list to helper
+    panel.innerHTML = renderAbilities(allAbilities, character);
 }
 
 /**
  * Helper function to generate HTML for the abilities list.
  */
-function renderAbilities(allAbilities, character) { // Changed signature
+function renderAbilities(allAbilities, character) {
     if (!allAbilities || allAbilities.length === 0) return '<div class="panel"><p>No abilities available.</p></div>';
     
     const activeAbilitiesHtml = [];
@@ -147,38 +147,57 @@ export function renderProfileTab(character, flawData, perkData) {
 }
 
 /**
- * Renders the content for the 'Inventory' tab as a table.
+ * Renders the content for the 'Inventory' tab as an interactive table.
+ * UPDATED: Now shows proper names and an "Actions" column with Equip/Unequip buttons.
+ * @param {object} character - The character object.
+ * @param {object} equipmentData - A map of all equipment definitions.
  */
-export function renderInventoryTab(character) {
+export function renderInventoryTab(character, equipmentData) {
     const panel = document.getElementById('inventory-panel');
     if (!panel) return;
 
-    if (!character.inventory || character.inventory.length === 0) { //
+    if (!character.inventory || character.inventory.length === 0) {
         panel.innerHTML = '<div class="panel"><p>Inventory is empty.</p></div>';
         return;
     }
 
-    const tableRows = character.inventory.map(item => `
-        <tr>
-            <td>${item.id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
-            <td>${item.quantity || 1}</td>
-            <td>${item.equipped ? 'Yes' : 'No'}</td>
-        </tr>
-    `).join(''); //
+    const tableRows = character.inventory.map(item => {
+        const itemDef = equipmentData ? equipmentData[item.id] : null;
+        const itemName = itemDef ? itemDef.name : item.id.replace(/-/g, ' ');
+
+        // Only render a button if the item is defined as equippable.
+        const actionButton = (itemDef && itemDef.type === 'equipment')
+            ? `<button class="btn btn-secondary btn-sm btn-equip" data-item-id="${item.id}">
+                   ${item.equipped ? 'Unequip' : 'Equip'}
+               </button>`
+            : '—'; // Render a dash if not equippable.
+
+        return `
+            <tr>
+                <td>${itemName}</td>
+                <td>${item.quantity || 1}</td>
+                <td>${item.equipped ? 'Yes' : 'No'}</td>
+                <td>${actionButton}</td>
+            </tr>
+        `;
+    }).join('');
 
     panel.innerHTML = `
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Quantity</th>
-                    <th>Equipped</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${tableRows}
-            </tbody>
-        </table>
+        <div class="panel">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Quantity</th>
+                        <th>Equipped</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
+                </tbody>
+            </table>
+        </div>
     `;
 }
 
