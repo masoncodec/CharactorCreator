@@ -7,42 +7,64 @@
     "description": "A classic, well-balanced sword, good for both offense and defense.",
     "rarity": "common",
     "weight": 4,
-    "attacks": [
-      {
-        "id": "longsword-slash",
-        "name": "Slash",
-        "damage_type": "slashing",
-        "damage_dice": "1d8 + STR",
-        "range": "melee",
-        "cost": { "stamina": 5 },
-        "properties": ["versatile (1d10)"],
-        "effect": [
-          {
-            "type": "damage",
-            "attribute": "strength",
-            "modifier": 1
-          }
-        ]
-      },
-      {
-        "id": "longsword-thrust",
-        "name": "Thrust",
-        "damage_type": "piercing",
-        "damage_dice": "1d6 + DEX",
-        "range": "melee",
-        "cost": { "stamina": 3 },
-        "properties": ["finesse"],
-        "effect": []
-      }
-    ],
-    "effects": [
-      {
-        "type": "modifier",
-        "name": "Bonus to Attack",
-        "attribute": "attack_roll",
-        "modifier": 1
-      }
-    ]
+    "abilities": {
+      "passive": [
+        {
+          "abilityID": "pas_longsword_training",
+          "name": "Bonus to Attack",
+          "description": "Grants a +1 bonus to attack rolls.",
+          "effects": [
+            {
+              "type": "MOD_STAT",
+              "target": "self",
+              "parameters": {
+                "stat": "attack_roll",
+                "modifier": "ADD",
+                "value": 1
+              }
+            }
+          ]
+        }
+      ],
+      "active": [
+        {
+          "abilityID": "act_longsword_slash",
+          "name": "Slash",
+          "type": "ATTACK",
+          "cost": { "stamina": 5 },
+          "description": "A standard slashing attack. Versatile (1d10).",
+          "effects": [
+            {
+              "type": "DAMAGE",
+              "target": "single_enemy",
+              "parameters": {
+                "damageType": "slashing",
+                "dice": "1d8",
+                "attribute_bonus": "STR"
+              }
+            }
+          ]
+        },
+        {
+          "abilityID": "act_longsword_thrust",
+          "name": "Thrust",
+          "type": "ATTACK",
+          "cost": { "stamina": 3 },
+          "description": "A finesse piercing attack.",
+          "effects": [
+            {
+              "type": "DAMAGE",
+              "target": "single_enemy",
+              "parameters": {
+                "damageType": "piercing",
+                "dice": "1d6",
+                "attribute_bonus": "DEX"
+              }
+            }
+          ]
+        }
+      ]
+    }
   },
   "example-leather-armor": {
     "id": "example-leather-armor",
@@ -52,38 +74,58 @@
     "description": "Light and flexible armor, offering decent protection without hindering movement.",
     "rarity": "common",
     "weight": 10,
-    "defense": [
-      {
-        "id": "leather-ac-bonus",
-        "name": "Base Armor Class",
-        "defense_type": "armor_class",
-        "value": 11,
-        "properties": ["dex_bonus_max_2"],
-        "effect": []
-      },
-      {
-        "id": "leather-slash-resist",
-        "name": "Slashing Resistance (Minor)",
-        "defense_type": "resistance",
-        "resistance_type": "slashing",
-        "value": "minor",
-        "effect": [
-          {
-            "type": "damage_reduction",
-            "damage_type": "slashing",
-            "modifier": 2
-          }
-        ]
-      }
-    ],
-    "effects": [
-      {
-        "type": "modifier",
-        "name": "Stealth Advantage",
-        "attribute": "stealth_check",
-        "modifier": "advantage"
-      }
-    ]
+    "abilities": {
+      "passive": [
+        {
+          "abilityID": "pas_leather_ac",
+          "name": "Base Armor",
+          "description": "Provides a base Armor Class of 11 + DEX modifier (max 2).",
+          "effects": [
+            {
+              "type": "SET_STAT",
+              "target": "self",
+              "parameters": {
+                "stat": "armor_class",
+                "base_value": 11,
+                "attribute_bonus": "DEX",
+                "bonus_cap": 2
+              }
+            }
+          ]
+        },
+        {
+          "abilityID": "pas_leather_slash_resist",
+          "name": "Minor Slashing Resistance",
+          "description": "Reduces incoming slashing damage by 2.",
+          "effects": [
+            {
+              "type": "DAMAGE_REDUCTION",
+              "target": "self",
+              "parameters": {
+                "damageType": "slashing",
+                "value": 2
+              }
+            }
+          ]
+        },
+        {
+          "abilityID": "pas_leather_stealth",
+          "name": "Stealth Advantage",
+          "description": "Grants advantage on stealth checks.",
+          "effects": [
+            {
+              "type": "MOD_STAT",
+              "target": "self",
+              "parameters": {
+                "stat": "stealth_check",
+                "modifier": "ADVANTAGE"
+              }
+            }
+          ]
+        }
+      ],
+      "active": []
+    }
   },
   "example-healing-potion": {
     "id": "example-healing-potion",
@@ -94,13 +136,279 @@
     "weight": 0.5,
     "value": 25,
     "stackable": true,
-    "effects": [
-      {
-        "type": "healing",
-        "value": "2d4 + 2",
-        "resource_restored": "hit_points"
-      }
-    ]
+    "abilities": {
+      "passive": [],
+      "active": [
+        {
+          "abilityID": "use_healing_potion_minor",
+          "name": "Drink Potion",
+          "type": "UTILITY",
+          "description": "Restores 2d4 + 2 hit points.",
+          "effects": [
+            {
+              "type": "HEAL",
+              "target": "self",
+              "parameters": {
+                "resource": "hit_points",
+                "dice": "2d4",
+                "base": 2
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "example-ring-of-protection": {
+    "id": "example-ring-of-protection",
+    "type": "equipment",
+    "category": "accessory",
+    "name": "Ring of Protection",
+    "description": "A simple silver ring that subtly deflects harm.",
+    "rarity": "rare",
+    "weight": 0.1,
+    "stackable": false,
+    "abilities": {
+      "passive": [
+        {
+          "abilityID": "pas_ring_ac",
+          "name": "Deflection",
+          "description": "Grants a +1 bonus to Armor Class.",
+          "effects": [
+            {
+              "type": "MOD_STAT",
+              "target": "self",
+              "parameters": {
+                "stat": "armor_class",
+                "modifier": "ADD",
+                "value": 1
+              }
+            }
+          ]
+        },
+        {
+          "abilityID": "pas_ring_saves",
+          "name": "Warding Magic",
+          "description": "Grants a +1 bonus to all saving throws.",
+          "effects": [
+            {
+              "type": "MOD_STAT",
+              "target": "self",
+              "parameters": {
+                "stat": "saving_throws",
+                "modifier": "ADD",
+                "value": 1
+              }
+            }
+          ]
+        }
+      ],
+      "active": []
+    }
+  },
+  "example-greatshield": {
+    "id": "example-greatshield",
+    "type": "equipment",
+    "category": "shield",
+    "name": "Greatshield",
+    "description": "A massive shield capable of withstanding heavy blows.",
+    "rarity": "uncommon",
+    "weight": 15,
+    "abilities": {
+      "passive": [
+        {
+          "abilityID": "pas_greatshield_ac",
+          "name": "Shield Block",
+          "description": "Grants a +2 bonus to Armor Class.",
+          "effects": [
+            {
+              "type": "MOD_STAT",
+              "target": "self",
+              "parameters": {
+                "stat": "armor_class",
+                "modifier": "ADD",
+                "value": 2
+              }
+            }
+          ]
+        },
+        {
+          "abilityID": "pas_greatshield_force_resist",
+          "name": "Resistance to Force",
+          "description": "Provides minor resistance to force damage.",
+          "effects": [
+            {
+              "type": "DAMAGE_RESISTANCE",
+              "target": "self",
+              "parameters": {
+                "damageType": "force",
+                "level": "minor"
+              }
+            }
+          ]
+        }
+      ],
+      "active": [
+        {
+          "abilityID": "act_greatshield_bash",
+          "name": "Shield Bash",
+          "type": "REACTION",
+          "cost": { "stamina": 5 },
+          "description": "As a reaction, push back an attacker 5ft on a successful block. Usable once per turn.",
+          "effects": [
+            {
+              "type": "PUSH",
+              "target": "attacker",
+              "parameters": {
+                "distance_ft": 5,
+                "trigger": "ON_BLOCK"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "staff-of-moon-whispers": {
+    "id": "staff-of-moon-whispers",
+    "type": "equipment",
+    "category": "weapon",
+    "name": "Staff of Moon-Whispers",
+    "description": "A staff of silvery, smooth wood that hums faintly under the moonlight. It feels surprisingly light.",
+    "rarity": "uncommon",
+    "weight": 4,
+    "abilities": {
+      "passive": [],
+      "active": [
+        {
+          "abilityID": "act_moonstaff_strike",
+          "name": "Strike",
+          "type": "ATTACK",
+          "cost": { "stamina": 4 },
+          "description": "A standard bludgeoning attack. Versatile (1d8).",
+          "effects": [
+            {
+              "type": "DAMAGE",
+              "target": "single_enemy",
+              "parameters": {
+                "damageType": "bludgeoning",
+                "dice": "1d6"
+              }
+            }
+          ]
+        },
+        {
+          "abilityID": "act_moonstaff_sparks",
+          "name": "Disorienting Sparks",
+          "type": "ATTACK",
+          "cost": { "stamina": 2 },
+          "description": "On hit, the target has disadvantage on its next attack roll.",
+          "effects": [
+            {
+              "type": "APPLY_STATUS",
+              "target": "single_enemy",
+              "parameters": {
+                "status": "DISADVANTAGE_ON_ATTACK",
+                "duration_turns": 1,
+                "trigger": "ON_HIT"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "mothwing-cloak": {
+    "id": "mothwing-cloak",
+    "type": "equipment",
+    "category": "armor",
+    "name": "Mothwing Cloak",
+    "description": "A light cloak woven from shimmering, giant luna moth wings. It seems to shift and blur your outline.",
+    "rarity": "uncommon",
+    "weight": 3,
+    "abilities": {
+      "passive": [
+        {
+          "abilityID": "pas_mothwing_ac",
+          "name": "Fey Guile",
+          "description": "Provides a base Armor Class of 12 + DEX modifier.",
+          "effects": [
+            {
+              "type": "SET_STAT",
+              "target": "self",
+              "parameters": {
+                "stat": "armor_class",
+                "base_value": 12,
+                "attribute_bonus": "DEX"
+              }
+            }
+          ]
+        },
+        {
+          "abilityID": "pas_mothwing_charm_save",
+          "name": "Fey Mind",
+          "description": "Grants advantage on saving throws against being charmed.",
+          "effects": [
+            {
+              "type": "MOD_STAT",
+              "target": "self",
+              "parameters": {
+                "stat": "saving_throw_charm",
+                "modifier": "ADVANTAGE"
+              }
+            }
+          ]
+        }
+      ],
+      "active": []
+    }
+  },
+  "pixie-call-whistle": {
+    "id": "pixie-call-whistle",
+    "type": "equipment",
+    "category": "accessory",
+    "name": "Pixie-Call Whistle",
+    "description": "A tiny, intricate whistle carved from a single piece of willow. Its sound is only audible to fey creatures and small animals.",
+    "rarity": "uncommon",
+    "weight": 0,
+    "abilities": {
+      "passive": [
+        {
+          "abilityID": "pas_pixie_charm",
+          "name": "Mischievous Charm",
+          "description": "Grants a +1 bonus to Persuasion checks.",
+          "effects": [
+            {
+              "type": "MOD_STAT",
+              "target": "self",
+              "parameters": {
+                "stat": "persuasion_check",
+                "modifier": "ADD",
+                "value": 1
+              }
+            }
+          ]
+        }
+      ],
+      "active": [
+        {
+          "abilityID": "act_pixie_signal",
+          "name": "Fey Signal",
+          "type": "UTILITY",
+          "description": "Once per day, you may blow the whistle to attract the attention of nearby, non-hostile fey or curious small animals.",
+          "effects": [
+            {
+              "type": "UTILITY_EFFECT",
+              "target": "area",
+              "parameters": {
+                "effect_name": "attract_fey_or_animals",
+                "usage": "once_per_day"
+              }
+            }
+          ]
+        }
+      ]
+    }
   },
   "example-gold-coin": {
     "id": "example-gold-coin",
@@ -124,150 +432,15 @@
     "stackable": true,
     "effects": []
   },
-  "example-ring-of-protection": {
-    "id": "example-ring-of-protection",
-    "type": "equipment",
-    "category": "accessory",
-    "name": "Ring of Protection",
-    "description": "A simple silver ring that subtly deflects harm.",
+  "example-gold-bag": {
+    "id": "example-gold-bag",
+    "type": "loot",
+    "name": "Gold Bag",
+    "description": "hella cash",
     "rarity": "rare",
-    "weight": 0.1,
-    "stackable": true,
-    "effects": [
-      {
-        "type": "modifier",
-        "name": "AC Bonus",
-        "attribute": "armor_class",
-        "modifier": 1
-      },
-      {
-        "type": "modifier",
-        "name": "Saving Throw Bonus",
-        "attribute": "saving_throws",
-        "modifier": 1
-      }
-    ]
-  },
-  "example-greatshield": {
-    "id": "example-greatshield",
-    "type": "equipment",
-    "category": "shield",
-    "name": "Greatshield",
-    "description": "A massive shield capable of withstanding heavy blows.",
-    "rarity": "uncommon",
-    "weight": 15,
-    "defense": [
-      {
-        "id": "greatshield-ac-bonus",
-        "name": "Shield Block",
-        "defense_type": "armor_class",
-        "value": 2,
-        "effect": []
-      },
-      {
-        "id": "greatshield-pushback",
-        "name": "Shield Bash (Defensive)",
-        "defense_type": "effect",
-        "effect_description": "As a reaction, push back an attacker 5ft on a successful block. Usable once per turn.",
-        "cost": { "stamina": 5 },
-        "usage": "once-per-turn",
-        "effect": [
-          {
-            "type": "push",
-            "distance": 5
-          }
-        ]
-      }
-    ],
-    "effects": [
-      {
-        "type": "modifier",
-        "name": "Resistance to Force",
-        "attribute": "damage_resistance",
-        "modifier": "force",
-        "value": "minor"
-      }
-    ]
-  },
-  "staff-of-moon-whispers": {
-    "id": "staff-of-moon-whispers",
-    "type": "equipment",
-    "category": "weapon",
-    "name": "Staff of Moon-Whispers",
-    "description": "A staff of silvery, smooth wood that hums faintly under the moonlight. It feels surprisingly light.",
-    "rarity": "uncommon",
-    "weight": 4,
-    "attacks": [
-      {
-        "id": "moon-staff-strike",
-        "name": "Strike",
-        "damage_type": "bludgeoning",
-        "damage_dice": "1d6",
-        "range": "melee",
-        "cost": { "stamina": 4 },
-        "properties": ["versatile (1d8)"],
-        "effect": []
-      },
-      {
-        "id": "moon-spark-distraction",
-        "name": "Disorienting Sparks",
-        "damage_type": "none",
-        "damage_dice": "0",
-        "range": "melee",
-        "cost": { "stamina": 2 },
-        "properties": ["On hit, the target has disadvantage on its next attack roll."],
-        "effect": []
-      }
-    ],
+    "weight": 10,
+    "value": 2,
+    "stackable": false,
     "effects": []
-  },
-  "mothwing-cloak": {
-    "id": "mothwing-cloak",
-    "type": "equipment",
-    "category": "armor",
-    "name": "Mothwing Cloak",
-    "description": "A light cloak woven from shimmering, giant luna moth wings. It seems to shift and blur your outline.",
-    "rarity": "uncommon",
-    "weight": 3,
-    "defense": [
-      {
-        "id": "mothwing-ac-bonus",
-        "name": "Fey Guile",
-        "defense_type": "armor_class",
-        "value": 12,
-        "properties": ["+DEX modifier"],
-        "effect": []
-      }
-    ],
-    "effects": [
-      {
-        "type": "modifier",
-        "name": "Fey Mind",
-        "attribute": "saving_throws_charm",
-        "modifier": "advantage"
-      }
-    ]
-  },
-  "pixie-call-whistle": {
-    "id": "pixie-call-whistle",
-    "type": "equipment",
-    "category": "accessory",
-    "name": "Pixie-Call Whistle",
-    "description": "A tiny, intricate whistle carved from a single piece of willow. Its sound is only audible to fey creatures and small animals.",
-    "rarity": "uncommon",
-    "weight": 0,
-    "effects": [
-      {
-        "type": "modifier",
-        "name": "Mischievous Charm",
-        "attribute": "persuasion_check",
-        "modifier": 1
-      },
-      {
-        "type": "utility",
-        "name": "Fey Signal",
-        "effect_description": "Once per day, you may blow the whistle to attract the attention of nearby, non-hostile fey or curious small animals."
-      }
-    ]
   }
 }

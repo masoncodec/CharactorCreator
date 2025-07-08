@@ -7,12 +7,14 @@ import { loadGameModules, loadDataForModule } from './dataLoader.js'; //
 import { alerter } from './alerter.js'; //
 import { RollManager } from './RollManager.js';
 import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab } from './play-ui.js';
+import { aggregateAllAbilities } from './abilityAggregator.js';
 
 // Global variables
 let moduleDefinitions = {};
 let abilityData = {};
 let flawData = {};
 let perkData = {};
+let equipmentData = {};
 let activeAbilityStates = new Set();
 let activeCharacter = null;
 
@@ -26,17 +28,18 @@ function processAndRenderAll(character) {
         return;
     }
 
-    // Process effects first
-    EffectHandler.processActiveAbilities(character, abilityData, flawData, perkData, activeAbilityStates, 'play');
-    
-    // Pass activeAbilityStates to applyEffectsToCharacter so it can be attached to the result
+    // 1. Aggregate all abilities from character and equipped items
+    const allAbilities = aggregateAllAbilities(character, abilityData, equipmentData);
+
+    // 2. Process effects using the aggregated list
+    EffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
     const effectedCharacter = EffectHandler.applyEffectsToCharacter(character, 'play', activeAbilityStates);
 
     // Render all components of the new UI
     renderTopNav(effectedCharacter, moduleDefinitions);
     renderMainTab(effectedCharacter, moduleDefinitions);
     // The call to renderAbilitiesTab is now simpler
-    renderAbilitiesTab(effectedCharacter, abilityData);
+    renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);
     renderInventoryTab(effectedCharacter);
 
@@ -184,6 +187,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         abilityData = moduleSpecificData.abilityData || {};
         flawData = moduleSpecificData.flawData || {};
         perkData = moduleSpecificData.perkData || {};
+        equipmentData = moduleSpecificData.equipmentAndLootData || {};
 
         // Initial render
         processAndRenderAll(activeCharacter);

@@ -1,6 +1,8 @@
 // characterFinisher.js
 // UPDATED: Now sets new characters as active and redirects to play.html. Success alerts removed.
 
+import { aggregateAllAbilities } from '../abilityAggregator.js';
+
 class CharacterFinisher {
   constructor(stateManager, db, alerter, EffectHandler, pageNavigator, pages, characterId = null) {
     this.stateManager = stateManager;
@@ -53,9 +55,14 @@ class CharacterFinisher {
         health: { max: 0 }
     };
     
+    // 1. Aggregate all abilities first
+    const allAbilities = aggregateAllAbilities(tempCharForEffects, data.abilities, allItemDefs);
+
+    // 2. Process the aggregated list
     this.EffectHandler.processActiveAbilities(
-        tempCharForEffects, data.abilities, data.flaws, data.perks, new Set(), 'wizard'
+        allAbilities, tempCharForEffects, data.flaws, data.perks, new Set(), 'wizard'
     );
+
     this._addLevelRewardsToEffects(currentState);
     const modifiedCharacter = this.EffectHandler.applyEffectsToCharacter(tempCharForEffects, 'wizard', new Set());
 
@@ -174,16 +181,22 @@ class CharacterFinisher {
     const finalInventory = [];
     const stackableMap = new Map();
     const combinedRawInventory = [ ...stateInventory, ...rawInventorySelections ];
+  
     for (const itemState of combinedRawInventory) {
       const itemDef = allItemDefs[itemState.id];
       if (!itemDef) continue;
       if (itemDef.stackable) {
         if (!stackableMap.has(itemState.id)) {
-          stackableMap.set(itemState.id, { id: itemState.id, quantity: 0, sources: new Set() });
+          stackableMap.set(itemState.id, { 
+              id: itemState.id, 
+              quantity: 0, 
+              sources: new Set(),
+              // Store the item type for later use.
+              itemType: itemDef.itemType 
+          });
         }
         const entry = stackableMap.get(itemState.id);
         entry.quantity += itemState.quantity || 1; 
-        
         if (itemState.source) {
             const sourcesToAdd = String(itemState.source).split(', ');
             sourcesToAdd.forEach(s => entry.sources.add(s.trim()));
@@ -192,11 +205,13 @@ class CharacterFinisher {
         finalInventory.push(itemState);
       }
     }
+  
     for (const [, combinedItem] of stackableMap.entries()) {
       finalInventory.push({
         id: combinedItem.id,
         quantity: combinedItem.quantity,
-        equipped: true,
+        // Set 'equipped' based on the stored item type.
+        equipped: combinedItem.itemType === 'equipment',
         source: Array.from(combinedItem.sources).join(', '),
       });
     }

@@ -59,13 +59,61 @@ export function renderMainTab(character, moduleDefinitions) {
 }
 
 /**
- * Renders the content for the 'Abilities' tab.
+ * Renders the content for the 'Abilities' tab using the aggregated list.
  */
-export function renderAbilitiesTab(character, abilityData) {
+export function renderAbilitiesTab(allAbilities, character) { // Changed signature
     const panel = document.getElementById('abilities-panel');
     if (!panel) return;
-    // The call to the helper function is also simplified.
-    panel.innerHTML = renderAbilities(character, abilityData);
+    panel.innerHTML = renderAbilities(allAbilities, character); // Pass new list to helper
+}
+
+/**
+ * Helper function to generate HTML for the abilities list.
+ */
+function renderAbilities(allAbilities, character) { // Changed signature
+    if (!allAbilities || allAbilities.length === 0) return '<div class="panel"><p>No abilities available.</p></div>';
+    
+    const activeAbilitiesHtml = [];
+    const passiveAbilitiesHtml = [];
+
+    allAbilities.forEach(ability => {
+        const abilityDef = ability.definition;
+        if (!abilityDef) return;
+
+        const sourceLabel = ability.sourceType === 'equipment'
+            ? `<p class="ability-source">Source: ${ability.sourceName}</p>`
+            : '';
+
+        let description = abilityDef.description.replace(/\${([^}]+)}/g, (match, p1) => { /* ... description parsing ... */ });
+
+        if (abilityDef.type === "active") {
+            const isOn = character.activeAbilityIds && character.activeAbilityIds.has(ability.instancedId) ? 'selected' : '';
+            activeAbilitiesHtml.push(
+                `<li class="ability-list-item">
+                    <button class="ability-button ability-card ${isOn}" data-ability-id="${ability.instancedId}">
+                        <strong>${abilityDef.name}</strong> 
+                        <span class="ability-type-tag active">ACTIVE</span>
+                        <p>${description}</p>
+                        ${sourceLabel}
+                    </button>
+                </li>`
+            );
+        } else {
+            passiveAbilitiesHtml.push(
+                `<li class="ability-card passive-ability-item">
+                    <strong>${abilityDef.name}</strong> 
+                    <span class="ability-type-tag passive">PASSIVE</span>
+                    <p>${description}</p>
+                    ${sourceLabel}
+                </li>`
+            );
+        }
+    });
+
+    const activeSection = activeAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Active Abilities</h2><ul id="activeAbilitiesList">${activeAbilitiesHtml.join('')}</ul></div>` : '';
+    const passiveSection = passiveAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Passive Abilities</h2><ul id="passiveAbilitiesList">${passiveAbilitiesHtml.join('')}</ul></div>` : '';
+
+    return activeSection + passiveSection;
 }
 
 /**
@@ -255,38 +303,4 @@ function renderPerks(character, perkData) {
         if (!perkDef) return `<li>Unknown Perk (ID: ${perkState.id})</li>`;
         return `<li class="item"><strong>${perkDef.name}</strong><p>${perkDef.description}</p></li>`;
     }).join('')}</ul>`;
-}
-
-function renderAbilities(character, abilityData) {
-    if (!character.abilities || character.abilities.length === 0) return '';
-    const activeAbilitiesHtml = [];
-    const passiveAbilitiesHtml = [];
-
-    character.abilities.forEach(abilityState => {
-        const abilityDef = abilityData[abilityState.id];
-        if (!abilityDef) return;
-        
-        let description = abilityDef.description.replace(/\${([^}]+)}/g, (match, p1) => {
-            try {
-                const path = p1.split('.');
-                let current = abilityDef;
-                for (let i = 0; i < path.length; i++) { current = current?.[path[i]]; }
-                return current !== undefined ? current : match;
-            } catch (e) { return match; }
-        });
-
-        if (abilityDef.type === "active") {
-            // This is the key change: Check for the active state on the character object.
-            const isOn = character.activeAbilityIds && character.activeAbilityIds.has(abilityState.id) ? 'selected' : '';
-            
-            activeAbilitiesHtml.push(`<li class="ability-list-item"><button class="ability-button ability-card ${isOn}" data-ability-id="${abilityState.id}"><strong>${abilityDef.name}</strong> <span class="ability-type-tag active">ACTIVE</span><p>${description}</p></button></li>`);
-        } else {
-            passiveAbilitiesHtml.push(`<li class="ability-card passive-ability-item"><strong>${abilityDef.name}</strong> <span class="ability-type-tag passive">PASSIVE</span><p>${description}</p></li>`);
-        }
-    });
-
-    const activeSection = activeAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Active Abilities</h2><ul id="activeAbilitiesList">${activeAbilitiesHtml.join('')}</ul></div>` : '';
-    const passiveSection = passiveAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Passive Abilities</h2><ul id="passiveAbilitiesList">${passiveAbilitiesHtml.join('')}</ul></div>` : '';
-
-    return activeSection + passiveSection;
 }

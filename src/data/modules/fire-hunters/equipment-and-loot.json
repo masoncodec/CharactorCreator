@@ -26,7 +26,7 @@
                             "name": "Available Loot",
                             "pointModifier": "subtract",
                             "type": "loot",
-                            "items": [ "example-healing-potion", "example-gold-coin", "example-iron-ore" ]
+                            "items": [ "example-healing-potion", "example-gold-coin", "example-iron-ore", "example-gold-bag" ]
                         }
                     }
                 }

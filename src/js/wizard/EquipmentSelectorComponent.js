@@ -35,14 +35,13 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
    * Renders a standard selection card but injects the "Equip" toggle.
    */
   _createSimpleSelectionCard(itemDef, selectionState, validationState) {
-    // Get the standard card HTML (with radio/checkbox) from the parent class.
     const baseCardHTML = super._createCardHTML(itemDef, selectionState, validationState);
-
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = baseCardHTML;
     const cardElement = tempDiv.querySelector('.ability-card');
-
-    if (cardElement) {
+  
+    // Only add the toggle if the item is 'equipment'.
+    if (cardElement && itemDef.itemType === 'equipment') {
       const isSelected = !!selectionState;
       const isEquipped = selectionState?.equipped || false;
       
@@ -59,7 +58,7 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
       `;
       cardElement.insertAdjacentHTML('beforeend', equipToggleHTML);
     }
-
+  
     return tempDiv.innerHTML;
   }
 
@@ -125,7 +124,16 @@ class EquipmentSelectorComponent extends ItemSelectorComponent {
         case 'increment-quantity':
           if (this.ruleEngine.getValidationState(itemDef, this.source, this.context).isDisabled) return;
           if (currentQuantity === 0) {
-            this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, { quantity: 1, equipped: true });
+            this.stateManager.itemManager.selectItem(
+              itemDef, 
+              this.source, 
+              itemDef.groupId, 
+              { 
+                quantity: 1, 
+                // Only equip if the item type is 'equipment'.
+                equipped: itemDef.itemType === 'equipment' 
+              }
+            );
           } else {
             this.stateManager.itemManager.updateSelection(itemId, this.source, { quantity: currentQuantity + 1 });
           }

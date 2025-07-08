@@ -1,51 +1,39 @@
 // effectHandler.js
-// This module centralizes the logic for processing and applying character effects
-// derived from abilities, flaws, and perks.
+// This module centralizes the logic for processing and applying character effects.
 
 export const EffectHandler = {
-    // Stores currently active effects that influence character stats or state
-    activeEffects: [], // This will be a list of processed effects, not just raw ability effects
+    activeEffects: [],
 
     /**
-     * Processes active abilities, flaws, and perks to compile their effects.
-     * This function should be called whenever character state might change (e.g., ability toggle, character load).
-     * @param {object} character - The character object containing abilities, flaws, and perks.
-     * @param {object} abilityData - A map of all ability definitions by ID.
+     * Processes a pre-aggregated list of abilities, plus flaws and perks, to compile their effects.
+     * @param {Array<object>} allAbilities - The master list of abilities from the abilityAggregator.
+     * @param {object} character - The character object, needed for flaws and perks.
      * @param {object} flawData - A map of all flaw definitions by ID.
-     * @param {object} perkData - A map of all perk definitions by ID. // ADDED: perkData parameter
+     * @param {object} perkData - A map of all perk definitions by ID.
      * @param {Set<string>} activeAbilityStates - A Set of IDs of currently toggled active abilities.
-     * @param {string} context - The context in which effects are being processed ('wizard' or 'play').
+     * @param {string} context - The context in which effects are being processed.
      */
-    processActiveAbilities: function(character, abilityData, flawData, perkData, activeAbilityStates, context) { // ADDED perkData
-        this.activeEffects = []; // Clear previous active effects
-
+    processActiveAbilities: function(allAbilities, character, flawData, perkData, activeAbilityStates, context) {
+        this.activeEffects = [];
         if (!character) return;
 
-        // Process Abilities
-        if (character.abilities) {
-            character.abilities.forEach(abilityState => {
-                const abilityDef = abilityData[abilityState.id];
-                if (abilityDef && abilityDef.effect) {
-                    // An ability is 'active' if it's passive, or if it's an active ability AND its ID is in activeAbilityStates
-                    const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id));
+        // Process the unified list of all abilities
+        if (allAbilities) {
+            allAbilities.forEach(ability => {
+                const abilityDef = ability.definition;
+                if (!abilityDef || !abilityDef.effect) return;
 
-                    if (isActive) {
-                        abilityDef.effect.forEach(effect => {
-                            // Store the raw effect data along with context
-                            this.activeEffects.push({
-                                ...effect,
-                                itemName: abilityDef.name, // Renamed for consistency across sources
-                                itemId: abilityState.id,
-                                itemType: abilityDef.type, // 'active' or 'passive'
-                                sourceType: "ability" // Indicate source is an ability
-                            });
-                        });
-                    }
+                const isEffectivelyActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(ability.instancedId));
+
+                if (isEffectivelyActive) {
+                    abilityDef.effect.forEach(effect => {
+                        this.activeEffects.push({ ...effect, itemName: abilityDef.name, itemId: ability.instancedId, sourceType: ability.sourceType });
+                    });
                 }
             });
         }
 
-        // Process Flaws
+        // Process Flaws and Perks (This logic remains the same)
         if (character.flaws && flawData) {
             character.flaws.forEach(flawState => {
                 const flawDef = flawData[flawState.id];
@@ -62,8 +50,6 @@ export const EffectHandler = {
                 }
             });
         }
-
-        // Process Perks // ADDED: New section for Perks
         if (character.perks && perkData) {
             character.perks.forEach(perkState => {
                 const perkDef = perkData[perkState.id];
