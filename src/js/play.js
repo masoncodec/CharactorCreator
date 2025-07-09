@@ -119,40 +119,48 @@ document.addEventListener('DOMContentLoaded', async () => {
             // --- Logic to unequip by clicking a filled slot in the UI ---
             const unequipSlot = target.closest('.equipment-slot.filled');
             if (unequipSlot) {
-                // Get the specific slot instance that was clicked (e.g., "ring_1").
-                const slotIdToClear = unequipSlot.dataset.slotId;
-                // Get the item ID that is in that specific slot.
-                const itemId = activeCharacter.equipmentSlots[slotIdToClear];
+                // Get the specific slot instance that was clicked (e.g., "main-hand_1" or "ring_1").
+                const slotId = unequipSlot.dataset.slotId;
+                const itemIdToUnequip = activeCharacter.equipmentSlots[slotId];
 
-                if (!itemId) return; // Safety check
+                if (!itemIdToUnequip) return; // Safety check
 
-                let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
-                let newInventory = [...activeCharacter.inventory];
+                // Look up the item's definition to see what kind of item it is.
+                const itemDef = equipmentData[itemIdToUnequip];
 
-                // --- THE FIX IS HERE ---
-                // We now clear ONLY the specific slot that was clicked.
-                newEquipmentSlots[slotIdToClear] = null;
+                // Check if the item is a combined-slot item (like a two-hander).
+                if (itemDef && EQUIPMENT_SLOT_CONFIG.combined_slots[itemDef.equip_slot]) {
+                    // If it IS a combined item, we must unequip it completely from all its slots.
+                    // The existing `handleUnequip` function does this perfectly.
+                    await handleUnequip(itemIdToUnequip);
+                } else {
+                    // If it's a STANDARD or REPEATABLE item (like a helmet or a ring),
+                    // we only unequip it from the single slot that was clicked.
+                    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+                    let newInventory = [...activeCharacter.inventory];
 
-                // After clearing the slot, we check if any other instances of this
-                // item are still equipped.
-                const occupiedSlots = Object.values(newEquipmentSlots);
-                const isStillEquippedElsewhere = occupiedSlots.includes(itemId);
+                    // Clear only the specific slot that was clicked.
+                    newEquipmentSlots[slotId] = null;
 
-                // If no other instances are equipped, we update the main "equipped"
-                // flag in the inventory so the button text changes correctly.
-                if (!isStillEquippedElsewhere) {
-                    newInventory = newInventory.map(item =>
-                        item.id === itemId ? { ...item, equipped: false } : item
-                    );
-                }
+                    // After clearing, check if any other instances of this item are still equipped.
+                    const isStillEquippedElsewhere = Object.values(newEquipmentSlots).includes(itemIdToUnequip);
 
-                // Save changes and re-render the UI.
-                try {
-                    activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
-                    processAndRenderAll(activeCharacter);
-                } catch (err) {
-                    console.error('Failed to unequip from slot:', err);
-                    alerter.show('Failed to unequip from slot.', 'error');
+                    // If no other instances are equipped, update the master "equipped" flag
+                    // in the inventory list so the buttons can update.
+                    if (!isStillEquippedElsewhere) {
+                        newInventory = newInventory.map(item =>
+                            item.id === itemIdToUnequip ? { ...item, equipped: false } : item
+                        );
+                    }
+
+                    // Save the changes and re-render the UI.
+                    try {
+                        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
+                        processAndRenderAll(activeCharacter);
+                    } catch (err) {
+                        console.error('Failed to unequip from slot:', err);
+                        alerter.show('Failed to unequip from slot.', 'error');
+                    }
                 }
 
                 return; // Stop further event processing.
