@@ -3,7 +3,7 @@ import { EffectHandler } from './effectHandler.js';
 import { loadGameModules, loadDataForModule } from './dataLoader.js';
 import { alerter } from './alerter.js';
 import { RollManager } from './RollManager.js';
-import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, EQUIPMENT_SLOT_CONFIG } from './play-ui.js';
+import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, EQUIPMENT_SLOT_CONFIG, EQUIPMENT_SLOT_MAP } from './play-ui.js';
 import { aggregateAllAbilities } from './abilityAggregator.js';
 
 // Global variables
@@ -33,34 +33,18 @@ function processAndRenderAll(character) {
 }
 
 /**
- * UPDATED: Uses the new config to find all slots an item type occupies.
- * @param {string} equipSlot - The equip_slot from the item's definition (e.g., "head", "two-hand").
- * @returns {Array<string>} An array of the actual base slot names the item uses.
- */
-function getSlotsForEquipSlot(equipSlot) {
-    const combinedConfig = EQUIPMENT_SLOT_CONFIG.combined_slots[equipSlot];
-    if (combinedConfig) {
-        return combinedConfig.replaces;
-    }
-    if (equipSlot) {
-        return [equipSlot];
-    }
-    return [];
-}
-
-/**
  * Reusable async function to handle all unequip actions.
  * @param {string} itemIdToUnequip The ID of the item to unequip.
  */
 async function handleUnequip(itemIdToUnequip) {
     if (!activeCharacter || !itemIdToUnequip) return;
-    const itemDef = equipmentData[itemIdToUnequip];
-    if (!itemDef) return;
-    const slotsToClear = getSlotsForEquipSlot(itemDef.equip_slot);
-    const newEquipmentSlots = { ...activeCharacter.equipmentSlots };
-    slotsToClear.forEach(s => {
-        if (newEquipmentSlots[s] === itemIdToUnequip) newEquipmentSlots[s] = null;
-    });
+    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+    // Find all slot instances that hold this item ID and clear them.
+    for (const slotId in newEquipmentSlots) {
+        if (newEquipmentSlots[slotId] === itemIdToUnequip) {
+            newEquipmentSlots[slotId] = null;
+        }
+    }
     const newInventory = activeCharacter.inventory.map(item =>
         item.id === itemIdToUnequip ? { ...item, equipped: false } : item
     );
@@ -69,6 +53,7 @@ async function handleUnequip(itemIdToUnequip) {
         processAndRenderAll(activeCharacter);
     } catch (err) { console.error('Failed to unequip item:', err); alerter.show('Failed to unequip item.', 'error'); }
 }
+
 
 /**
  * Helper function to update the display for a KOB attribute roll.
@@ -117,56 +102,108 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!activeCharacter) return;
             const target = event.target;
 
-            // --- Unequip from Slot Logic ---
             const unequipSlot = target.closest('.equipment-slot.filled');
             if (unequipSlot) {
                 const slotId = unequipSlot.dataset.slotId;
                 const itemIdToUnequip = activeCharacter.equipmentSlots[slotId];
-                await handleUnequip(itemIdToUnequip); // Use the reusable function
+                await handleUnequip(itemIdToUnequip);
                 return;
             }
 
             // --- Equip/Unequip from Button Logic ---
             const equipButton = target.closest('.btn-equip');
+            
             if (equipButton) {
                 const itemId = equipButton.dataset.itemId;
                 const itemInstance = activeCharacter.inventory.find(i => i.id === itemId);
 
+                // This part handles clicking a button that already says "Unequip"
                 if (itemInstance && itemInstance.equipped) {
                     await handleUnequip(itemId);
                 } else {
-                    // EQUIP LOGIC
+                    // This is the main logic for when the button says "Equip"
                     const itemToEquipDef = equipmentData[itemId];
-                    if (!itemToEquipDef || !itemToEquipDef.equip_slot) return alerter.show('This item cannot be equipped.', 'warn');
-                    
-                    const targetSlots = getSlotsForEquipSlot(itemToEquipDef.equip_slot);
-                    const conflictingItemIds = new Set(targetSlots.map(s => activeCharacter.equipmentSlots[s]).filter(Boolean));
+                    const equipSlotType = itemToEquipDef.equip_slot;
+                    if (!equipSlotType) return alerter.show('This item cannot be equipped.', 'warn');
                     
                     let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+                    let newInventory = [...activeCharacter.inventory];
+                    const combinedConfig = EQUIPMENT_SLOT_CONFIG.combined_slots[equipSlotType];
+                    const instanceSlots = EQUIPMENT_SLOT_MAP[equipSlotType];
+
+                    if (combinedConfig) {
+                        // --- Case 1: Equipping a Combined Item (e.g., "two-hand") ---
+                        // This is the new, smarter logic that dynamically finds available slots.
+                        
+                        const baseTypes = combinedConfig.replaces; // e.g., ['main-hand', 'off-hand']
+                        const targetSlots = []; // This will hold the specific slots to occupy, e.g., ['main-hand_1', 'off-hand_2']
+
+                        // For each required slot type, find an available instance.
+                        for (const type of baseTypes) {
+                            const availableInstances = EQUIPMENT_SLOT_MAP[type];
+                            if (!availableInstances) continue;
+
+                            // First, try to find an empty instance of this type.
+                            const emptyInstance = availableInstances.find(id => !newEquipmentSlots[id]);
+                            if (emptyInstance) {
+                                targetSlots.push(emptyInstance);
+                            } else {
+                                // If no empty instance is found, we must replace one.
+                                // We'll target the first instance of this type for replacement.
+                                targetSlots.push(availableInstances[0]);
+                            }
+                        }
+
+                        // Now that we have our target slots, find all unique items currently in them.
+                        const conflictingItemIds = new Set(targetSlots.map(s => newEquipmentSlots[s]).filter(Boolean));
+
+                        // Unequip every conflicting item.
+                        for (const id of conflictingItemIds) {
+                            // Fully unequip the item from all slots it might occupy.
+                            for (const slotId in newEquipmentSlots) {
+                                if (newEquipmentSlots[slotId] === id) {
+                                    newEquipmentSlots[slotId] = null;
+                                }
+                            }
+                            newInventory = newInventory.map(item => item.id === id ? { ...item, equipped: false } : item);
+                        }
+                        
+                        // Equip the new combined item in all its dynamically found target slots.
+                        targetSlots.forEach(s => newEquipmentSlots[s] = itemId);
+
+                    } else if (instanceSlots) {
+                        // --- Case 2 & 3: Equipping a Repeatable or Standard Item ---
+                        // This logic is already correct.
+                        const emptySlotId = instanceSlots.find(slotId => !newEquipmentSlots[slotId]);
+                        if (emptySlotId) {
+                            newEquipmentSlots[emptySlotId] = itemId;
+                        } else {
+                            const slotToReplace = instanceSlots[instanceSlots.length - 1];
+                            const oldItemId = newEquipmentSlots[slotToReplace];
+                            if (oldItemId) {
+                                for (const slotId in newEquipmentSlots) {
+                                    if (newEquipmentSlots[slotId] === oldItemId) {
+                                        newEquipmentSlots[slotId] = null;
+                                    }
+                                }
+                                newInventory = newInventory.map(item => item.id === oldItemId ? { ...item, equipped: false } : item);
+                            }
+                            newEquipmentSlots[slotToReplace] = itemId;
+                        }
+                    } else {
+                        return alerter.show('Invalid slot type definition.', 'error');
+                    }
                     
-                    conflictingItemIds.forEach(id => {
-                        if (id === itemId) return;
-                        const def = equipmentData[id];
-                        getSlotsForEquipSlot(def.equip_slot).forEach(s => newEquipmentSlots[s] = null);
-                    });
-
-                    // Equip the new item by filling ALL its target slots with its ID
-                    targetSlots.forEach(s => {
-                        newEquipmentSlots[s] = itemId;
-                    });
-
-                    const newInventory = activeCharacter.inventory.map(item => {
-                        if (item.id === itemId) return { ...item, equipped: true };
-                        if (conflictingItemIds.has(item.id)) return { ...item, equipped: false };
-                        return item;
-                    });
-
+                    // Finally, update the new item's status to be "equipped".
+                    newInventory = newInventory.map(item => item.id === itemId ? { ...item, equipped: true } : item);
+                    
+                    // Save all changes and re-render the UI.
                     try {
                         activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
                         processAndRenderAll(activeCharacter);
                     } catch (err) { console.error('Failed to equip item:', err); alerter.show('Failed to equip item.', 'error'); }
                 }
-                return;
+                return; // Stop further event processing.
             }
             
             // --- Other Actions ---
