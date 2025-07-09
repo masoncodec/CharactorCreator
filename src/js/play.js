@@ -28,6 +28,12 @@ function processAndRenderAll(character) {
         return;
     }
 
+    // Ensure the character has an equipmentSlots object to prevent errors.
+    // This is important for characters created before this feature was added.
+    if (!character.equipmentSlots) {
+        character.equipmentSlots = {};
+    }
+
     // 1. Aggregate all abilities from character and equipped items
     const allAbilities = aggregateAllAbilities(character, abilityData, equipmentData);
 
@@ -35,7 +41,7 @@ function processAndRenderAll(character) {
     EffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
     const effectedCharacter = EffectHandler.applyEffectsToCharacter(character, 'play', activeAbilityStates);
 
-    // Filter out just the equipment for the new tab
+    // Filter out just the equipment for the equipment table component
     const equipmentItems = effectedCharacter.inventory
         .map(item => ({ ...item, definition: equipmentData[item.id] }))
         .filter(item => item.definition && item.definition.type === 'equipment');
@@ -46,7 +52,13 @@ function processAndRenderAll(character) {
     renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);
     renderInventoryTab(effectedCharacter, equipmentData);
-    renderEquipmentTab(equipmentItems); // Add this line
+    
+    // Pass the necessary data to the equipment tab renderer
+    renderEquipmentTab(
+        equipmentItems,
+        effectedCharacter.equipmentSlots,
+        equipmentData
+    );
 
     // Re-attach listeners that might be on elements inside the rendered tabs
     attachDynamicListeners(effectedCharacter);

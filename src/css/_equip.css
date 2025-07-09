@@ -40,3 +40,16 @@
     color: #888;
     font-style: italic;
 }
+
+ /* Style for a slot that has an item in it */
+.equipment-slot.filled .slot-item-name {
+    color: #e0e0e0; /* Brighter text color for the item name */
+    font-style: normal;
+    font-weight: bold;
+}
+
+/* Rarity border colors */
+.equipment-slot.rarity-common { border-color: #bababa; }
+.equipment-slot.rarity-uncommon { border-color: #2b9e3a; }
+.equipment-slot.rarity-rare { border-color: #3b89d9; }
+/* Add other rarities as needed */

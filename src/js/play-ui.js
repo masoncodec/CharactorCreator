@@ -242,21 +242,26 @@ function renderLootTableComponent(lootItems) {
 }
 
 // Helper function to render the visual equipment slots UI.
-function renderEquipmentSlotsComponent() {
+// UPDATED: Now accepts data to show equipped items.
+function renderEquipmentSlotsComponent(equipmentSlots, equipmentData) {
     let slotsHtml = '';
-    // Loop through each category in the configuration (Armor, Weapons, etc.)
     for (const category in EQUIPMENT_SLOT_CONFIG) {
         slotsHtml += `<div class="equipment-category"><h3>${category}</h3><div class="slots-container">`;
         
-        // Loop through each slot in the category (head, chest, etc.)
         const slots = EQUIPMENT_SLOT_CONFIG[category];
         slots.forEach(slotId => {
-            // Sanitize the label for display (e.g., "main-hand" becomes "Main-Hand")
+            const equippedItemId = equipmentSlots[slotId];
+            const itemDef = equippedItemId ? equipmentData[equippedItemId] : null;
+            
             const slotLabel = slotId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            const itemName = itemDef ? itemDef.name : "Empty";
+            const slotClass = itemDef ? "equipment-slot filled" : "equipment-slot";
+            const rarityClass = itemDef ? `rarity-${itemDef.rarity}` : '';
+
             slotsHtml += `
-                <div class="equipment-slot" data-slot-id="${slotId}">
+                <div class="${slotClass} ${rarityClass}" data-slot-id="${slotId}">
                     <div class="slot-label">${slotLabel}</div>
-                    <div class="slot-item-name">Empty</div>
+                    <div class="slot-item-name">${itemName}</div>
                 </div>
             `;
         });
@@ -269,19 +274,20 @@ function renderEquipmentSlotsComponent() {
 
 /**
  * Renders the content for the 'Equipment' tab.
- * UPDATED: Now renders the visual slots based on the configuration.
+ * UPDATED: Accepts and passes down data for the slots.
  * @param {Array} equipmentItems - A list of the character's equipment.
+ * @param {object} equipmentSlots - The character's map of equipped items.
+ * @param {object} equipmentData - The master list of all item definitions.
  */
-export function renderEquipmentTab(equipmentItems) {
+export function renderEquipmentTab(equipmentItems, equipmentSlots, equipmentData) {
     const panel = document.getElementById('equipment-panel');
     if (!panel) return;
 
-    // The placeholder div is now replaced with a call to our new component renderer.
     panel.innerHTML = `
         <div class="panel">
              <h2>Equipped Items</h2>
              <div id="equipment-slots-panel">
-                ${renderEquipmentSlotsComponent()}
+                ${renderEquipmentSlotsComponent(equipmentSlots, equipmentData)}
              </div>
         </div>
         <div class="panel">
