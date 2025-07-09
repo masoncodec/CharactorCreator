@@ -191,23 +191,53 @@ export function renderProfileTab(character, flawData, perkData) {
 }
 
 // Renders the equipment table. This is now a reusable component.
-function renderEquipmentTableComponent(equipmentItems) {
+function renderEquipmentTableComponent(equipmentItems, character, equipmentData) {
     if (equipmentItems.length === 0) {
         return '<h2>Equipment</h2><p>No equipment.</p>';
     }
 
     const tableRows = equipmentItems.map(item => {
         const itemDef = item.definition;
-        const actionButton = `<button class="btn btn-secondary btn-sm btn-equip" data-item-id="${item.id}">
-                                ${item.equipped ? 'Unequip' : 'Equip'}
-                              </button>`;
+        
+        let nameCell = itemDef.name;
+        if (item.equippedCount !== undefined) {
+            nameCell += ` <span class="item-count-display">(${item.equippedCount} of ${item.quantity} Equipped)</span>`;
+        }
+        
+        // --- NEW BUTTON LOGIC IS HERE ---
+        let actionButtonsHtml = '';
+
+        // Check if the item is stackable by looking for a quantity greater than 1.
+        if (item.quantity > 1) {
+            // It's a stackable item, so show the new context-aware buttons.
+            
+            // Show the "Equip" button only if there are items left in the stack to equip.
+            if (item.equippedCount < item.quantity) {
+                // Note the new class "btn-equip-stack" to differentiate this action.
+                actionButtonsHtml += `<button class="btn btn-success btn-sm btn-equip-stack" data-item-id="${item.id}">Equip</button>`;
+            }
+
+            // Show the "Unequip" button only if at least one item from the stack is currently equipped.
+            if (item.equippedCount > 0) {
+                 // Note the new class "btn-unequip-stack" to differentiate this action.
+                actionButtonsHtml += `<button class="btn btn-warning btn-sm btn-unequip-stack" data-item-id="${item.id}">Unequip</button>`;
+            }
+
+        } else {
+            // It's a standard, non-stackable item. Use the original single button logic.
+            actionButtonsHtml = `<button class="btn btn-secondary btn-sm btn-equip" data-item-id="${item.id}">
+                                    ${item.equipped ? 'Unequip' : 'Equip'}
+                                 </button>`;
+        }
+        // --- END OF NEW BUTTON LOGIC ---
+
         return `
             <tr>
-                <td>${itemDef.name}</td>
+                <td>${nameCell}</td>
                 <td>${itemDef.category.charAt(0).toUpperCase() + itemDef.category.slice(1)}</td>
                 <td>${itemDef.rarity.charAt(0).toUpperCase() + itemDef.rarity.slice(1)}</td>
                 <td>${item.equipped ? 'Yes' : 'No'}</td>
-                <td>${actionButton}</td>
+                <td class="actions-cell">${actionButtonsHtml}</td>
             </tr>
         `;
     }).join('');
@@ -414,6 +444,51 @@ function renderEquipmentSlotsComponent(equipmentSlots, equipmentData) {
         slotsHtml += `</div></div>`;
     }
     return slotsHtml;
+}
+
+/**
+ * Calculates how many instances of a given item are currently equipped.
+ * This function is smart enough to differentiate between a single combined item
+ * occupying multiple slots and multiple individual items occupying one slot each.
+ *
+ * @param {string} baseItemId - The base ID of the item to count (e.g., "example-ring-of-protection").
+ * @param {object} character - The active character object.
+ * @param {object} equipmentData - The master list of all item definitions.
+ * @returns {number} The number of equipped instances of the item.
+ */
+export function getEquippedCount(baseItemId, character, equipmentData) {
+    // Get the item's definition to understand its properties.
+    const itemDef = equipmentData[baseItemId];
+    const equipmentSlots = character.equipmentSlots;
+
+    // If the item isn't equippable or the character has no slots, the count is 0.
+    if (!itemDef || !itemDef.equip_slot || !equipmentSlots) {
+        return 0;
+    }
+
+    // Find all slot instances that are currently occupied by this item ID.
+    const occupiedSlots = [];
+    for (const slotId in equipmentSlots) {
+        if (equipmentSlots[slotId] === baseItemId) {
+            occupiedSlots.push(slotId);
+        }
+    }
+
+    // If it's not equipped anywhere, the count is 0.
+    if (occupiedSlots.length === 0) {
+        return 0;
+    }
+
+    // Check if the item is defined as a combined slot item (e.g., "two-hand").
+    if (EQUIPMENT_SLOT_CONFIG.combined_slots[itemDef.equip_slot]) {
+        // If it's a combined item, it always counts as exactly 1 equipped item,
+        // regardless of how many slots it fills.
+        return 1;
+    } else {
+        // If it's a standard or repeatable item (like a ring), the number of equipped
+        // instances is simply the number of slots it occupies.
+        return occupiedSlots.length;
+    }
 }
 
 /**

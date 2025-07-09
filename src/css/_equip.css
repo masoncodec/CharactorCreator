@@ -65,3 +65,15 @@
 .equipment-slot.rarity-uncommon { border-color: #2b9e3a; }
 .equipment-slot.rarity-rare { border-color: #3b89d9; }
 /* Add other rarities as needed */
+
+.item-count-display {
+    color: #a0a0a0;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.actions-cell {
+    display: flex;
+    gap: 0.5rem; /* Adds a small space between the buttons */
+    align-items: center;
+}
