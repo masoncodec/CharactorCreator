@@ -1,156 +1,85 @@
-// play.js (Updated)
-// This file handles the main character interaction, data loading, and event handling on the play page.
-// Rendering logic has been moved to play-ui.js.
-
+// play.js (Corrected and Final)
 import { EffectHandler } from './effectHandler.js';
-import { loadGameModules, loadDataForModule } from './dataLoader.js'; //
-import { alerter } from './alerter.js'; //
+import { loadGameModules, loadDataForModule } from './dataLoader.js';
+import { alerter } from './alerter.js';
 import { RollManager } from './RollManager.js';
 import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab } from './play-ui.js';
 import { aggregateAllAbilities } from './abilityAggregator.js';
 
 // Global variables
-let moduleDefinitions = {};
-let abilityData = {};
-let flawData = {};
-let perkData = {};
-let equipmentData = {};
-let activeAbilityStates = new Set();
-let activeCharacter = null;
+let moduleDefinitions = {}, abilityData = {}, flawData = {}, perkData = {}, equipmentData = {}, activeAbilityStates = new Set(), activeCharacter = null;
 
 /**
  * Main function to process a character's data and render the entire layout.
- * It calls the rendering functions from play-ui.js to populate the new structure.
  */
 function processAndRenderAll(character) {
     if (!character) {
         document.querySelector('.play-content-scrollable').innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
         return;
     }
-
-    // Ensure the character has an equipmentSlots object to prevent errors.
-    // This is important for characters created before this feature was added.
-    if (!character.equipmentSlots) {
-        character.equipmentSlots = {};
-    }
-
-    // 1. Aggregate all abilities from character and equipped items
+    if (!character.equipmentSlots) character.equipmentSlots = {};
     const allAbilities = aggregateAllAbilities(character, abilityData, equipmentData);
-
-    // 2. Process effects using the aggregated list
     EffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
     const effectedCharacter = EffectHandler.applyEffectsToCharacter(character, 'play', activeAbilityStates);
-
-    // Filter out just the equipment for the equipment table component
     const equipmentItems = effectedCharacter.inventory
         .map(item => ({ ...item, definition: equipmentData[item.id] }))
         .filter(item => item.definition && item.definition.type === 'equipment');
-
-    // Render all components of the new UI
     renderTopNav(effectedCharacter, moduleDefinitions);
     renderMainTab(effectedCharacter, moduleDefinitions);
     renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);
     renderInventoryTab(effectedCharacter, equipmentData);
-    
-    // Pass the necessary data to the equipment tab renderer
-    renderEquipmentTab(
-        equipmentItems,
-        effectedCharacter.equipmentSlots,
-        equipmentData
-    );
-
-    // Re-attach listeners that might be on elements inside the rendered tabs
-    attachDynamicListeners(effectedCharacter);
+    renderEquipmentTab(equipmentItems, effectedCharacter.equipmentSlots, equipmentData);
 }
 
 /**
- * Attaches event listeners to dynamically created elements.
+ * A dedicated function to determine which equipment slots an item occupies.
  */
-function attachDynamicListeners(character) {
-    const contentArea = document.querySelector('.play-content-scrollable');
-    if (!contentArea) return;
-
-    // Health Adjustment Listener
-    const applyHealthBtn = contentArea.querySelector('#applyHealthAdjustment');
-    const healthInput = contentArea.querySelector('#healthAdjustmentInput');
-    if (applyHealthBtn && healthInput) {
-        applyHealthBtn.onclick = () => {
-            const adjustment = parseInt(healthInput.value, 10);
-            if (isNaN(adjustment)) {
-                alerter.show('Invalid input.', 'error'); //
-                healthInput.value = '';
-                return;
-            }
-            let newCurrentHealth = Math.max(0, character.health.current + adjustment); //
-            const finalMaxHealth = character.calculatedHealth ? character.calculatedHealth.currentMax : character.health.max; //
-            newCurrentHealth = Math.min(newCurrentHealth, finalMaxHealth);
-
-            db.updateCharacterHealth(activeCharacter.id, { current: newCurrentHealth }).then(updatedCharacter => {
-                activeCharacter = updatedCharacter;
-                processAndRenderAll(activeCharacter);
-            }).catch(err => {
-                alerter.show('Error updating health.', 'error'); //
-                console.error('Error updating character health:', err);
-            });
-        };
-        healthInput.onkeypress = (e) => { if (e.key === 'Enter') { e.preventDefault(); applyHealthBtn.click(); } };
-    }
-
-    // Attribute Roll Listeners
-    let systemType = 'KOB';
-    const moduleId = character.module;
-    if (moduleId && moduleDefinitions && moduleDefinitions[moduleId]) {
-        systemType = moduleDefinitions[moduleId].type || 'KOB';
-    }
-
-    if (systemType === 'Hope/Fear') {
-        attachHopeFearRollListeners(character);
-    } else {
-        attachKOBRollListeners(character);
-    }
-
-    // Ability Toggle Listener
-    const abilitiesPanel = contentArea.querySelector('#abilities-panel');
-    if (abilitiesPanel) {
-        abilitiesPanel.onclick = (event) => {
-            const button = event.target.closest('.ability-button');
-            if (button) {
-                const abilityId = button.dataset.abilityId;
-                if (activeAbilityStates.has(abilityId)) {
-                    activeAbilityStates.delete(abilityId);
-                } else {
-                    activeAbilityStates.add(abilityId);
-                }
-                // Re-render all content to reflect state changes
-                processAndRenderAll(activeCharacter);
-            }
-        };
-    }
+function getSlotsForEquipSlot(equipSlot) {
+    if (equipSlot === 'two-hand') return ['main-hand', 'off-hand'];
+    if (equipSlot) return [equipSlot];
+    return [];
 }
 
-function attachKOBRollListeners(character) {
-    document.querySelectorAll('.attribute-roll').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const row = this.closest('.attribute-row');
-            const attributeName = row.dataset.attribute;
-            const dieType = row.dataset.dice;
-            let baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
+/**
+ * NEW: Reusable async function to handle all unequip actions.
+ * @param {string} itemIdToUnequip The ID of the item to unequip.
+ */
+async function handleUnequip(itemIdToUnequip) {
+    if (!activeCharacter || !itemIdToUnequip) return;
 
-            const activeModifiers = EffectHandler.getEffectsForAttribute(attributeName, "modifier"); //
-            let totalModifier = activeModifiers.reduce((sum, mod) => sum + (mod.modifier || 0), 0);
-            const modifiedResult = baseResult + totalModifier;
-            
-            // This function needs to be defined to update the display
-            updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModifiers);
-        });
+    const itemDef = equipmentData[itemIdToUnequip];
+    if (!itemDef) return;
+
+    const slotsToClear = getSlotsForEquipSlot(itemDef.equip_slot);
+    const newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+    slotsToClear.forEach(s => {
+        if (newEquipmentSlots[s] === itemIdToUnequip) {
+            newEquipmentSlots[s] = null;
+        }
     });
+
+    const newInventory = activeCharacter.inventory.map(item =>
+        item.id === itemIdToUnequip ? { ...item, equipped: false } : item
+    );
+
+    try {
+        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
+        processAndRenderAll(activeCharacter);
+    } catch (err) {
+        console.error('Failed to unequip item:', err);
+        alerter.show('Failed to unequip item.', 'error');
+    }
 }
 
+/**
+ * Helper function to update the display for a KOB attribute roll.
+ */
 function updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModifiers) {
     let resultEl = row.querySelector('.roll-result');
     resultEl.textContent = modifiedResult;
     resultEl.classList.add('visible');
+    setTimeout(() => resultEl.classList.remove('visible', 'fade-out'), 2500);
     setTimeout(() => resultEl.classList.add('fade-out'), 2000);
 
     let unmodifiedResultEl = row.querySelector('.unmodified-roll-result');
@@ -158,38 +87,9 @@ function updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModif
         unmodifiedResultEl.textContent = baseResult;
         unmodifiedResultEl.classList.remove('empty-unmodified-cell');
         unmodifiedResultEl.classList.add('visible');
+        setTimeout(() => unmodifiedResultEl.classList.remove('visible', 'fade-out'), 2500);
         setTimeout(() => unmodifiedResultEl.classList.add('fade-out'), 2000);
     }
-}
-
-/**
- * Attaches event listeners for the Hope/Fear rolling system.
- * UPDATED: Passes the pre-calculated combined value to the RollManager.
- * @param {object} effectedCharacter - The character object after effects have been processed.
- */
-function attachHopeFearRollListeners(effectedCharacter) {
-    document.querySelectorAll('.hope-fear-roll-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const attributeName = this.dataset.attribute;
-            
-            const numericalEffects = EffectHandler.getEffectsForAttribute(attributeName, 'modifier');
-            const diceNumEffects = EffectHandler.getEffectsForAttribute(attributeName, 'die_num');
-            
-            const baseValue = effectedCharacter.attributes[attributeName] || 0;
-            // Get the final combined value from our new centralized function.
-            const combinedValue = EffectHandler.getCombinedAttributeValue(attributeName, baseValue);
-
-            const modifierData = {
-                totalNumerical: numericalEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
-                totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
-                sources: [...numericalEffects, ...diceNumEffects]
-            };
-            
-            // Pass the pre-calculated combinedValue to the RollManager constructor.
-            const rollManager = new RollManager(attributeName, combinedValue, modifierData, baseValue);
-            rollManager.show();
-        });
-    });
 }
 
 /**
@@ -197,107 +97,145 @@ function attachHopeFearRollListeners(effectedCharacter) {
  */
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        const { moduleSystemData } = await loadGameModules(); //
+        // --- DATA LOADING ---
+        const { moduleSystemData } = await loadGameModules();
         moduleDefinitions = moduleSystemData;
-
         activeCharacter = await db.getActiveCharacter();
-        if (!activeCharacter) {
-            alerter.show('No active character found.', 'info'); //
+        if (activeCharacter) {
+            const moduleDef = moduleDefinitions[activeCharacter.module];
+            const moduleSpecificData = await loadDataForModule(moduleDef);
+            abilityData = moduleSpecificData.abilityData || {};
+            flawData = moduleSpecificData.flawData || {};
+            perkData = moduleSpecificData.perkData || {};
+            equipmentData = moduleSpecificData.equipmentAndLootData || {};
+            processAndRenderAll(activeCharacter);
+        } else {
             document.querySelector('.play-content-scrollable').innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
-            return;
         }
 
-        const moduleDef = moduleDefinitions[activeCharacter.module];
-        const moduleSpecificData = await loadDataForModule(moduleDef); //
-        abilityData = moduleSpecificData.abilityData || {};
-        flawData = moduleSpecificData.flawData || {};
-        perkData = moduleSpecificData.perkData || {};
-        equipmentData = moduleSpecificData.equipmentAndLootData || {};
+        // --- SINGLE EVENT LISTENER FOR ALL DYNAMIC ACTIONS ---
+        const contentArea = document.querySelector('.play-content-scrollable');
+        contentArea.addEventListener('click', async (event) => {
+            if (!activeCharacter) return;
+            const target = event.target;
 
-        // Initial render
-        processAndRenderAll(activeCharacter);
+            // --- Unequip from Slot Logic ---
+            const unequipSlot = target.closest('.equipment-slot.filled');
+            if (unequipSlot) {
+                const slotId = unequipSlot.dataset.slotId;
+                const itemIdToUnequip = activeCharacter.equipmentSlots[slotId];
+                await handleUnequip(itemIdToUnequip); // Use the reusable function
+                return;
+            }
 
-        // --- STATIC EVENT LISTENERS ---
+            // --- Equip/Unequip from Button Logic ---
+            const equipButton = target.closest('.btn-equip');
+            if (equipButton) {
+                const itemId = equipButton.dataset.itemId;
+                const itemInstance = activeCharacter.inventory.find(i => i.id === itemId);
 
-        // Tab Switching Logic
+                if (itemInstance && itemInstance.equipped) {
+                    // If item is equipped, the button action is to UNEQUIP
+                    await handleUnequip(itemId);
+                } else {
+                    // If item is not equipped, the button action is to EQUIP
+                    const itemToEquipDef = equipmentData[itemId];
+                    if (!itemToEquipDef || !itemToEquipDef.equip_slot) return alerter.show('This item cannot be equipped.', 'warn');
+                    const targetSlots = getSlotsForEquipSlot(itemToEquipDef.equip_slot);
+                    const conflictingItemIds = new Set(targetSlots.map(s => activeCharacter.equipmentSlots[s]).filter(Boolean));
+                    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+                    conflictingItemIds.forEach(id => {
+                        if (id === itemId) return;
+                        const def = equipmentData[id];
+                        getSlotsForEquipSlot(def.equip_slot).forEach(s => newEquipmentSlots[s] = null);
+                    });
+                    targetSlots.forEach(s => newEquipmentSlots[s] = null);
+                    newEquipmentSlots[targetSlots[0]] = itemId;
+                    const newInventory = activeCharacter.inventory.map(item => {
+                        if (item.id === itemId) return { ...item, equipped: true };
+                        if (conflictingItemIds.has(item.id)) return { ...item, equipped: false };
+                        return item;
+                    });
+                    try {
+                        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
+                        processAndRenderAll(activeCharacter);
+                    } catch (err) { console.error('Failed to equip item:', err); alerter.show('Failed to equip item.', 'error'); }
+                }
+                return;
+            }
+            
+            // --- Other Actions ---
+            const useButton = target.closest('.btn-use');
+            if (useButton) alerter.show(`Using ${useButton.dataset.itemName}`, 'info');
+            const craftButton = target.closest('.btn-craft');
+            if (craftButton) alerter.show('Crafting system not yet implemented.', 'info');
+            const applyHealthBtn = target.closest('#applyHealthAdjustment');
+            if (applyHealthBtn) {
+                const healthInput = contentArea.querySelector('#healthAdjustmentInput');
+                const adjustment = parseInt(healthInput.value, 10);
+                if (isNaN(adjustment)) return alerter.show('Invalid input.', 'error');
+                const finalMaxHealth = activeCharacter.calculatedHealth ? activeCharacter.calculatedHealth.currentMax : activeCharacter.health.max;
+                const newCurrentHealth = Math.max(0, Math.min(activeCharacter.health.current + adjustment, finalMaxHealth));
+                try {
+                    activeCharacter = await db.updateCharacterHealth(activeCharacter.id, { current: newCurrentHealth });
+                    processAndRenderAll(activeCharacter);
+                } catch(err) { console.error('Error updating character health:', err); alerter.show('Error updating health.', 'error'); }
+            }
+            const rollButton = target.closest('.attribute-roll');
+            if (rollButton) {
+                const row = rollButton.closest('.attribute-row');
+                const attributeName = row.dataset.attribute;
+                const dieType = row.dataset.dice;
+                let baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
+                const activeModifiers = EffectHandler.getEffectsForAttribute(attributeName, "modifier");
+                let totalModifier = activeModifiers.reduce((sum, mod) => sum + (mod.modifier || 0), 0);
+                const modifiedResult = baseResult + totalModifier;
+                updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModifiers);
+            }
+            const hopeFearButton = target.closest('.hope-fear-roll-btn');
+            if(hopeFearButton) {
+                const attributeName = hopeFearButton.dataset.attribute;
+                const numericalEffects = EffectHandler.getEffectsForAttribute(attributeName, 'modifier');
+                const diceNumEffects = EffectHandler.getEffectsForAttribute(attributeName, 'die_num');
+                const baseValue = activeCharacter.attributes[attributeName] || 0;
+                const combinedValue = EffectHandler.getCombinedAttributeValue(attributeName, baseValue);
+                const modifierData = {
+                    totalNumerical: numericalEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
+                    totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
+                    sources: [...numericalEffects, ...diceNumEffects]
+                };
+                const rollManager = new RollManager(attributeName, combinedValue, modifierData, baseValue);
+                rollManager.show();
+            }
+            const abilityButton = target.closest('.ability-button');
+            if (abilityButton) {
+                const abilityId = abilityButton.dataset.abilityId;
+                if (activeAbilityStates.has(abilityId)) activeAbilityStates.delete(abilityId);
+                else activeAbilityStates.add(abilityId);
+                processAndRenderAll(activeCharacter);
+            }
+        });
+
+        // --- STATIC LISTENERS (for elements outside the main content area) ---
         const tabsNav = document.querySelector('.tabs-nav');
         tabsNav.addEventListener('click', (event) => {
             const target = event.target.closest('.tab-button');
             if (!target) return;
-
-            // Update button states
             tabsNav.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
             target.classList.add('active');
-
-            // Update panel visibility
             const tabId = target.dataset.tab;
             document.querySelectorAll('.tab-panel').forEach(panel => {
-                panel.classList.remove('active');
-                if (panel.id === tabId) {
-                    panel.classList.add('active');
-                }
+                panel.classList.toggle('active', panel.id === tabId);
             });
         });
-
-        // --- Inventory Equip/Unequip Listener ---
-        document.getElementById('inventory-panel').addEventListener('click', async (event) => {
-            if (!activeCharacter) return;
-        
-            const equipButton = event.target.closest('.btn-equip');
-            const useButton = event.target.closest('.btn-use');
-            const craftButton = event.target.closest('.btn-craft');
-        
-            // Handle Equip/Unequip Action
-            if (equipButton) {
-                const itemId = equipButton.dataset.itemId;
-                const newInventory = activeCharacter.inventory.map(item => {
-                    if (item.id === itemId) {
-                        // Return a new object with the 'equipped' property toggled
-                        return { ...item, equipped: !item.equipped };
-                    }
-                    return item;
-                });
-        
-                try {
-                    // Assume db.updateCharacter can update specific parts of a character
-                    const updatedCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory });
-                    activeCharacter = updatedCharacter; // Update local state
-                    processAndRenderAll(activeCharacter); // Trigger a seamless re-render
-                } catch (err) {
-                    console.error('Failed to update inventory:', err);
-                    alerter.show('Failed to update inventory state.', 'error');
-                }
-            }
-        
-            // Handle "Use" Action (Placeholder)
-            if (useButton) {
-                const itemId = useButton.dataset.itemId;
-                const itemName = useButton.dataset.itemName;
-                console.log("Using item:", itemId);
-                alerter.show(`Using ${itemName}`, 'info');
-                // TODO: Add logic here to consume the item and apply its effects.
-            }
-        
-            // Handle "Craft" Action (Placeholder)
-            if (craftButton) {
-                const itemId = craftButton.dataset.itemId;
-                console.log("Crafting with item:", itemId);
-                alerter.show('Crafting system not yet implemented.', 'info');
-                // TODO: Add logic here to open a crafting menu or handle the crafting action.
-            }
-        });
-
-        // Level Up Button
         document.getElementById('levelUpBtn')?.addEventListener('click', () => {
             if (!activeCharacter) return;
             sessionStorage.setItem('levelUpCharacterId', activeCharacter.id);
             window.location.href = 'character-creator.html';
         });
-
-        // Export Button
         document.getElementById('exportSingleCharacterBtn').addEventListener('click', () => {
             if (!activeCharacter) return;
-            db.exportCharacter(activeCharacter.id, activeCharacter.info.name).then(exportData => { //
+            db.exportCharacter(activeCharacter.id, activeCharacter.info.name).then(exportData => {
                 const a = document.createElement('a');
                 a.href = exportData.url;
                 a.download = exportData.filename;
@@ -305,11 +243,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 a.click();
                 document.body.removeChild(a);
                 setTimeout(() => URL.revokeObjectURL(exportData.url), 100);
-            }).catch(err => alerter.show('Export failed: ' + err, 'error')); //
+            }).catch(err => alerter.show('Export failed: ' + err, 'error'));
         });
 
     } catch (error) {
         console.error('A critical error occurred during initialization:', error);
-        alerter.show('Failed to load game data. Check console.', 'error'); //
+        alerter.show('Failed to load game data. Check console.', 'error');
     }
 });
