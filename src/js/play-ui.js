@@ -8,11 +8,24 @@ const MAX_MODIFIER_COLUMNS = 5;
 
 // This new configuration object defines the layout for the equipment slots.
 // You can easily add, remove, or change slots here in the future.
-const EQUIPMENT_SLOT_CONFIG = {
-    "Weapons": ["main-hand", "off-hand"],
-    "Armor": ["head", "chest", "hands", "legs", "feet"],
-    "Accessories": ["ring_1", "ring_2", "amulet"]
-};
+export const EQUIPMENT_SLOT_CONFIG = {
+    // 1. Defines the default layout categories and their member slots.
+    categories: {
+      "Weapons": ["main-hand", "off-hand"],
+      "Armor": ["head", "chest", "hands", "legs", "feet"],
+      "Accessories": ["ring_1", "ring_2", "amulet"]
+    },
+  
+    // 2. Defines the rules for combined slots that replace default slots.
+    combined_slots: {
+      "two-hand": {
+        replaces: ["main-hand", "off-hand"], // Which default slots it replaces
+        label: "Two-Hand"                   // The label to display in the UI
+      }
+      // For future expansion, you could easily add another rule here, e.g.:
+      // "full-body": { replaces: ["chest", "legs"], label: "Full-Body" }
+    }
+  };
 
 /**
  * Renders the top navigation bar with detailed character information.
@@ -241,25 +254,103 @@ function renderLootTableComponent(lootItems) {
     `;
 }
 
-// Helper function to render the visual equipment slots UI.
-// UPDATED: Now accepts data to show equipped items.
-function renderEquipmentSlotsComponent(equipmentSlots, equipmentData) {
-    let slotsHtml = '';
-    for (const category in EQUIPMENT_SLOT_CONFIG) {
-        slotsHtml += `<div class="equipment-category"><h3>${category}</h3><div class="slots-container">`;
+/**
+ * Analyzes equipped items to generate the current slot layout for rendering.
+ * @param {object} equipmentSlots - The character's map of equipped items.
+ * @returns {object} An object with categories as keys and arrays of slot objects as values.
+ */
+function getDynamicSlotLayout(equipmentSlots) {
+    const dynamicCategories = {};
+    const slotsToRender = new Set();
+    
+    // Start with all default slots
+    Object.values(EQUIPMENT_SLOT_CONFIG.categories).flat().forEach(s => slotsToRender.add(s));
+
+    // Check for combined items and modify the set of slots to render
+    for (const combinedId in EQUIPMENT_SLOT_CONFIG.combined_slots) {
+        const config = EQUIPMENT_SLOT_CONFIG.combined_slots[combinedId];
+        const firstSlot = config.replaces[0];
+        const itemId = equipmentSlots[firstSlot];
+
+        // A combined item is equipped if its first member slot has an item,
+        // and all other member slots have the *same* item ID.
+        if (itemId && config.replaces.every(s => equipmentSlots[s] === itemId)) {
+            // Remove the individual slots that are being replaced
+            config.replaces.forEach(s => slotsToRender.delete(s));
+            // Add the combined slot identifier to be rendered instead
+            slotsToRender.add(combinedId);
+        }
+    }
+
+    // Build the final layout structure for rendering, preserving categories
+    for (const categoryName in EQUIPMENT_SLOT_CONFIG.categories) {
+        const categorySlots = EQUIPMENT_SLOT_CONFIG.categories[categoryName];
+        const renderedSlots = [];
         
-        const slots = EQUIPMENT_SLOT_CONFIG[category];
-        slots.forEach(slotId => {
-            const equippedItemId = equipmentSlots[slotId];
-            const itemDef = equippedItemId ? equipmentData[equippedItemId] : null;
+        // Add any default slots from this category that are still in the render set
+        categorySlots.forEach(slotId => {
+            if (slotsToRender.has(slotId)) {
+                 const slotLabel = slotId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                 renderedSlots.push({ id: slotId, label: slotLabel });
+            }
+        });
+
+        // Check if a combined slot that needs to be rendered belongs in this category
+        for (const combinedId in EQUIPMENT_SLOT_CONFIG.combined_slots) {
+            if (slotsToRender.has(combinedId)) {
+                const config = EQUIPMENT_SLOT_CONFIG.combined_slots[combinedId];
+                // If the combined slot replaces a slot from this category, add it here.
+                if (config.replaces.some(s => categorySlots.includes(s))) {
+                    renderedSlots.push({ id: combinedId, label: config.label });
+                    // Remove it from the set to prevent it from being added to multiple categories
+                    slotsToRender.delete(combinedId); 
+                }
+            }
+        }
+        
+        if (renderedSlots.length > 0) {
+            dynamicCategories[categoryName] = renderedSlots;
+        }
+    }
+
+    return dynamicCategories;
+}
+
+/**
+ * Helper function to render the visual equipment slots UI.
+ * UPDATED: Now uses the dynamic layout.
+ */
+function renderEquipmentSlotsComponent(equipmentSlots, equipmentData) {
+    const dynamicLayout = getDynamicSlotLayout(equipmentSlots);
+    let slotsHtml = '';
+
+    for (const categoryName in dynamicLayout) {
+        slotsHtml += `<div class="equipment-category"><h3>${categoryName}</h3><div class="slots-container">`;
+        
+        const slots = dynamicLayout[categoryName];
+        slots.forEach(slotInfo => {
+            const slotId = slotInfo.id;
             
-            const slotLabel = slotId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            // For a combined slot, get the item ID from its first member slot.
+            // For a normal slot, it's just the slotId itself.
+            const config = EQUIPMENT_SLOT_CONFIG.combined_slots[slotId];
+            const representativeSlotId = config ? config.replaces[0] : slotId;
+            
+            const equippedItemId = equipmentSlots[representativeSlotId];
+            const itemDef = equippedItemId ? equipmentData[equippedItemId] : null;
+
+            const slotLabel = slotInfo.label;
             const itemName = itemDef ? itemDef.name : "Empty";
+            
+            // Add a dynamic class for spanning if it's a combined slot
+            const spanClass = config ? `slot-spans-${config.replaces.length}` : '';
             const slotClass = itemDef ? "equipment-slot filled" : "equipment-slot";
             const rarityClass = itemDef ? `rarity-${itemDef.rarity}` : '';
 
+            const dataAttribute = `data-slot-id="${representativeSlotId}"`;
+
             slotsHtml += `
-                <div class="${slotClass} ${rarityClass}" data-slot-id="${slotId}">
+                <div class="${slotClass} ${spanClass} ${rarityClass}" ${dataAttribute}>
                     <div class="slot-label">${slotLabel}</div>
                     <div class="slot-item-name">${itemName}</div>
                 </div>

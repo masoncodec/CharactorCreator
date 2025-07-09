@@ -11,17 +11,19 @@
     padding-bottom: 0.25rem;
 }
 
+/* CSS Grid */
 .slots-container {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-auto-flow: column; /* Lay out items in columns */
+    grid-auto-columns: 120px; /* Each column is 120px wide */
     gap: 0.75rem;
+    justify-content: start; /* Align grid to the start */
 }
 
 .equipment-slot {
     border: 2px solid #666;
     background-color: #2a2a2e;
     border-radius: 5px;
-    width: 120px;
     height: 100px;
     display: flex;
     flex-direction: column;
@@ -30,6 +32,17 @@
     text-align: center;
     font-size: 0.9em;
 }
+
+/* Classes to handle spanning multiple columns */
+.slot-spans-2 {
+    grid-column: span 2;
+}
+
+.slot-spans-3 {
+    grid-column: span 3;
+}
+/* Add more .slot-spans-X classes as needed */
+
 
 .slot-label {
     font-weight: bold;
@@ -41,9 +54,8 @@
     font-style: italic;
 }
 
- /* Style for a slot that has an item in it */
 .equipment-slot.filled .slot-item-name {
-    color: #e0e0e0; /* Brighter text color for the item name */
+    color: #e0e0e0;
     font-style: normal;
     font-weight: bold;
 }

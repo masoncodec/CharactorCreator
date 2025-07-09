@@ -3,7 +3,7 @@ import { EffectHandler } from './effectHandler.js';
 import { loadGameModules, loadDataForModule } from './dataLoader.js';
 import { alerter } from './alerter.js';
 import { RollManager } from './RollManager.js';
-import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab } from './play-ui.js';
+import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, EQUIPMENT_SLOT_CONFIG } from './play-ui.js';
 import { aggregateAllAbilities } from './abilityAggregator.js';
 
 // Global variables
@@ -33,43 +33,41 @@ function processAndRenderAll(character) {
 }
 
 /**
- * A dedicated function to determine which equipment slots an item occupies.
+ * UPDATED: Uses the new config to find all slots an item type occupies.
+ * @param {string} equipSlot - The equip_slot from the item's definition (e.g., "head", "two-hand").
+ * @returns {Array<string>} An array of the actual base slot names the item uses.
  */
 function getSlotsForEquipSlot(equipSlot) {
-    if (equipSlot === 'two-hand') return ['main-hand', 'off-hand'];
-    if (equipSlot) return [equipSlot];
+    const combinedConfig = EQUIPMENT_SLOT_CONFIG.combined_slots[equipSlot];
+    if (combinedConfig) {
+        return combinedConfig.replaces;
+    }
+    if (equipSlot) {
+        return [equipSlot];
+    }
     return [];
 }
 
 /**
- * NEW: Reusable async function to handle all unequip actions.
+ * Reusable async function to handle all unequip actions.
  * @param {string} itemIdToUnequip The ID of the item to unequip.
  */
 async function handleUnequip(itemIdToUnequip) {
     if (!activeCharacter || !itemIdToUnequip) return;
-
     const itemDef = equipmentData[itemIdToUnequip];
     if (!itemDef) return;
-
     const slotsToClear = getSlotsForEquipSlot(itemDef.equip_slot);
     const newEquipmentSlots = { ...activeCharacter.equipmentSlots };
     slotsToClear.forEach(s => {
-        if (newEquipmentSlots[s] === itemIdToUnequip) {
-            newEquipmentSlots[s] = null;
-        }
+        if (newEquipmentSlots[s] === itemIdToUnequip) newEquipmentSlots[s] = null;
     });
-
     const newInventory = activeCharacter.inventory.map(item =>
         item.id === itemIdToUnequip ? { ...item, equipped: false } : item
     );
-
     try {
         activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
         processAndRenderAll(activeCharacter);
-    } catch (err) {
-        console.error('Failed to unequip item:', err);
-        alerter.show('Failed to unequip item.', 'error');
-    }
+    } catch (err) { console.error('Failed to unequip item:', err); alerter.show('Failed to unequip item.', 'error'); }
 }
 
 /**
@@ -135,27 +133,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const itemInstance = activeCharacter.inventory.find(i => i.id === itemId);
 
                 if (itemInstance && itemInstance.equipped) {
-                    // If item is equipped, the button action is to UNEQUIP
                     await handleUnequip(itemId);
                 } else {
-                    // If item is not equipped, the button action is to EQUIP
+                    // EQUIP LOGIC
                     const itemToEquipDef = equipmentData[itemId];
                     if (!itemToEquipDef || !itemToEquipDef.equip_slot) return alerter.show('This item cannot be equipped.', 'warn');
+                    
                     const targetSlots = getSlotsForEquipSlot(itemToEquipDef.equip_slot);
                     const conflictingItemIds = new Set(targetSlots.map(s => activeCharacter.equipmentSlots[s]).filter(Boolean));
+                    
                     let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+                    
                     conflictingItemIds.forEach(id => {
                         if (id === itemId) return;
                         const def = equipmentData[id];
                         getSlotsForEquipSlot(def.equip_slot).forEach(s => newEquipmentSlots[s] = null);
                     });
-                    targetSlots.forEach(s => newEquipmentSlots[s] = null);
-                    newEquipmentSlots[targetSlots[0]] = itemId;
+
+                    // Equip the new item by filling ALL its target slots with its ID
+                    targetSlots.forEach(s => {
+                        newEquipmentSlots[s] = itemId;
+                    });
+
                     const newInventory = activeCharacter.inventory.map(item => {
                         if (item.id === itemId) return { ...item, equipped: true };
                         if (conflictingItemIds.has(item.id)) return { ...item, equipped: false };
                         return item;
                     });
+
                     try {
                         activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
                         processAndRenderAll(activeCharacter);
