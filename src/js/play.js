@@ -6,7 +6,7 @@ import { EffectHandler } from './effectHandler.js';
 import { loadGameModules, loadDataForModule } from './dataLoader.js'; //
 import { alerter } from './alerter.js'; //
 import { RollManager } from './RollManager.js';
-import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab } from './play-ui.js';
+import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab } from './play-ui.js';
 import { aggregateAllAbilities } from './abilityAggregator.js';
 
 // Global variables
@@ -35,13 +35,18 @@ function processAndRenderAll(character) {
     EffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
     const effectedCharacter = EffectHandler.applyEffectsToCharacter(character, 'play', activeAbilityStates);
 
+    // Filter out just the equipment for the new tab
+    const equipmentItems = effectedCharacter.inventory
+        .map(item => ({ ...item, definition: equipmentData[item.id] }))
+        .filter(item => item.definition && item.definition.type === 'equipment');
+
     // Render all components of the new UI
     renderTopNav(effectedCharacter, moduleDefinitions);
     renderMainTab(effectedCharacter, moduleDefinitions);
-    // The call to renderAbilitiesTab is now simpler
     renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);
     renderInventoryTab(effectedCharacter, equipmentData);
+    renderEquipmentTab(equipmentItems); // Add this line
 
     // Re-attach listeners that might be on elements inside the rendered tabs
     attachDynamicListeners(effectedCharacter);

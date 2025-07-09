@@ -6,6 +6,14 @@ import { RollManager } from './RollManager.js';
 
 const MAX_MODIFIER_COLUMNS = 5;
 
+// This new configuration object defines the layout for the equipment slots.
+// You can easily add, remove, or change slots here in the future.
+const EQUIPMENT_SLOT_CONFIG = {
+    "Weapons": ["main-hand", "off-hand"],
+    "Armor": ["head", "chest", "hands", "legs", "feet"],
+    "Accessories": ["ring_1", "ring_2", "amulet"]
+};
+
 /**
  * Renders the top navigation bar with detailed character information.
  */
@@ -146,8 +154,144 @@ export function renderProfileTab(character, flawData, perkData) {
     `;
 }
 
+// Renders the equipment table. This is now a reusable component.
+function renderEquipmentTableComponent(equipmentItems) {
+    if (equipmentItems.length === 0) {
+        return '<h2>Equipment</h2><p>No equipment.</p>';
+    }
+
+    const tableRows = equipmentItems.map(item => {
+        const itemDef = item.definition;
+        const actionButton = `<button class="btn btn-secondary btn-sm btn-equip" data-item-id="${item.id}">
+                                ${item.equipped ? 'Unequip' : 'Equip'}
+                              </button>`;
+        return `
+            <tr>
+                <td>${itemDef.name}</td>
+                <td>${itemDef.category.charAt(0).toUpperCase() + itemDef.category.slice(1)}</td>
+                <td>${itemDef.rarity.charAt(0).toUpperCase() + itemDef.rarity.slice(1)}</td>
+                <td>${item.equipped ? 'Yes' : 'No'}</td>
+                <td>${actionButton}</td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <h2>Equipment</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Rarity</th>
+                    <th>Equipped</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+    `;
+}
+
+// Renders the Loot & Items table.
+function renderLootTableComponent(lootItems) {
+    if (lootItems.length === 0) {
+        return '<h2>Loot & Items</h2><p>No other items.</p>';
+    }
+
+    const tableRows = lootItems.map(item => {
+        const itemDef = item.definition;
+        const quantity = item.quantity || 1;
+        const totalValue = (itemDef.value || 0) * quantity;
+        
+        let actionButton = '—';
+        if (itemDef.category === 'potion') {
+            actionButton = `<button class="btn btn-info btn-sm btn-use" data-item-id="${item.id}" data-item-name="${itemDef.name}">Use</button>`;
+        } else if (itemDef.category === 'material') {
+            actionButton = `<button class="btn btn-warning btn-sm btn-craft" data-item-id="${item.id}" data-item-name="${itemDef.name}">Craft</button>`;
+        }
+
+        return `
+            <tr>
+                <td>${itemDef.name}</td>
+                <td>${quantity}</td>
+                <td>${totalValue}</td>
+                <td>${actionButton}</td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <h2>Loot & Items</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Quantity</th>
+                    <th>Total Value</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+    `;
+}
+
+// Helper function to render the visual equipment slots UI.
+function renderEquipmentSlotsComponent() {
+    let slotsHtml = '';
+    // Loop through each category in the configuration (Armor, Weapons, etc.)
+    for (const category in EQUIPMENT_SLOT_CONFIG) {
+        slotsHtml += `<div class="equipment-category"><h3>${category}</h3><div class="slots-container">`;
+        
+        // Loop through each slot in the category (head, chest, etc.)
+        const slots = EQUIPMENT_SLOT_CONFIG[category];
+        slots.forEach(slotId => {
+            // Sanitize the label for display (e.g., "main-hand" becomes "Main-Hand")
+            const slotLabel = slotId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            slotsHtml += `
+                <div class="equipment-slot" data-slot-id="${slotId}">
+                    <div class="slot-label">${slotLabel}</div>
+                    <div class="slot-item-name">Empty</div>
+                </div>
+            `;
+        });
+
+        slotsHtml += `</div></div>`;
+    }
+    return slotsHtml;
+}
+
+
 /**
- * Renders the content for the 'Inventory' tab, separating equipment and other items.
+ * Renders the content for the 'Equipment' tab.
+ * UPDATED: Now renders the visual slots based on the configuration.
+ * @param {Array} equipmentItems - A list of the character's equipment.
+ */
+export function renderEquipmentTab(equipmentItems) {
+    const panel = document.getElementById('equipment-panel');
+    if (!panel) return;
+
+    // The placeholder div is now replaced with a call to our new component renderer.
+    panel.innerHTML = `
+        <div class="panel">
+             <h2>Equipped Items</h2>
+             <div id="equipment-slots-panel">
+                ${renderEquipmentSlotsComponent()}
+             </div>
+        </div>
+        <div class="panel">
+            ${renderEquipmentTableComponent(equipmentItems)}
+        </div>
+    `;
+}
+
+/**
+ * Renders the content for the 'Inventory' tab.
  * @param {object} character - The character object.
  * @param {object} equipmentData - A map of all equipment and loot definitions.
  */
@@ -167,117 +311,24 @@ export function renderInventoryTab(character, equipmentData) {
     character.inventory.forEach(item => {
         const itemDef = equipmentData ? equipmentData[item.id] : null;
         if (itemDef) {
+            // We create a single object that includes both the instance data (item)
+            // and the definition data (itemDef) for easier processing.
+            const fullItemData = { ...item, definition: itemDef };
             if (itemDef.type === 'equipment') {
-                equipmentItems.push({ ...item, definition: itemDef });
+                equipmentItems.push(fullItemData);
             } else if (itemDef.type === 'loot') {
-                lootItems.push({ ...item, definition: itemDef });
+                lootItems.push(fullItemData);
             }
         }
     });
 
-    // Render both tables
+    // The inventory tab continues to render both tables
     panel.innerHTML = `
-        ${renderEquipmentTable(equipmentItems)}
-        ${renderLootTable(lootItems)}
-    `;
-}
-
-/**
- * Renders the Equipment table.
- * @param {Array} equipmentItems - Array of equipment items with their definitions.
- */
-function renderEquipmentTable(equipmentItems) {
-    if (equipmentItems.length === 0) {
-        return '<div class="panel"><h2>Equipment</h2><p>No equipment.</p></div>';
-    }
-
-    const tableRows = equipmentItems.map(item => {
-        const itemDef = item.definition;
-        const actionButton = `<button class="btn btn-secondary btn-sm btn-equip" data-item-id="${item.id}">
-                                ${item.equipped ? 'Unequip' : 'Equip'}
-                              </button>`;
-
-        return `
-            <tr>
-                <td>${itemDef.name}</td>
-                <td>${itemDef.category.charAt(0).toUpperCase() + itemDef.category.slice(1)}</td>
-                <td>${itemDef.rarity.charAt(0).toUpperCase() + itemDef.rarity.slice(1)}</td>
-                <td>${item.equipped ? 'Yes' : 'No'}</td>
-                <td>${actionButton}</td>
-            </tr>
-        `;
-    }).join('');
-
-    return `
         <div class="panel">
-            <h2>Equipment</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Category</th>
-                        <th>Rarity</th>
-                        <th>Equipped</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${tableRows}
-                </tbody>
-            </table>
+            ${renderEquipmentTableComponent(equipmentItems)}
         </div>
-    `;
-}
-
-/**
- * Renders the Loot & Items table.
- * @param {Array} lootItems - Array of loot items with their definitions.
- */
-function renderLootTable(lootItems) {
-    if (lootItems.length === 0) {
-        return '<div class="panel"><h2>Loot & Items</h2><p>No other items.</p></div>';
-    }
-
-    const tableRows = lootItems.map(item => {
-        const itemDef = item.definition;
-        const quantity = item.quantity || 1;
-        const totalValue = (itemDef.value || 0) * quantity;
-        
-        let actionButton = '—'; // Default: no button
-
-        // Add button based on loot category
-        if (itemDef.category === 'potion') {
-            actionButton = `<button class="btn btn-info btn-sm btn-use" data-item-id="${item.id}" data-item-name="${itemDef.name}">Use</button>`;
-        } else if (itemDef.category === 'material') {
-            actionButton = `<button class="btn btn-warning btn-sm btn-craft" data-item-id="${item.id}" data-item-name="${itemDef.name}">Craft</button>`;
-        }
-
-        return `
-            <tr>
-                <td>${itemDef.name}</td>
-                <td>${quantity}</td>
-                <td>${totalValue}</td>
-                <td>${actionButton}</td>
-            </tr>
-        `;
-    }).join('');
-
-    return `
         <div class="panel">
-            <h2>Loot & Items</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Quantity</th>
-                        <th>Total Value</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${tableRows}
-                </tbody>
-            </table>
+            ${renderLootTableComponent(lootItems)}
         </div>
     `;
 }

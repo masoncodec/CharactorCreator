@@ -25,6 +25,7 @@
  @import './_frame.css';
  @import './_rollManager.css';
  @import './_play.css';
+ @import './_equip.css';
  
  /* Any global overrides or very specific styles that don't fit elsewhere could go here */
  /* General typography enhancements for readability */
