@@ -155,29 +155,6 @@ async function reconcileEquipmentSlots(character, finalSlotMap) {
 }
 
 /**
- * Reusable async function to handle all unequip actions.
- * @param {string} itemIdToUnequip The ID of the item to unequip.
- */
-async function handleUnequip(itemIdToUnequip) {
-    if (!activeCharacter || !itemIdToUnequip) return;
-    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
-    // Find all slot instances that hold this item ID and clear them.
-    for (const slotId in newEquipmentSlots) {
-        if (newEquipmentSlots[slotId] === itemIdToUnequip) {
-            newEquipmentSlots[slotId] = null;
-        }
-    }
-    const newInventory = activeCharacter.inventory.map(item =>
-        item.id === itemIdToUnequip ? { ...item, equipped: false } : item
-    );
-    try {
-        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
-        processAndRenderAll(activeCharacter);
-    } catch (err) { console.error('Failed to unequip item:', err); alerter.show('Failed to unequip item.', 'error'); }
-}
-
-
-/**
  * Helper function to update the display for a KOB attribute roll.
  */
 function updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModifiers) {
@@ -283,40 +260,67 @@ function findTargetSlots(itemDef, equipmentSlots, itemIdToEquip, layoutConfig, s
  */
 async function handleEquip(itemId) {
     if (!activeCharacter || !itemId) return;
-
-    // Pull the current layout from our new global variable.
     const { layoutConfig, slotMap } = activeLayout;
-
     const itemDef = equipmentData[itemId];
-    // Pass layoutConfig to getEquippedCount.
     const itemInInventory = activeCharacter.inventory.find(i => i.id === itemId);
     const equippedCount = getEquippedCount(itemId, activeCharacter, equipmentData, layoutConfig);
 
+    // This check now works correctly for both standard and combined items.
     if (!itemInInventory || itemInInventory.quantity <= equippedCount) {
         return alerter.show('No unequipped instances of this item are available.', 'warn');
     }
 
-    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
-    // Pass the dynamic layout to findTargetSlots.
-    const targetSlots = findTargetSlots(itemDef, newEquipmentSlots, itemId, layoutConfig, slotMap);
+    const targetSlots = findTargetSlots(itemDef, activeCharacter.equipmentSlots, itemId, layoutConfig, slotMap);
 
     if (targetSlots.length === 0) {
         return alerter.show('All available slots are already filled with this item.', 'warn');
     }
-    
+
+    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
     let newInventory = [...activeCharacter.inventory];
+
+    // Unequip whatever is in the target slots first.
     targetSlots.forEach(slotId => {
         const itemToReplace = newEquipmentSlots[slotId];
         if (itemToReplace) {
-            const totalEquipped = getEquippedCount(itemToReplace, activeCharacter, equipmentData, layoutConfig);
-            if (totalEquipped <= 1) {
-                newInventory = newInventory.map(item => item.id === itemToReplace ? { ...item, equipped: false } : item);
+            // Unequip logic must now handle both strings and objects
+            const idToUnequip = typeof itemToReplace === 'object' ? itemToReplace.itemId : itemToReplace;
+            const instanceToUnequip = typeof itemToReplace === 'object' ? itemToReplace.instanceId : null;
+
+            if (instanceToUnequip) {
+                // If replacing a combined item, remove all parts of that instance.
+                for (const sId in newEquipmentSlots) {
+                    if (newEquipmentSlots[sId]?.instanceId === instanceToUnequip) {
+                        newEquipmentSlots[sId] = null;
+                    }
+                }
+            } else {
+                 newEquipmentSlots[slotId] = null;
+            }
+            
+            // Update inventory status after checking if it's equipped elsewhere
+            const isStillEquipped = Object.values(newEquipmentSlots).some(v => (v && v.itemId === idToUnequip) || v === idToUnequip);
+            if(!isStillEquipped){
+                 newInventory = newInventory.map(item => item.id === idToUnequip ? { ...item, equipped: false } : item);
             }
         }
     });
-    targetSlots.forEach(slotId => {
-        newEquipmentSlots[slotId] = itemId;
-    });
+
+    // Now, equip the new item.
+    if (layoutConfig.combined_slots[itemDef.equip_slot]) {
+        // For combined items, create the new data structure with a unique instanceId.
+        const instanceId = `${itemId}_instance_${Date.now()}`;
+        targetSlots.forEach(slotId => {
+            newEquipmentSlots[slotId] = { itemId: itemId, instanceId: instanceId };
+        });
+    } else {
+        // For standard items, just place the ID string.
+        targetSlots.forEach(slotId => {
+            newEquipmentSlots[slotId] = itemId;
+        });
+    }
+
+    // Update the inventory status of the item being equipped.
     newInventory = newInventory.map(item => item.id === itemId ? { ...item, equipped: true } : item);
 
     try {
@@ -326,6 +330,32 @@ async function handleEquip(itemId) {
         console.error('Failed to equip item:', err);
         alerter.show('Failed to equip item.', 'error');
     }
+}
+
+/**
+ * Reusable async function to handle all unequip actions.
+ * @param {string} itemIdToUnequip The ID of the item to unequip.
+ */
+async function handleUnequip(itemIdToUnequip) {
+    if (!activeCharacter || !itemIdToUnequip) return;
+    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+
+    // Find all slots that hold this item ID, whether as a string or in an object.
+    for (const slotId in newEquipmentSlots) {
+        const slotValue = newEquipmentSlots[slotId];
+        const idInSlot = slotValue?.itemId || slotValue;
+        if (idInSlot === itemIdToUnequip) {
+            newEquipmentSlots[slotId] = null;
+        }
+    }
+    
+    const newInventory = activeCharacter.inventory.map(item =>
+        item.id === itemIdToUnequip ? { ...item, equipped: false } : item
+    );
+    try {
+        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
+        processAndRenderAll(activeCharacter);
+    } catch (err) { console.error('Failed to unequip item:', err); alerter.show('Failed to unequip item.', 'error'); }
 }
 
 /**
@@ -358,41 +388,48 @@ document.addEventListener('DOMContentLoaded', async () => {
             // --- Logic to unequip by clicking a filled slot in the UI ---
             const unequipSlot = target.closest('.equipment-slot.filled');
             if (unequipSlot) {
-                // Get the specific slot instance that was clicked (e.g., "main-hand_1" or "ring_1").
                 const slotId = unequipSlot.dataset.slotId;
-                const itemIdToUnequip = activeCharacter.equipmentSlots[slotId];
+                const slotValue = activeCharacter.equipmentSlots[slotId];
+                if (!slotValue) return;
 
-                if (!itemIdToUnequip) return; // Safety check
+                // --- NEW, PRECISE LOGIC ---
+                // Check if the item in the clicked slot is a combined-slot item (which is an object).
+                if (typeof slotValue === 'object' && slotValue.instanceId) {
+                    // It's a combined item. We need to unequip only this specific instance.
+                    const instanceIdToRemove = slotValue.instanceId;
+                    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
 
-                // Look up the item's definition to see what kind of item it is.
-                const itemDef = equipmentData[itemIdToUnequip];
+                    // Find all slots occupied by this specific instance and set them to null.
+                    for (const sId in newEquipmentSlots) {
+                        if (newEquipmentSlots[sId]?.instanceId === instanceIdToRemove) {
+                            newEquipmentSlots[sId] = null;
+                        }
+                    }
 
-                // Check if the item is a combined-slot item (like a two-hander).
-                if (itemDef && EQUIPMENT_SLOT_CONFIG.combined_slots[itemDef.equip_slot]) {
-                    // If it IS a combined item, we must unequip it completely from all its slots.
-                    // The existing `handleUnequip` function does this perfectly.
-                    await handleUnequip(itemIdToUnequip);
+                    // Save the change and re-render.
+                    try {
+                        activeCharacter = await db.updateCharacter(activeCharacter.id, { equipmentSlots: newEquipmentSlots });
+                        processAndRenderAll(activeCharacter);
+                    } catch (err) {
+                        console.error('Failed to unequip instance:', err);
+                        alerter.show('Failed to unequip instance.', 'error');
+                    }
+
                 } else {
-                    // If it's a STANDARD or REPEATABLE item (like a helmet or a ring),
-                    // we only unequip it from the single slot that was clicked.
+                    // --- EXISTING LOGIC FOR STANDARD ITEMS ---
+                    // This handles unequipping single-slot items like helmets or rings.
+                    const itemIdToUnequip = slotValue; // It's just an ID string here.
                     let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
                     let newInventory = [...activeCharacter.inventory];
-
-                    // Clear only the specific slot that was clicked.
                     newEquipmentSlots[slotId] = null;
 
-                    // After clearing, check if any other instances of this item are still equipped.
                     const isStillEquippedElsewhere = Object.values(newEquipmentSlots).includes(itemIdToUnequip);
-
-                    // If no other instances are equipped, update the master "equipped" flag
-                    // in the inventory list so the buttons can update.
                     if (!isStillEquippedElsewhere) {
                         newInventory = newInventory.map(item =>
                             item.id === itemIdToUnequip ? { ...item, equipped: false } : item
                         );
                     }
-
-                    // Save the changes and re-render the UI.
+                    
                     try {
                         activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
                         processAndRenderAll(activeCharacter);
@@ -401,7 +438,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         alerter.show('Failed to unequip from slot.', 'error');
                     }
                 }
-
                 return; // Stop further event processing.
             }
 
@@ -432,23 +468,73 @@ document.addEventListener('DOMContentLoaded', async () => {
             const unequipStackButton = target.closest('.btn-unequip-stack');
             if (unequipStackButton) {
                 const itemId = unequipStackButton.dataset.itemId;
-                const equipSlotType = equipmentData[itemId]?.equip_slot;
-                const instanceSlots = activeLayout.slotMap[equipSlotType] || [];
-                const occupiedSlots = instanceSlots.filter(id => activeCharacter.equipmentSlots[id] === itemId);
-                if (occupiedSlots.length > 0) {
-                    const slotToUnequip = occupiedSlots[occupiedSlots.length - 1];
-                    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
-                    let newInventory = [...activeCharacter.inventory];
-                    newEquipmentSlots[slotToUnequip] = null;
-                    if (occupiedSlots.length - 1 === 0) {
-                        newInventory = newInventory.map(item => item.id === itemId ? { ...item, equipped: false } : item);
+                const itemDef = equipmentData[itemId];
+
+                // Check if the item is a multi-slot item.
+                if (itemDef && activeLayout.layoutConfig.combined_slots[itemDef.equip_slot]) {
+                    // --- NEW LOGIC FOR MULTI-SLOT STACKABLE ITEMS ---
+                    const equippedInstances = {};
+
+                    // 1. Find all equipped instances of this item by grouping slots by instanceId.
+                    for (const slotId in activeCharacter.equipmentSlots) {
+                        const slotValue = activeCharacter.equipmentSlots[slotId];
+                        if (slotValue?.itemId === itemId && slotValue.instanceId) {
+                            if (!equippedInstances[slotValue.instanceId]) {
+                                equippedInstances[slotValue.instanceId] = [];
+                            }
+                            equippedInstances[slotValue.instanceId].push(slotId);
+                        }
                     }
-                    try {
-                        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
-                        processAndRenderAll(activeCharacter);
-                    } catch (err) { console.error('Failed to unequip stackable item:', err); alerter.show('Failed to unequip item.', 'error'); }
+                    
+                    const instanceIds = Object.keys(equippedInstances);
+
+                    if (instanceIds.length > 0) {
+                        // 2. Find the "last" instance by sorting the IDs (which contain timestamps).
+                        instanceIds.sort(); // A simple alphabetical sort works on the timestamp string.
+                        const instanceIdToRemove = instanceIds[instanceIds.length - 1]; // Get the newest one.
+
+                        let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+
+                        // 3. Remove all slots belonging to that specific instance.
+                        for (const slotId in newEquipmentSlots) {
+                            if (newEquipmentSlots[slotId]?.instanceId === instanceIdToRemove) {
+                                newEquipmentSlots[slotId] = null;
+                            }
+                        }
+
+                        try {
+                            activeCharacter = await db.updateCharacter(activeCharacter.id, { equipmentSlots: newEquipmentSlots });
+                            processAndRenderAll(activeCharacter);
+                        } catch (err) {
+                            console.error('Failed to unequip multi-slot stackable instance:', err);
+                            alerter.show('Failed to unequip instance.', 'error');
+                        }
+                    }
+                } else {
+                    // --- EXISTING LOGIC FOR SINGLE-SLOT STACKABLE ITEMS (like rings) ---
+                    // This logic is correct and remains unchanged.
+                    const equipSlotType = itemDef?.equip_slot;
+                    const instanceSlots = activeLayout.slotMap[equipSlotType] || [];
+                    const occupiedSlots = instanceSlots.filter(id => activeCharacter.equipmentSlots[id] === itemId);
+
+                    if (occupiedSlots.length > 0) {
+                        const slotToUnequip = occupiedSlots[occupiedSlots.length - 1];
+                        let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+                        let newInventory = [...activeCharacter.inventory];
+                        newEquipmentSlots[slotToUnequip] = null;
+                        
+                        // After this unequip, check if it was the last one equipped.
+                        if (occupiedSlots.length - 1 === 0) {
+                            newInventory = newInventory.map(item => item.id === itemId ? { ...item, equipped: false } : item);
+                        }
+
+                        try {
+                            activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
+                            processAndRenderAll(activeCharacter);
+                        } catch (err) { console.error('Failed to unequip stackable item:', err); alerter.show('Failed to unequip item.', 'error'); }
+                    }
                 }
-                return;
+                return; // Stop further event processing.
             }
             
             // --- Logic for other buttons (Use, Craft, Health, Rolls) ---

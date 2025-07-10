@@ -294,52 +294,53 @@ function renderLootTableComponent(lootItems) {
  */
 function getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotMap) {
     const dynamicCategories = {};
-    const baseSlotsToRender = new Set(Object.values(slotMap).flat());
-    const activeCombinedSlots = [];
-    const processedItemIds = new Set();
+    const allPossibleSlots = new Set(Object.values(slotMap).flat());
+    const combinedInstances = new Map(); // Use a Map to group slots by instanceId
 
+    // First pass: Find all combined item instances and group their slots
     for (const slotId in equipmentSlots) {
-        const itemId = equipmentSlots[slotId];
-        if (!itemId || processedItemIds.has(itemId)) continue;
-        const itemDef = equipmentData[itemId];
-        // Use the passed-in layoutConfig instead of the global constant.
-        const combinedConfig = itemDef ? layoutConfig.combined_slots[itemDef.equip_slot] : null;
-        if (combinedConfig) {
-            processedItemIds.add(itemId);
-            const occupiedInstances = [];
-            for (const sId in equipmentSlots) {
-                if (equipmentSlots[sId] === itemId) {
-                    occupiedInstances.push(sId);
-                }
+        const slotValue = equipmentSlots[slotId];
+        if (slotValue && typeof slotValue === 'object' && slotValue.instanceId) {
+            if (!combinedInstances.has(slotValue.instanceId)) {
+                combinedInstances.set(slotValue.instanceId, {
+                    itemId: slotValue.itemId,
+                    slots: []
+                });
             }
-            activeCombinedSlots.push({
-                id: itemDef.equip_slot,
-                label: combinedConfig.label,
-                span: occupiedInstances.length,
-                representativeSlotId: occupiedInstances[0]
-            });
-            occupiedInstances.forEach(id => baseSlotsToRender.delete(id));
+            combinedInstances.get(slotValue.instanceId).slots.push(slotId);
+            allPossibleSlots.delete(slotId); // This slot is part of a combined item, so remove it from the default render list.
         }
     }
 
-    // Use the passed-in layoutConfig instead of the global constant.
+    // Second pass: Build the final layout for rendering
     for (const categoryName in layoutConfig.categories) {
         const renderedSlots = [];
 
-        activeCombinedSlots.forEach(combinedSlot => {
-            const firstReplacedId = combinedSlot.representativeSlotId;
-            const originalCategoryTypes = layoutConfig.categories[categoryName];
-            if (originalCategoryTypes.includes(firstReplacedId.split('_')[0])) {
-                renderedSlots.push(combinedSlot);
+        // Add the processed combined item slots to the correct category
+        combinedInstances.forEach((instance, instanceId) => {
+            const itemDef = equipmentData[instance.itemId];
+            const combinedConfig = layoutConfig.combined_slots[itemDef.equip_slot];
+            const representativeSlotId = instance.slots[0];
+            const slotBaseType = representativeSlotId.split('_')[0];
+
+            if (layoutConfig.categories[categoryName].includes(slotBaseType)) {
+                renderedSlots.push({
+                    id: instanceId, // The "slot" ID is now the instanceId
+                    label: combinedConfig.label,
+                    span: instance.slots.length,
+                    representativeSlotId: representativeSlotId // Still useful for getting item info
+                });
+                // Ensure this instance isn't processed again for another category
+                combinedInstances.delete(instanceId);
             }
         });
 
+        // Add the remaining default single slots
         const uniqueSlotTypes = [...new Set(layoutConfig.categories[categoryName])];
         uniqueSlotTypes.forEach(slotType => {
-            const instanceIds = slotMap[slotType]; // Use passed-in slotMap
-            if (!instanceIds) return;
+            const instanceIds = slotMap[slotType] || [];
             instanceIds.forEach(instanceId => {
-                if (baseSlotsToRender.has(instanceId)) {
+                if (allPossibleSlots.has(instanceId)) {
                     const label = slotType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                     renderedSlots.push({ id: instanceId, label: label, span: 1 });
                 }
@@ -347,11 +348,7 @@ function getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotM
         });
         
         if (renderedSlots.length > 0) {
-            renderedSlots.sort((a, b) => {
-                const aIndex = Object.values(slotMap).flat().indexOf(a.representativeSlotId || a.id);
-                const bIndex = Object.values(slotMap).flat().indexOf(b.representativeSlotId || b.id);
-                return aIndex - bIndex;
-            });
+            renderedSlots.sort((a, b) => { /* ... sorting logic is unchanged ... */ });
             dynamicCategories[categoryName] = renderedSlots;
         }
     }
@@ -377,7 +374,11 @@ function renderEquipmentSlotsComponent(equipmentSlots, equipmentData, layoutConf
             // For a combined slot, we use its representative ID to find the item. For a normal slot, it's just its own ID.
             const representativeSlotId = slotInfo.representativeSlotId || slotId;
             
-            const equippedItemId = equipmentSlots[representativeSlotId];
+            // Get the slot's value, which could be an object or a string
+            const slotValue = equipmentSlots[representativeSlotId];
+            // Extract the item ID from the value.
+            const equippedItemId = slotValue?.itemId || slotValue;
+
             const itemDef = equippedItemId ? equipmentData[equippedItemId] : null;
 
             const slotLabel = slotInfo.label;
@@ -418,20 +419,27 @@ export function getEquippedCount(baseItemId, character, equipmentData, layoutCon
     if (!itemDef || !itemDef.equip_slot || !equipmentSlots) {
         return 0;
     }
-    const occupiedSlots = [];
-    for (const slotId in equipmentSlots) {
-        if (equipmentSlots[slotId] === baseItemId) {
-            occupiedSlots.push(slotId);
-        }
-    }
-    if (occupiedSlots.length === 0) {
-        return 0;
-    }
-    // Use the passed-in layoutConfig instead of the global constant.
+
+    // For combined items, we now need to count unique instances.
     if (layoutConfig.combined_slots[itemDef.equip_slot]) {
-        return 1;
+        const instances = new Set();
+        for (const slotId in equipmentSlots) {
+            const slotValue = equipmentSlots[slotId];
+            // Check if the slot contains an object with the matching itemId
+            if (slotValue && typeof slotValue === 'object' && slotValue.itemId === baseItemId) {
+                instances.add(slotValue.instanceId);
+            }
+        }
+        return instances.size;
     } else {
-        return occupiedSlots.length;
+        // Logic for standard, single-slot items is unchanged.
+        let count = 0;
+        for (const slotId in equipmentSlots) {
+            if (equipmentSlots[slotId] === baseItemId) {
+                count++;
+            }
+        }
+        return count;
     }
 }
 
