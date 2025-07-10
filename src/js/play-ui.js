@@ -168,7 +168,7 @@ export function renderProfileTab(character, flawData, perkData) {
 }
 
 // Renders the equipment table. This is now a reusable component.
-function renderEquipmentTableComponent(equipmentItems, character, equipmentData) {
+function renderEquipmentTableComponent(equipmentItems, character, equipmentData, layoutConfig, slotMap) {
     if (equipmentItems.length === 0) {
         return '<h2>Equipment</h2><p>No equipment.</p>';
     }
@@ -177,36 +177,32 @@ function renderEquipmentTableComponent(equipmentItems, character, equipmentData)
         const itemDef = item.definition;
         
         let nameCell = itemDef.name;
+        // The equippedCount is now only calculated in play.js, so we reference it directly.
         if (item.equippedCount !== undefined) {
             nameCell += ` <span class="item-count-display">(${item.equippedCount} of ${item.quantity} Equipped)</span>`;
         }
         
-        // --- NEW BUTTON LOGIC IS HERE ---
         let actionButtonsHtml = '';
 
-        // Check if the item is stackable by looking for a quantity greater than 1.
         if (item.quantity > 1) {
-            // It's a stackable item, so show the new context-aware buttons.
+            // Check if there are any valid slots left BEFORE showing the Equip button.
+            const availableSlots = findTargetSlots(itemDef, character.equipmentSlots, item.id, layoutConfig, slotMap, equipmentData);
             
-            // Show the "Equip" button only if there are items left in the stack to equip.
-            if (item.equippedCount < item.quantity) {
-                // Note the new class "btn-equip-stack" to differentiate this action.
+            // Only show the "Equip" button if there are unequipped items AND an available slot.
+            if (item.equippedCount < item.quantity && availableSlots.length > 0) {
                 actionButtonsHtml += `<button class="btn btn-success btn-sm btn-equip-stack" data-item-id="${item.id}">Equip</button>`;
             }
 
-            // Show the "Unequip" button only if at least one item from the stack is currently equipped.
+            // Show the "Unequip" button only if at least one is equipped. (Logic is unchanged).
             if (item.equippedCount > 0) {
-                 // Note the new class "btn-unequip-stack" to differentiate this action.
                 actionButtonsHtml += `<button class="btn btn-warning btn-sm btn-unequip-stack" data-item-id="${item.id}">Unequip</button>`;
             }
-
         } else {
-            // It's a standard, non-stackable item. Use the original single button logic.
+            // Logic for non-stackable items is unchanged.
             actionButtonsHtml = `<button class="btn btn-secondary btn-sm btn-equip" data-item-id="${item.id}">
                                     ${item.equipped ? 'Unequip' : 'Equip'}
                                  </button>`;
         }
-        // --- END OF NEW BUTTON LOGIC ---
 
         return `
             <tr>
@@ -357,6 +353,78 @@ function getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotM
 }
 
 /**
+ * Finds the best target slot(s) for an item, handling all item types.
+ * @param {object} itemDef - The definition of the item to equip.
+ * @param {object} equipmentSlots - The character's current equipment slots.
+ * @param {string} itemIdToEquip - The ID of the item being equipped.
+ * @param {object} layoutConfig - The character's final layout configuration.
+ * @param {object} slotMap - The character's final slot map.
+ * @param {object} equipmentData - The master list of all item definitions. // <-- NEW PARAMETER
+ * @returns {Array<string>} An array of target slot IDs.
+ */
+export function findTargetSlots(itemDef, equipmentSlots, itemIdToEquip, layoutConfig, slotMap, equipmentData) {
+    const slotType = itemDef.equip_slot;
+    const combinedConfig = layoutConfig.combined_slots[slotType];
+
+    // --- Logic for Standard/Repeatable Items (no changes here) ---
+    if (!combinedConfig) {
+        const instanceSlots = slotMap[slotType] || [];
+        const emptySlot = instanceSlots.find(id => !equipmentSlots[id]);
+        if (emptySlot) return [emptySlot];
+        
+        const replaceableSlot = instanceSlots.find(id => equipmentSlots[id] !== itemIdToEquip);
+        if (replaceableSlot) return [replaceableSlot];
+        
+        return [];
+    }
+
+    // --- Logic for Combined-Slot Items (Corrected) ---
+    if (combinedConfig) {
+        const requiredTypes = combinedConfig.replaces;
+        const potentialPrimarySlots = slotMap[requiredTypes[0]] || [];
+        const potentialSecondarySlots = slotMap[requiredTypes[1]] || [];
+        const occupiedByCombined = new Set();
+
+        // This loop now correctly uses the passed-in equipmentData.
+        for (const slotId in equipmentSlots) {
+            const slotValue = equipmentSlots[slotId];
+            if (!slotValue) continue;
+
+            // Get the actual item ID, whether it's a string or inside an object.
+            const realItemId = typeof slotValue === 'object' ? slotValue.itemId : slotValue;
+            const equippedItemDef = equipmentData[realItemId]; // Use the passed-in equipmentData
+
+            if (equippedItemDef && layoutConfig.combined_slots[equippedItemDef.equip_slot]) {
+                occupiedByCombined.add(slotId);
+            }
+        }
+
+        // The rest of the logic for finding the best pair remains the same.
+        const availablePrimary = potentialPrimarySlots.filter(id => !occupiedByCombined.has(id));
+        const availableSecondary = potentialSecondarySlots.filter(id => !occupiedByCombined.has(id));
+        let bestPair = [];
+        let lowestCost = Infinity;
+
+        for (const p of availablePrimary) {
+            for (const s of availableSecondary) {
+                const pIsFilled = !!equipmentSlots[p];
+                const sIsFilled = !!equipmentSlots[s];
+                const currentCost = (pIsFilled ? 1 : 0) + (sIsFilled ? 1 : 0);
+
+                if (currentCost < lowestCost) {
+                    lowestCost = currentCost;
+                    bestPair = [p, s];
+                    if (lowestCost === 0) return bestPair;
+                }
+            }
+        }
+        return bestPair;
+    }
+
+    return [];
+}
+
+/**
  * Helper function to render the visual equipment slots UI.
  * UPDATED: Now uses the fully dynamic layout to render combined slots correctly.
  */
@@ -466,7 +534,7 @@ export function renderEquipmentTab(equipmentItems, equipmentSlots, equipmentData
             </div>
             <div class="equipment-column">
                 <div class="panel">
-                    ${renderEquipmentTableComponent(equipmentItems, character, equipmentData)}
+                    ${renderEquipmentTableComponent(equipmentItems, character, equipmentData, layoutConfig, slotMap)}
                 </div>
             </div>
         </div>
@@ -479,7 +547,7 @@ export function renderEquipmentTab(equipmentItems, equipmentSlots, equipmentData
  * @param {object} character - The character object.
  * @param {object} equipmentData - A map of all equipment and loot definitions.
  */
-export function renderInventoryTab(character, equipmentData) {
+export function renderInventoryTab(character, equipmentData, layoutConfig, slotMap) {
     const panel = document.getElementById('inventory-panel');
     if (!panel) return;
 
@@ -510,7 +578,7 @@ export function renderInventoryTab(character, equipmentData) {
     // now correctly receives all the data it needs.
     panel.innerHTML = `
         <div class="panel">
-            ${renderEquipmentTableComponent(equipmentItems, character, equipmentData)}
+            ${renderEquipmentTableComponent(equipmentItems, character, equipmentData, layoutConfig, slotMap)}
         </div>
         <div class="panel">
             ${renderLootTableComponent(lootItems)}

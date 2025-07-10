@@ -3,7 +3,7 @@ import { EffectHandler } from './effectHandler.js';
 import { loadGameModules, loadDataForModule } from './dataLoader.js';
 import { alerter } from './alerter.js';
 import { RollManager } from './RollManager.js';
-import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, EQUIPMENT_SLOT_CONFIG, getEquippedCount } from './play-ui.js';
+import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, EQUIPMENT_SLOT_CONFIG, getEquippedCount, findTargetSlots } from './play-ui.js';
 import { aggregateAllAbilities } from './abilityAggregator.js';
 
 // Global variables
@@ -51,7 +51,7 @@ async function processAndRenderAll(character) {
     renderMainTab(effectedCharacter, moduleDefinitions);
     renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);
-    renderInventoryTab(effectedCharacter, equipmentData);
+    renderInventoryTab(effectedCharacter, equipmentData, layoutConfig, slotMap);
     // Pass the dynamic layout down to the rendering function.
     renderEquipmentTab(equipmentItems, effectedCharacter.equipmentSlots, equipmentData, effectedCharacter, layoutConfig, slotMap);
 }
@@ -175,86 +175,6 @@ function updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModif
 }
 
 /**
- * Finds the best target slot(s) for an item, handling single, repeatable, and combined items.
- * This is the final, robust version that correctly handles multi-wielding.
- * @param {object} itemDef - The definition of the item to equip.
- * @param {object} equipmentSlots - The character's current equipment slots.
- * @param {string} itemIdToEquip - The ID of the item being equipped.
- * @param {object} layoutConfig - The character's final layout configuration.
- * @param {object} slotMap - The character's final slot map.
- * @returns {Array<string>} An array of target slot IDs.
- */
-function findTargetSlots(itemDef, equipmentSlots, itemIdToEquip, layoutConfig, slotMap) {
-    const slotType = itemDef.equip_slot;
-    const combinedConfig = layoutConfig.combined_slots[slotType];
-
-    // --- Logic for Standard/Repeatable Items (e.g., ring, head) ---
-    if (!combinedConfig) {
-        const instanceSlots = slotMap[slotType] || [];
-        // Priority 1: Find any empty slot
-        const emptySlot = instanceSlots.find(id => !equipmentSlots[id]);
-        if (emptySlot) {
-            return [emptySlot];
-        }
-        // Priority 2: Find a slot with a *different* item to replace
-        const replaceableSlot = instanceSlots.find(id => equipmentSlots[id] !== itemIdToEquip);
-        if (replaceableSlot) {
-            return [replaceableSlot];
-        }
-        // All available slots are already full of this same item.
-        return [];
-    }
-
-    // Logic for Combined-Slot Items (e.g., two-hand)
-    if (combinedConfig) {
-        const requiredTypes = combinedConfig.replaces; // e.g., ['main-hand', 'off-hand']
-
-        // 1. Get all possible instance slots for the required types
-        const potentialPrimarySlots = slotMap[requiredTypes[0]] || [];
-        const potentialSecondarySlots = slotMap[requiredTypes[1]] || [];
-
-        // 2. Find which of those slots are already occupied by ANOTHER combined item
-        const occupiedByCombined = new Set();
-        for (const slotId in equipmentSlots) {
-            const itemId = equipmentSlots[slotId];
-            if (!itemId) continue;
-            const itemDef = equipmentData[itemId];
-            if (itemDef && layoutConfig.combined_slots[itemDef.equip_slot]) {
-                occupiedByCombined.add(slotId);
-            }
-        }
-
-        // 3. Create a pool of "available" slots that are not part of an existing combined-item pair
-        const availablePrimary = potentialPrimarySlots.filter(id => !occupiedByCombined.has(id));
-        const availableSecondary = potentialSecondarySlots.filter(id => !occupiedByCombined.has(id));
-
-        let bestPair = [];
-        let lowestCost = Infinity; // Using a cost system: 0 for empty, 1 for filled
-
-        // 4. Iterate through all available pairs to find the best one
-        for (const p of availablePrimary) {
-            for (const s of availableSecondary) {
-                const pIsFilled = !!equipmentSlots[p];
-                const sIsFilled = !!equipmentSlots[s];
-                const currentCost = (pIsFilled ? 1 : 0) + (sIsFilled ? 1 : 0);
-
-                if (currentCost < lowestCost) {
-                    lowestCost = currentCost;
-                    bestPair = [p, s];
-                    // If we find a perfect empty pair, use it immediately
-                    if (lowestCost === 0) {
-                        return bestPair;
-                    }
-                }
-            }
-        }
-        return bestPair; // Return the best pair found, even if it requires replacement
-    }
-
-    return [];
-}
-
-/**
  * Master function to handle all item equip actions with priority-based logic.
  * @param {string} itemId The ID of the item to equip.
  */
@@ -270,7 +190,7 @@ async function handleEquip(itemId) {
         return alerter.show('No unequipped instances of this item are available.', 'warn');
     }
 
-    const targetSlots = findTargetSlots(itemDef, activeCharacter.equipmentSlots, itemId, layoutConfig, slotMap);
+    const targetSlots = findTargetSlots(itemDef, activeCharacter.equipmentSlots, itemId, layoutConfig, slotMap, equipmentData);
 
     if (targetSlots.length === 0) {
         return alerter.show('All available slots are already filled with this item.', 'warn');
