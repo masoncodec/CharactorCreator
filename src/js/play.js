@@ -34,6 +34,20 @@ async function processAndRenderAll(character) {
     const allAbilities = aggregateAllAbilities(reconciledCharacter, abilityData, equipmentData);
     EffectHandler.processActiveAbilities(allAbilities, reconciledCharacter, flawData, perkData, activeAbilityStates, 'play');
     const effectedCharacter = EffectHandler.applyEffectsToCharacter(reconciledCharacter, 'play', activeAbilityStates);
+
+    // This copies all dynamically calculated properties from the effected character
+    // back to the main character object, making them available to all event handlers.
+
+    character.calculatedHealth = effectedCharacter.calculatedHealth;
+    character.languages = effectedCharacter.languages;
+    character.activeRollEffects = effectedCharacter.activeRollEffects;
+    character.temporaryBuffs = effectedCharacter.temporaryBuffs;
+    character.summonedCreatures = effectedCharacter.summonedCreatures;
+    character.statuses = effectedCharacter.statuses;
+    character.resources = effectedCharacter.resources;
+    character.resistances = effectedCharacter.resistances;
+    character.movement = effectedCharacter.movement;
+
     const equipmentItems = effectedCharacter.inventory
         .map(item => {
             const definition = equipmentData[item.id];
