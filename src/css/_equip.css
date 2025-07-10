@@ -14,10 +14,9 @@
 /* CSS Grid */
 .slots-container {
     display: grid;
-    grid-auto-flow: column; /* Lay out items in columns */
-    grid-auto-columns: 120px; /* Each column is 120px wide */
+    /* This creates as many 120px columns as can fit on one line before wrapping. */
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 0.75rem;
-    justify-content: start; /* Align grid to the start */
 }
 
 .equipment-slot {
@@ -77,3 +76,20 @@
     gap: 0.5rem; /* Adds a small space between the buttons */
     align-items: center;
 }
+
+.equipment-container {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem; /* This creates the space between the two columns */
+    width: 100%;
+  }
+  
+  .equipment-column {
+    flex: 1; /* This tells each column to take up an equal amount of space */
+    display: flex; /* This ensures the panel inside fills the column */
+    flex-direction: column;
+  }
+  
+  .equipment-column .panel {
+    width: 100%; /* Make the panel fill the entire column */
+  }

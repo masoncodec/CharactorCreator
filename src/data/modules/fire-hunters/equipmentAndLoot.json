@@ -241,6 +241,54 @@
       "active": []
     }
   },
+  "example-ring-of-fire": {
+    "id": "example-ring-of-fire",
+    "type": "equipment",
+    "category": "accessory",
+    "equip_slot": "ring",
+    "name": "Ring of Fire",
+    "description": "A simple silver ring that subtly deflects harm.",
+    "rarity": "rare",
+    "weight": 0.1,
+    "stackable": true,
+    "abilities": {
+      "passive": [
+        {
+          "id": "pas_ring_ac",
+          "name": "Deflection",
+          "description": "Grants a +1 bonus to Armor Class.",
+          "effect": [
+            {
+              "type": "MOD_STAT",
+              "target": "self",
+              "parameters": {
+                "stat": "armor_class",
+                "modifier": "ADD",
+                "value": 1
+              }
+            }
+          ]
+        },
+        {
+          "id": "pas_ring_saves",
+          "name": "Warding Magic",
+          "description": "Grants a +1 bonus to all saving throws.",
+          "effect": [
+            {
+              "type": "MOD_STAT",
+              "target": "self",
+              "parameters": {
+                "stat": "saving_throws",
+                "modifier": "ADD",
+                "value": 1
+              }
+            }
+          ]
+        }
+      ],
+      "active": []
+    }
+  },
   "example-greatshield": {
     "id": "example-greatshield",
     "type": "equipment",

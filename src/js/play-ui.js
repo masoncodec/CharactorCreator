@@ -11,7 +11,7 @@ const MAX_MODIFIER_COLUMNS = 5;
 export const EQUIPMENT_SLOT_CONFIG = {
     // 1. Defines the default layout categories and their member slots.
     categories: {
-      "Weapons": ["main-hand", "off-hand", "off-hand"],
+      "Weapons": ["main-hand", "main-hand", "main-hand", "off-hand", "off-hand", "off-hand", "off-hand"],
       "Armor": ["head", "chest", "hands", "legs", "feet"],
       "Accessories": ["ring", "ring", "amulet"]
     },
@@ -498,24 +498,33 @@ export function getEquippedCount(baseItemId, character, equipmentData) {
  * @param {object} equipmentSlots - The character's map of equipped items.
  * @param {object} equipmentData - The master list of all item definitions.
  */
-export function renderEquipmentTab(equipmentItems, equipmentSlots, equipmentData) {
+export function renderEquipmentTab(equipmentItems, equipmentSlots, equipmentData, character) {
     const panel = document.getElementById('equipment-panel');
     if (!panel) return;
+
+    // The rest of the function can now access 'character' and works correctly.
     panel.innerHTML = `
-        <div class="panel">
-             <h2>Equipped Items</h2>
-             <div id="equipment-slots-panel">
-                ${renderEquipmentSlotsComponent(equipmentSlots, equipmentData)}
-             </div>
-        </div>
-        <div class="panel">
-            ${renderEquipmentTableComponent(equipmentItems)}
+        <div class="equipment-container">
+            <div class="equipment-column">
+                <div class="panel">
+                     <h2>Equipped Items</h2>
+                     <div id="equipment-slots-panel">
+                        ${renderEquipmentSlotsComponent(equipmentSlots, equipmentData)}
+                     </div>
+                </div>
+            </div>
+            <div class="equipment-column">
+                <div class="panel">
+                    ${renderEquipmentTableComponent(equipmentItems, character, equipmentData)}
+                </div>
+            </div>
         </div>
     `;
 }
 
 /**
  * Renders the content for the 'Inventory' tab.
+ * UPDATED: Now correctly receives and passes down the augmented equipmentItems array.
  * @param {object} character - The character object.
  * @param {object} equipmentData - A map of all equipment and loot definitions.
  */
@@ -528,28 +537,29 @@ export function renderInventoryTab(character, equipmentData) {
         return;
     }
 
+    // This logic now correctly separates the items for the two tables.
     const equipmentItems = [];
     const lootItems = [];
 
-    // Separate items based on their definition type
     character.inventory.forEach(item => {
-        const itemDef = equipmentData ? equipmentData[item.id] : null;
-        if (itemDef) {
-            // We create a single object that includes both the instance data (item)
-            // and the definition data (itemDef) for easier processing.
-            const fullItemData = { ...item, definition: itemDef };
-            if (itemDef.type === 'equipment') {
-                equipmentItems.push(fullItemData);
-            } else if (itemDef.type === 'loot') {
-                lootItems.push(fullItemData);
-            }
+        const definition = equipmentData[item.id];
+        if (!definition) return;
+
+        // The item object passed from play.js already has the definition and equippedCount.
+        // We just need to separate them into the correct lists.
+        const fullItemData = { ...item, definition };
+        if (definition.type === 'equipment') {
+            equipmentItems.push(fullItemData);
+        } else if (definition.type === 'loot') {
+            lootItems.push(fullItemData);
         }
     });
 
-    // The inventory tab continues to render both tables
+    // The inventory tab renders both tables. Note that renderEquipmentTableComponent
+    // now correctly receives all the data it needs.
     panel.innerHTML = `
         <div class="panel">
-            ${renderEquipmentTableComponent(equipmentItems)}
+            ${renderEquipmentTableComponent(equipmentItems, character, equipmentData)}
         </div>
         <div class="panel">
             ${renderLootTableComponent(lootItems)}

@@ -43,7 +43,7 @@ function processAndRenderAll(character) {
     renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);
     renderInventoryTab(effectedCharacter, equipmentData);
-    renderEquipmentTab(equipmentItems, effectedCharacter.equipmentSlots, equipmentData);
+    renderEquipmentTab(equipmentItems, effectedCharacter.equipmentSlots, equipmentData, effectedCharacter);
 }
 
 /**
@@ -86,6 +86,106 @@ function updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModif
         unmodifiedResultEl.classList.add('visible');
         setTimeout(() => unmodifiedResultEl.classList.remove('visible', 'fade-out'), 2500);
         setTimeout(() => unmodifiedResultEl.classList.add('fade-out'), 2000);
+    }
+}
+
+function findTargetSlots(itemDef, equipmentSlots, itemIdToEquip) { // Add itemIdToEquip
+    const slotType = itemDef.equip_slot;
+    const combinedConfig = EQUIPMENT_SLOT_CONFIG.combined_slots[slotType];
+
+    // --- Logic for Standard/Repeatable Items (e.g., ring, head) ---
+    if (!combinedConfig) {
+        const instanceSlots = EQUIPMENT_SLOT_MAP[slotType] || [];
+        
+        // Priority 1: Find any empty slot
+        const emptySlot = instanceSlots.find(id => !equipmentSlots[id]);
+        if (emptySlot) {
+            return [emptySlot];
+        }
+
+        // Priority 2 (NEW): Find a slot occupied by a DIFFERENT item
+        const replaceableSlot = instanceSlots.find(id => equipmentSlots[id] !== itemIdToEquip);
+        if (replaceableSlot) {
+            return [replaceableSlot];
+        }
+
+        // If all slots are full of the same item, there's nothing to do.
+        return [];
+    }
+
+    // --- Logic for Combined-Slot Items (e.g., two-hand) ---
+    // This logic remains the same as it doesn't involve stacking.
+    if (combinedConfig) {
+        const requiredTypes = combinedConfig.replaces;
+        const possibleInstances = requiredTypes.map(type => EQUIPMENT_SLOT_MAP[type]);
+        let targetSlots = [];
+        const primarySlot = possibleInstances[0][0];
+        const secondarySlots = possibleInstances[1];
+        const emptySecondarySlot = secondarySlots.find(id => !equipmentSlots[id]);
+
+        if (emptySecondarySlot) {
+            targetSlots = [primarySlot, emptySecondarySlot];
+            return targetSlots;
+        }
+
+        targetSlots = requiredTypes.map(type => EQUIPMENT_SLOT_MAP[type][0]);
+        return targetSlots;
+    }
+
+    return [];
+}
+
+/**
+ * Master function to handle all item equip actions with priority-based logic.
+ * @param {string} itemId The ID of the item to equip.
+ */
+async function handleEquip(itemId) {
+    if (!activeCharacter || !itemId) return;
+
+    const itemDef = equipmentData[itemId];
+    const itemInInventory = activeCharacter.inventory.find(i => i.id === itemId);
+    const equippedCount = getEquippedCount(itemId, activeCharacter, equipmentData);
+
+    // 1. Check Availability
+    if (!itemInInventory || itemInInventory.quantity <= equippedCount) {
+        return alerter.show('No unequipped instances of this item are available.', 'warn');
+    }
+
+    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+    // 2. Find target slots using the NEW, smarter function
+    const targetSlots = findTargetSlots(itemDef, newEquipmentSlots, itemId);
+
+    if (targetSlots.length === 0) {
+        // This message is now more accurate.
+        return alerter.show('All available slots are already filled with this item.', 'warn');
+    }
+
+    // 3. (REVISED) Precisely unequip whatever is in the target slot(s)
+    let newInventory = [...activeCharacter.inventory];
+    targetSlots.forEach(slotId => {
+        const itemToReplace = newEquipmentSlots[slotId];
+        if (itemToReplace) {
+            // Check if this is the last equipped instance of the item being replaced.
+            const totalEquipped = getEquippedCount(itemToReplace, activeCharacter, equipmentData);
+            if (totalEquipped <= 1) {
+                newInventory = newInventory.map(item => item.id === itemToReplace ? { ...item, equipped: false } : item);
+            }
+        }
+    });
+
+    // 4. (REVISED) Equip the new item by first clearing and then setting the slots
+    targetSlots.forEach(slotId => {
+        newEquipmentSlots[slotId] = itemId;
+    });
+    newInventory = newInventory.map(item => item.id === itemId ? { ...item, equipped: true } : item);
+
+    // 5. Save changes and re-render the UI
+    try {
+        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
+        processAndRenderAll(activeCharacter);
+    } catch (err) {
+        console.error('Failed to equip item:', err);
+        alerter.show('Failed to equip item.', 'error');
     }
 }
 
@@ -174,76 +274,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (itemInstance && itemInstance.equipped) {
                     await handleUnequip(itemId);
                 } else {
-                    const itemToEquipDef = equipmentData[itemId];
-                    const equipSlotType = itemToEquipDef.equip_slot;
-                    if (!equipSlotType) return alerter.show('This item cannot be equipped.', 'warn');
-                    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
-                    let newInventory = [...activeCharacter.inventory];
-                    const combinedConfig = EQUIPMENT_SLOT_CONFIG.combined_slots[equipSlotType];
-                    const instanceSlots = EQUIPMENT_SLOT_MAP[equipSlotType];
-                    
-                    if (combinedConfig) {
-                        // --- CORRECTED LOGIC FOR COMBINED ITEMS (e.g., "two-hand") ---
-                        const baseTypes = combinedConfig.replaces; // e.g., ['main-hand', 'off-hand']
-                        const targetSlots = []; // This will hold the specific slots to occupy, e.g., ['main-hand_1', 'off-hand_2']
-
-                        // For each required slot type, find an available instance.
-                        for (const type of baseTypes) {
-                            const availableInstances = EQUIPMENT_SLOT_MAP[type];
-                            if (!availableInstances) {
-                                console.error(`Configuration error: No instances found for slot type: ${type}`);
-                                return alerter.show('Configuration error.', 'error');
-                            }
-                            // First, intelligently try to find an EMPTY instance of this type.
-                            const emptyInstance = availableInstances.find(id => !newEquipmentSlots[id]);
-                            if (emptyInstance) {
-                                targetSlots.push(emptyInstance);
-                            } else {
-                                // If no empty instance is found, default to replacing the first one.
-                                targetSlots.push(availableInstances[0]);
-                            }
-                        }
-
-                        // Now that we have the correct target slots, find and unequip any conflicting items.
-                        const conflictingItemIds = new Set(targetSlots.map(s => newEquipmentSlots[s]).filter(Boolean));
-                        for (const id of conflictingItemIds) {
-                            for (const slotId in newEquipmentSlots) {
-                                if (newEquipmentSlots[slotId] === id) {
-                                    newEquipmentSlots[slotId] = null;
-                                }
-                            }
-                            newInventory = newInventory.map(item => item.id === id ? { ...item, equipped: false } : item);
-                        }
-                        // Equip the new combined item in all its dynamically found target slots.
-                        targetSlots.forEach(s => newEquipmentSlots[s] = itemId);
-
-                    } else if (instanceSlots) {
-                        // --- Logic for Standard Single and Repeatable Slots ---
-                        const emptySlotId = instanceSlots.find(slotId => !newEquipmentSlots[slotId]);
-                        if (emptySlotId) {
-                            newEquipmentSlots[emptySlotId] = itemId;
-                        } else {
-                            const slotToReplace = instanceSlots[instanceSlots.length - 1];
-                            const oldItemId = newEquipmentSlots[slotToReplace];
-                            if (oldItemId) {
-                                // Fully unequip the old item before replacing it.
-                                for (const slotId in newEquipmentSlots) {
-                                    if (newEquipmentSlots[slotId] === oldItemId) {
-                                        newEquipmentSlots[slotId] = null;
-                                    }
-                                }
-                                newInventory = newInventory.map(item => item.id === oldItemId ? { ...item, equipped: false } : item);
-                            }
-                            newEquipmentSlots[slotToReplace] = itemId;
-                        }
-                    } else {
-                        return alerter.show('Invalid slot type definition.', 'error');
-                    }
-                    newInventory = newInventory.map(item => item.id === itemId ? { ...item, equipped: true } : item);
-                    try {
-                        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
-                        processAndRenderAll(activeCharacter);
-                    } catch (err) { console.error('Failed to equip item:', err); alerter.show('Failed to equip item.', 'error'); }
+                    // **MODIFICATION HERE**
+                    await handleEquip(itemId); 
                 }
                 return;
             }
@@ -252,21 +284,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const equipStackButton = target.closest('.btn-equip-stack');
             if (equipStackButton) {
                 const itemId = equipStackButton.dataset.itemId;
-                const equipSlotType = equipmentData[itemId]?.equip_slot;
-                const instanceSlots = EQUIPMENT_SLOT_MAP[equipSlotType] || [];
-                const emptySlotId = instanceSlots.find(id => !activeCharacter.equipmentSlots[id]);
-                if (emptySlotId) {
-                    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
-                    let newInventory = [...activeCharacter.inventory];
-                    newEquipmentSlots[emptySlotId] = itemId;
-                    newInventory = newInventory.map(item => item.id === itemId ? { ...item, equipped: true } : item);
-                    try {
-                        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
-                        processAndRenderAll(activeCharacter);
-                    } catch (err) { console.error('Failed to equip stackable item:', err); alerter.show('Failed to equip item.', 'error'); }
-                } else {
-                    alerter.show('No available slots for this item.', 'warn');
-                }
+                // **MODIFICATION HERE**
+                await handleEquip(itemId); 
                 return;
             }
 
