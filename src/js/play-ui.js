@@ -11,8 +11,8 @@ const MAX_MODIFIER_COLUMNS = 5;
 export const EQUIPMENT_SLOT_CONFIG = {
     // 1. Defines the default layout categories and their member slots.
     categories: {
-      "Weapons": ["main-hand", "main-hand", "main-hand", "off-hand", "off-hand", "off-hand", "off-hand"],
-      "Armor": ["head", "chest", "hands", "legs", "feet"],
+      "Weapons": ["main-hand", "main-hand", "main-hand", "main-hand", "off-hand", "off-hand", "off-hand", "off-hand"],
+      "Armor": ["head", "head", "chest", "hands", "legs", "feet"],
       "Accessories": ["ring", "ring", "amulet"]
     },
   
@@ -26,29 +26,6 @@ export const EQUIPMENT_SLOT_CONFIG = {
       // "full-body": { replaces: ["chest", "legs"], label: "Full-Body" }
     }
 };
-
-/**
- * Generates a map of generic slot types to their unique instance IDs.
- * Example: "ring" -> ["ring_1", "ring_2"]
- * @param {object} config The EQUIPMENT_SLOT_CONFIG object.
- * @returns {object} The generated slot map.
- */
-function generateSlotMap(config) {
-    const slotMap = {};
-    const counts = {};
-    Object.values(config.categories).flat().forEach(slotType => {
-        counts[slotType] = (counts[slotType] || 0) + 1;
-        const instanceId = `${slotType}_${counts[slotType]}`;
-        if (!slotMap[slotType]) {
-            slotMap[slotType] = [];
-        }
-        slotMap[slotType].push(instanceId);
-    });
-    return slotMap;
-}
-
-// Create the map once to be used by rendering functions.
-export const EQUIPMENT_SLOT_MAP = generateSlotMap(EQUIPMENT_SLOT_CONFIG);
 
 /**
  * Renders the top navigation bar with detailed character information.
@@ -315,75 +292,54 @@ function renderLootTableComponent(lootItems) {
  * @param {object} equipmentData - The master list of all item definitions.
  * @returns {object} An object with categories as keys and arrays of slot objects as values.
  */
-function getDynamicSlotLayout(equipmentSlots, equipmentData) {
-    // This will hold the final structure, e.g., { "Weapons": [{...}], "Armor": [...] }
+function getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotMap) {
     const dynamicCategories = {};
-    // Create a mutable set of all base slot instances. We will remove slots from
-    // this set as we account for them in combined slots.
-    const baseSlotsToRender = new Set(Object.values(EQUIPMENT_SLOT_MAP).flat());
-    // This array will hold the definitions for any combined slots that are active.
+    const baseSlotsToRender = new Set(Object.values(slotMap).flat());
     const activeCombinedSlots = [];
-    // This ensures we only process each equipped combined item once.
     const processedItemIds = new Set();
 
-    // --- Step 1: Detect which combined slots are active by analyzing the character's current state ---
     for (const slotId in equipmentSlots) {
         const itemId = equipmentSlots[slotId];
-
-        // Skip empty slots or items we've already processed.
         if (!itemId || processedItemIds.has(itemId)) continue;
-
         const itemDef = equipmentData[itemId];
-        const combinedConfig = itemDef ? EQUIPMENT_SLOT_CONFIG.combined_slots[itemDef.equip_slot] : null;
-
-        // Check if the equipped item is a combined-slot item.
+        // Use the passed-in layoutConfig instead of the global constant.
+        const combinedConfig = itemDef ? layoutConfig.combined_slots[itemDef.equip_slot] : null;
         if (combinedConfig) {
-            // It is! Mark its ID as processed so we don't handle it again.
             processedItemIds.add(itemId);
-
-            // Now, find all the actual slot instances this specific item occupies.
             const occupiedInstances = [];
             for (const sId in equipmentSlots) {
                 if (equipmentSlots[sId] === itemId) {
                     occupiedInstances.push(sId);
                 }
             }
-            
-            // Add the combined slot's complete info to our list of active combined slots.
             activeCombinedSlots.push({
-                id: itemDef.equip_slot, // e.g., "two-hand"
-                label: combinedConfig.label, // e.g., "Two-Hand"
-                span: occupiedInstances.length, // How many columns it should span
-                representativeSlotId: occupiedInstances[0] // Use the first slot to find the item data
+                id: itemDef.equip_slot,
+                label: combinedConfig.label,
+                span: occupiedInstances.length,
+                representativeSlotId: occupiedInstances[0]
             });
-
-            // Remove the base slots from the render list because they are being replaced by the combined view.
             occupiedInstances.forEach(id => baseSlotsToRender.delete(id));
         }
     }
 
-    // --- Step 2: Build the final layout for rendering, category by category ---
-    for (const categoryName in EQUIPMENT_SLOT_CONFIG.categories) {
-        const renderedSlots = []; // Holds all slots (combined or base) for this category.
+    // Use the passed-in layoutConfig instead of the global constant.
+    for (const categoryName in layoutConfig.categories) {
+        const renderedSlots = [];
 
-        // Add any active combined slots that belong in this category.
         activeCombinedSlots.forEach(combinedSlot => {
             const firstReplacedId = combinedSlot.representativeSlotId;
-            const originalCategoryTypes = EQUIPMENT_SLOT_CONFIG.categories[categoryName];
-            // A combined slot belongs here if its first replaced slot's type is in this category.
+            const originalCategoryTypes = layoutConfig.categories[categoryName];
             if (originalCategoryTypes.includes(firstReplacedId.split('_')[0])) {
                 renderedSlots.push(combinedSlot);
             }
         });
 
-        // Add any remaining individual base slots for this category.
-        const uniqueSlotTypes = [...new Set(EQUIPMENT_SLOT_CONFIG.categories[categoryName])];
+        const uniqueSlotTypes = [...new Set(layoutConfig.categories[categoryName])];
         uniqueSlotTypes.forEach(slotType => {
-            const instanceIds = EQUIPMENT_SLOT_MAP[slotType];
+            const instanceIds = slotMap[slotType]; // Use passed-in slotMap
             if (!instanceIds) return;
             instanceIds.forEach(instanceId => {
                 if (baseSlotsToRender.has(instanceId)) {
-                    // Use slotType if you want no numbers in display, use instanceId if you do
                     const label = slotType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                     renderedSlots.push({ id: instanceId, label: label, span: 1 });
                 }
@@ -391,10 +347,9 @@ function getDynamicSlotLayout(equipmentSlots, equipmentData) {
         });
         
         if (renderedSlots.length > 0) {
-            // Sort slots to maintain a consistent visual order within the category.
             renderedSlots.sort((a, b) => {
-                const aIndex = Object.values(EQUIPMENT_SLOT_MAP).flat().indexOf(a.representativeSlotId || a.id);
-                const bIndex = Object.values(EQUIPMENT_SLOT_MAP).flat().indexOf(b.representativeSlotId || b.id);
+                const aIndex = Object.values(slotMap).flat().indexOf(a.representativeSlotId || a.id);
+                const bIndex = Object.values(slotMap).flat().indexOf(b.representativeSlotId || b.id);
                 return aIndex - bIndex;
             });
             dynamicCategories[categoryName] = renderedSlots;
@@ -408,8 +363,9 @@ function getDynamicSlotLayout(equipmentSlots, equipmentData) {
  * Helper function to render the visual equipment slots UI.
  * UPDATED: Now uses the fully dynamic layout to render combined slots correctly.
  */
-function renderEquipmentSlotsComponent(equipmentSlots, equipmentData) {
-    const dynamicLayout = getDynamicSlotLayout(equipmentSlots, equipmentData);
+function renderEquipmentSlotsComponent(equipmentSlots, equipmentData, layoutConfig, slotMap) {
+    // Pass the new parameters down to getDynamicSlotLayout.
+    const dynamicLayout = getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotMap);
     let slotsHtml = '';
 
     for (const categoryName in dynamicLayout) {
@@ -456,37 +412,25 @@ function renderEquipmentSlotsComponent(equipmentSlots, equipmentData) {
  * @param {object} equipmentData - The master list of all item definitions.
  * @returns {number} The number of equipped instances of the item.
  */
-export function getEquippedCount(baseItemId, character, equipmentData) {
-    // Get the item's definition to understand its properties.
+export function getEquippedCount(baseItemId, character, equipmentData, layoutConfig) {
     const itemDef = equipmentData[baseItemId];
     const equipmentSlots = character.equipmentSlots;
-
-    // If the item isn't equippable or the character has no slots, the count is 0.
     if (!itemDef || !itemDef.equip_slot || !equipmentSlots) {
         return 0;
     }
-
-    // Find all slot instances that are currently occupied by this item ID.
     const occupiedSlots = [];
     for (const slotId in equipmentSlots) {
         if (equipmentSlots[slotId] === baseItemId) {
             occupiedSlots.push(slotId);
         }
     }
-
-    // If it's not equipped anywhere, the count is 0.
     if (occupiedSlots.length === 0) {
         return 0;
     }
-
-    // Check if the item is defined as a combined slot item (e.g., "two-hand").
-    if (EQUIPMENT_SLOT_CONFIG.combined_slots[itemDef.equip_slot]) {
-        // If it's a combined item, it always counts as exactly 1 equipped item,
-        // regardless of how many slots it fills.
+    // Use the passed-in layoutConfig instead of the global constant.
+    if (layoutConfig.combined_slots[itemDef.equip_slot]) {
         return 1;
     } else {
-        // If it's a standard or repeatable item (like a ring), the number of equipped
-        // instances is simply the number of slots it occupies.
         return occupiedSlots.length;
     }
 }
@@ -498,18 +442,17 @@ export function getEquippedCount(baseItemId, character, equipmentData) {
  * @param {object} equipmentSlots - The character's map of equipped items.
  * @param {object} equipmentData - The master list of all item definitions.
  */
-export function renderEquipmentTab(equipmentItems, equipmentSlots, equipmentData, character) {
+export function renderEquipmentTab(equipmentItems, equipmentSlots, equipmentData, character, layoutConfig, slotMap) {
     const panel = document.getElementById('equipment-panel');
     if (!panel) return;
 
-    // The rest of the function can now access 'character' and works correctly.
     panel.innerHTML = `
         <div class="equipment-container">
             <div class="equipment-column">
                 <div class="panel">
                      <h2>Equipped Items</h2>
                      <div id="equipment-slots-panel">
-                        ${renderEquipmentSlotsComponent(equipmentSlots, equipmentData)}
+                        ${renderEquipmentSlotsComponent(equipmentSlots, equipmentData, layoutConfig, slotMap)}
                      </div>
                 </div>
             </div>

@@ -3,47 +3,155 @@ import { EffectHandler } from './effectHandler.js';
 import { loadGameModules, loadDataForModule } from './dataLoader.js';
 import { alerter } from './alerter.js';
 import { RollManager } from './RollManager.js';
-import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, EQUIPMENT_SLOT_CONFIG, EQUIPMENT_SLOT_MAP, getEquippedCount } from './play-ui.js';
+import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, EQUIPMENT_SLOT_CONFIG, getEquippedCount } from './play-ui.js';
 import { aggregateAllAbilities } from './abilityAggregator.js';
 
 // Global variables
 let moduleDefinitions = {}, abilityData = {}, flawData = {}, perkData = {}, equipmentData = {}, activeAbilityStates = new Set(), activeCharacter = null;
 
+// Add this new global variable near the top with the others.
+let activeLayout = {};
+
 /**
  * Main function to process a character's data and render the entire layout.
  */
-function processAndRenderAll(character) {
+async function processAndRenderAll(character) {
     if (!character) {
         document.querySelector('.play-content-scrollable').innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
         return;
     }
-    if (!character.equipmentSlots) character.equipmentSlots = {};
-    const allAbilities = aggregateAllAbilities(character, abilityData, equipmentData);
-    EffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
-    const effectedCharacter = EffectHandler.applyEffectsToCharacter(character, 'play', activeAbilityStates);
+
+    // Generate the layout and reconcile slots
+    const { layoutConfig, slotMap } = generateCharacterLayout(character);
+    const reconciledCharacter = await reconcileEquipmentSlots(character, slotMap);
+
+    // Store the generated layout in our new global variable so event handlers can access it.
+    activeLayout = { layoutConfig, slotMap };
+
+    if (!reconciledCharacter.equipmentSlots) reconciledCharacter.equipmentSlots = {};
+
+    // Use the reconciledCharacter from now on.
+    const allAbilities = aggregateAllAbilities(reconciledCharacter, abilityData, equipmentData);
+    EffectHandler.processActiveAbilities(allAbilities, reconciledCharacter, flawData, perkData, activeAbilityStates, 'play');
+    const effectedCharacter = EffectHandler.applyEffectsToCharacter(reconciledCharacter, 'play', activeAbilityStates);
     const equipmentItems = effectedCharacter.inventory
         .map(item => {
             const definition = equipmentData[item.id];
-            // Ensure the item has a valid definition and is of type 'equipment'.
             if (!definition || definition.type !== 'equipment') return null;
-
             const fullItemData = { ...item, definition };
-
-            // If the item in the inventory is stackable (quantity > 1),
-            // we calculate its equipped count and add it to the data object.
             if (item.quantity > 1) {
-                fullItemData.equippedCount = getEquippedCount(item.id, effectedCharacter, equipmentData);
+                // Pass the dynamic layoutConfig to getEquippedCount
+                fullItemData.equippedCount = getEquippedCount(item.id, effectedCharacter, equipmentData, layoutConfig);
             }
-
             return fullItemData;
         })
-        .filter(Boolean); // This removes any null entries from the list.
+        .filter(Boolean);
+        
     renderTopNav(effectedCharacter, moduleDefinitions);
     renderMainTab(effectedCharacter, moduleDefinitions);
     renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);
     renderInventoryTab(effectedCharacter, equipmentData);
-    renderEquipmentTab(equipmentItems, effectedCharacter.equipmentSlots, equipmentData, effectedCharacter);
+    // Pass the dynamic layout down to the rendering function.
+    renderEquipmentTab(equipmentItems, effectedCharacter.equipmentSlots, equipmentData, effectedCharacter, layoutConfig, slotMap);
+}
+
+/**
+ * Creates a map of slot types to their unique instance IDs based on a layout config.
+ * E.g., { "ring": ["ring_1", "ring_2"] }
+ * @param {object} config - The equipment slot configuration object.
+ * @returns {object} The generated slot map.
+ */
+function generateSlotMap(config) {
+    const slotMap = {};
+    // Iterate through all slot types defined in the categories
+    for (const categoryName in config.categories) {
+        const slotTypes = config.categories[categoryName];
+        slotTypes.forEach(slotType => {
+            // If we haven't seen this slot type before, initialize its array
+            if (!slotMap[slotType]) {
+                slotMap[slotType] = [];
+            }
+            // Create a unique instance ID, e.g., "ring_1", "ring_2"
+            const instanceNumber = slotMap[slotType].length + 1;
+            slotMap[slotType].push(`${slotType}_${instanceNumber}`);
+        });
+    }
+    return slotMap;
+}
+
+/**
+ * Generates the final equipment slot configuration and map for a character.
+ * FUTURE: This is where logic will go to apply perks/flaws to the base config.
+ * @param {object} character - The character object.
+ * @returns {object} An object containing the final layoutConfig and slotMap.
+ */
+function generateCharacterLayout(character) {
+    // For now, we use the hard-coded default config from the UI file.
+    const baseConfig = EQUIPMENT_SLOT_CONFIG;
+
+    // In the future, you would apply character-specific modifications to baseConfig here.
+    // For example:
+    // const finalConfig = applyLayoutMods(baseConfig, character.perks, character.flaws);
+
+    const finalConfig = baseConfig; // Using the base config for now.
+
+    // The slot map must be generated from the FINAL config every time.
+    const finalSlotMap = generateSlotMap(finalConfig); // We'll move generateSlotMap to play.js
+
+    return { layoutConfig: finalConfig, slotMap: finalSlotMap };
+}
+
+/**
+ * Compares a character's equipment against a definitive layout, then returns a
+ * new, clean character object with a perfectly sorted equipmentSlots object.
+ * @param {object} character - The character object with current equipment.
+ * @param {object} finalSlotMap - The newly generated slot map to check against.
+ * @returns {Promise<object>} A new character object with a reconciled equipment state.
+ */
+async function reconcileEquipmentSlots(character, finalSlotMap) {
+    let characterNeedsUpdate = false;
+    let newInventory = [...character.inventory];
+    
+    // This array, generated from the config, is the source of truth for the correct order.
+    const orderedValidSlotIds = Object.values(finalSlotMap).flat();
+    const newSortedSlots = {};
+
+    // 1. Build the new, sorted slots object from scratch.
+    for (const slotId of orderedValidSlotIds) {
+        if (character.equipmentSlots.hasOwnProperty(slotId)) {
+            // If the slot exists on the character, copy its value (item ID or null).
+            newSortedSlots[slotId] = character.equipmentSlots[slotId];
+        } else {
+            // If the valid slot was missing from the character data, add it.
+            newSortedSlots[slotId] = null;
+            characterNeedsUpdate = true;
+        }
+    }
+
+    // 2. Check if any items were in old, invalid slots that need to be unequipped.
+    for (const originalSlotId in character.equipmentSlots) {
+        // If an original slot isn't in our new sorted object, it's invalid.
+        if (!newSortedSlots.hasOwnProperty(originalSlotId)) {
+            const itemIdToUnequip = character.equipmentSlots[originalSlotId];
+            if (itemIdToUnequip) {
+                console.warn(`Reconciling: Invalid slot '${originalSlotId}' found. Unequipping '${itemIdToUnequip}'.`);
+                characterNeedsUpdate = true;
+                // Mark the item as unequipped in the inventory list.
+                newInventory = newInventory.map(item =>
+                    item.id === itemIdToUnequip ? { ...item, equipped: false } : item
+                );
+            }
+        }
+    }
+
+    if (characterNeedsUpdate) {
+        // Save the updated, clean character data back to the database.
+        return await db.updateCharacter(character.id, { inventory: newInventory, equipmentSlots: newSortedSlots });
+    } else {
+        // Return the original character if no changes were needed.
+        return character;
+    }
 }
 
 /**
@@ -89,47 +197,81 @@ function updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModif
     }
 }
 
-function findTargetSlots(itemDef, equipmentSlots, itemIdToEquip) { // Add itemIdToEquip
+/**
+ * Finds the best target slot(s) for an item, handling single, repeatable, and combined items.
+ * This is the final, robust version that correctly handles multi-wielding.
+ * @param {object} itemDef - The definition of the item to equip.
+ * @param {object} equipmentSlots - The character's current equipment slots.
+ * @param {string} itemIdToEquip - The ID of the item being equipped.
+ * @param {object} layoutConfig - The character's final layout configuration.
+ * @param {object} slotMap - The character's final slot map.
+ * @returns {Array<string>} An array of target slot IDs.
+ */
+function findTargetSlots(itemDef, equipmentSlots, itemIdToEquip, layoutConfig, slotMap) {
     const slotType = itemDef.equip_slot;
-    const combinedConfig = EQUIPMENT_SLOT_CONFIG.combined_slots[slotType];
+    const combinedConfig = layoutConfig.combined_slots[slotType];
 
     // --- Logic for Standard/Repeatable Items (e.g., ring, head) ---
     if (!combinedConfig) {
-        const instanceSlots = EQUIPMENT_SLOT_MAP[slotType] || [];
-        
+        const instanceSlots = slotMap[slotType] || [];
         // Priority 1: Find any empty slot
         const emptySlot = instanceSlots.find(id => !equipmentSlots[id]);
         if (emptySlot) {
             return [emptySlot];
         }
-
-        // Priority 2 (NEW): Find a slot occupied by a DIFFERENT item
+        // Priority 2: Find a slot with a *different* item to replace
         const replaceableSlot = instanceSlots.find(id => equipmentSlots[id] !== itemIdToEquip);
         if (replaceableSlot) {
             return [replaceableSlot];
         }
-
-        // If all slots are full of the same item, there's nothing to do.
+        // All available slots are already full of this same item.
         return [];
     }
 
-    // --- Logic for Combined-Slot Items (e.g., two-hand) ---
-    // This logic remains the same as it doesn't involve stacking.
+    // Logic for Combined-Slot Items (e.g., two-hand)
     if (combinedConfig) {
-        const requiredTypes = combinedConfig.replaces;
-        const possibleInstances = requiredTypes.map(type => EQUIPMENT_SLOT_MAP[type]);
-        let targetSlots = [];
-        const primarySlot = possibleInstances[0][0];
-        const secondarySlots = possibleInstances[1];
-        const emptySecondarySlot = secondarySlots.find(id => !equipmentSlots[id]);
+        const requiredTypes = combinedConfig.replaces; // e.g., ['main-hand', 'off-hand']
 
-        if (emptySecondarySlot) {
-            targetSlots = [primarySlot, emptySecondarySlot];
-            return targetSlots;
+        // 1. Get all possible instance slots for the required types
+        const potentialPrimarySlots = slotMap[requiredTypes[0]] || [];
+        const potentialSecondarySlots = slotMap[requiredTypes[1]] || [];
+
+        // 2. Find which of those slots are already occupied by ANOTHER combined item
+        const occupiedByCombined = new Set();
+        for (const slotId in equipmentSlots) {
+            const itemId = equipmentSlots[slotId];
+            if (!itemId) continue;
+            const itemDef = equipmentData[itemId];
+            if (itemDef && layoutConfig.combined_slots[itemDef.equip_slot]) {
+                occupiedByCombined.add(slotId);
+            }
         }
 
-        targetSlots = requiredTypes.map(type => EQUIPMENT_SLOT_MAP[type][0]);
-        return targetSlots;
+        // 3. Create a pool of "available" slots that are not part of an existing combined-item pair
+        const availablePrimary = potentialPrimarySlots.filter(id => !occupiedByCombined.has(id));
+        const availableSecondary = potentialSecondarySlots.filter(id => !occupiedByCombined.has(id));
+
+        let bestPair = [];
+        let lowestCost = Infinity; // Using a cost system: 0 for empty, 1 for filled
+
+        // 4. Iterate through all available pairs to find the best one
+        for (const p of availablePrimary) {
+            for (const s of availableSecondary) {
+                const pIsFilled = !!equipmentSlots[p];
+                const sIsFilled = !!equipmentSlots[s];
+                const currentCost = (pIsFilled ? 1 : 0) + (sIsFilled ? 1 : 0);
+
+                if (currentCost < lowestCost) {
+                    lowestCost = currentCost;
+                    bestPair = [p, s];
+                    // If we find a perfect empty pair, use it immediately
+                    if (lowestCost === 0) {
+                        return bestPair;
+                    }
+                }
+            }
+        }
+        return bestPair; // Return the best pair found, even if it requires replacement
     }
 
     return [];
@@ -142,44 +284,41 @@ function findTargetSlots(itemDef, equipmentSlots, itemIdToEquip) { // Add itemId
 async function handleEquip(itemId) {
     if (!activeCharacter || !itemId) return;
 
-    const itemDef = equipmentData[itemId];
-    const itemInInventory = activeCharacter.inventory.find(i => i.id === itemId);
-    const equippedCount = getEquippedCount(itemId, activeCharacter, equipmentData);
+    // Pull the current layout from our new global variable.
+    const { layoutConfig, slotMap } = activeLayout;
 
-    // 1. Check Availability
+    const itemDef = equipmentData[itemId];
+    // Pass layoutConfig to getEquippedCount.
+    const itemInInventory = activeCharacter.inventory.find(i => i.id === itemId);
+    const equippedCount = getEquippedCount(itemId, activeCharacter, equipmentData, layoutConfig);
+
     if (!itemInInventory || itemInInventory.quantity <= equippedCount) {
         return alerter.show('No unequipped instances of this item are available.', 'warn');
     }
 
     let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
-    // 2. Find target slots using the NEW, smarter function
-    const targetSlots = findTargetSlots(itemDef, newEquipmentSlots, itemId);
+    // Pass the dynamic layout to findTargetSlots.
+    const targetSlots = findTargetSlots(itemDef, newEquipmentSlots, itemId, layoutConfig, slotMap);
 
     if (targetSlots.length === 0) {
-        // This message is now more accurate.
         return alerter.show('All available slots are already filled with this item.', 'warn');
     }
-
-    // 3. (REVISED) Precisely unequip whatever is in the target slot(s)
+    
     let newInventory = [...activeCharacter.inventory];
     targetSlots.forEach(slotId => {
         const itemToReplace = newEquipmentSlots[slotId];
         if (itemToReplace) {
-            // Check if this is the last equipped instance of the item being replaced.
-            const totalEquipped = getEquippedCount(itemToReplace, activeCharacter, equipmentData);
+            const totalEquipped = getEquippedCount(itemToReplace, activeCharacter, equipmentData, layoutConfig);
             if (totalEquipped <= 1) {
                 newInventory = newInventory.map(item => item.id === itemToReplace ? { ...item, equipped: false } : item);
             }
         }
     });
-
-    // 4. (REVISED) Equip the new item by first clearing and then setting the slots
     targetSlots.forEach(slotId => {
         newEquipmentSlots[slotId] = itemId;
     });
     newInventory = newInventory.map(item => item.id === itemId ? { ...item, equipped: true } : item);
 
-    // 5. Save changes and re-render the UI
     try {
         activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
         processAndRenderAll(activeCharacter);
@@ -294,7 +433,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (unequipStackButton) {
                 const itemId = unequipStackButton.dataset.itemId;
                 const equipSlotType = equipmentData[itemId]?.equip_slot;
-                const instanceSlots = EQUIPMENT_SLOT_MAP[equipSlotType] || [];
+                const instanceSlots = activeLayout.slotMap[equipSlotType] || [];
                 const occupiedSlots = instanceSlots.filter(id => activeCharacter.equipmentSlots[id] === itemId);
                 if (occupiedSlots.length > 0) {
                     const slotToUnequip = occupiedSlots[occupiedSlots.length - 1];
