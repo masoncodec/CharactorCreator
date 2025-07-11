@@ -19,6 +19,33 @@
         "type": "max_health_mod",
         "name": "Health",
         "value": 1
+      },
+      {
+        "type": "equip_slot",
+        "category": "armor",
+        "slot": "head",
+        "value": -1
+      },
+      {
+        "type": "equip_slot",
+        "category": "accessories",
+        "slot": "ring",
+        "value": 1
+      },
+      {
+        "type": "add_equip_category",
+        "name": "implants",
+        "slots": ["optic_implant", "neuro_link"]
+      },
+      {
+        "type": "add_equip_category",
+        "name": "armor",
+        "slots": ["legs"]
+      },
+      {
+        "type": "remove_equip_category",
+        "name": "implants",
+        "slots": ["legs"]
       }
     ]
   },

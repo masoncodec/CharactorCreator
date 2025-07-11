@@ -21,23 +21,31 @@ async function processAndRenderAll(character) {
         return;
     }
 
-    // Generate the layout and reconcile slots
+    // --- NEW, CORRECTED ORDER OF OPERATIONS ---
+
+    // 1. First, aggregate all abilities from the character and their equipment.
+    const allAbilities = aggregateAllAbilities(character, abilityData, equipmentData);
+
+    // 2. Next, process these abilities to populate the EffectHandler's list of active effects.
+    //    This is the crucial step that must happen before layout generation.
+    EffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
+
+    // 3. NOW, generate the dynamic layout. It can now correctly use the active effects.
     const { layoutConfig, slotMap } = generateCharacterLayout(character);
+
+    // 4. Reconcile the character's saved slots against the new, dynamic layout to prevent data errors.
     const reconciledCharacter = await reconcileEquipmentSlots(character, slotMap);
 
-    // Store the generated layout in our new global variable so event handlers can access it.
-    activeLayout = { layoutConfig, slotMap };
-
-    if (!reconciledCharacter.equipmentSlots) reconciledCharacter.equipmentSlots = {};
-
-    // Use the reconciledCharacter from now on.
-    const allAbilities = aggregateAllAbilities(reconciledCharacter, abilityData, equipmentData);
-    EffectHandler.processActiveAbilities(allAbilities, reconciledCharacter, flawData, perkData, activeAbilityStates, 'play');
+    // 5. Apply all other effects (stat mods, etc.) to the reconciled character.
     const effectedCharacter = EffectHandler.applyEffectsToCharacter(reconciledCharacter, 'play', activeAbilityStates);
+
+    // --- END OF NEW ORDER ---
+
+    // Store the generated layout in our global variable so event handlers can access it.
+    activeLayout = { layoutConfig, slotMap };
 
     // This copies all dynamically calculated properties from the effected character
     // back to the main character object, making them available to all event handlers.
-
     character.calculatedHealth = effectedCharacter.calculatedHealth;
     character.languages = effectedCharacter.languages;
     character.activeRollEffects = effectedCharacter.activeRollEffects;
@@ -54,19 +62,18 @@ async function processAndRenderAll(character) {
             if (!definition || definition.type !== 'equipment') return null;
             const fullItemData = { ...item, definition };
             if (item.quantity > 1) {
-                // Pass the dynamic layoutConfig to getEquippedCount
                 fullItemData.equippedCount = getEquippedCount(item.id, effectedCharacter, equipmentData, layoutConfig);
             }
             return fullItemData;
         })
         .filter(Boolean);
         
+    // --- RENDER EVERYTHING ---
     renderTopNav(effectedCharacter, moduleDefinitions);
     renderMainTab(effectedCharacter, moduleDefinitions);
     renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);
     renderInventoryTab(effectedCharacter, equipmentData, layoutConfig, slotMap);
-    // Pass the dynamic layout down to the rendering function.
     renderEquipmentTab(equipmentItems, effectedCharacter.equipmentSlots, equipmentData, effectedCharacter, layoutConfig, slotMap);
 }
 
@@ -95,23 +102,66 @@ function generateSlotMap(config) {
 }
 
 /**
- * Generates the final equipment slot configuration and map for a character.
- * FUTURE: This is where logic will go to apply perks/flaws to the base config.
+ * Generates the final equipment slot configuration and map for a character by applying
+ * layout effects processed by the EffectHandler.
  * @param {object} character - The character object.
  * @returns {object} An object containing the final layoutConfig and slotMap.
  */
 function generateCharacterLayout(character) {
-    // For now, we use the hard-coded default config from the UI file.
-    const baseConfig = EQUIPMENT_SLOT_CONFIG;
+    // 1. Get the pre-processed summary of all layout changes from the EffectHandler.
+    const layoutSummary = EffectHandler.processLayoutEffects(EffectHandler.activeEffects);
 
-    // In the future, you would apply character-specific modifications to baseConfig here.
-    // For example:
-    // const finalConfig = applyLayoutMods(baseConfig, character.perks, character.flaws);
+    // 2. Start with a deep copy of the base configuration.
+    const finalConfig = JSON.parse(JSON.stringify(EQUIPMENT_SLOT_CONFIG));
 
-    const finalConfig = baseConfig; // Using the base config for now.
+    // 3. Apply the summary to the config copy.
+    // ADDITIONS FIRST:
+    // Add new categories
+    for (const key in layoutSummary.categoriesToAdd) {
+        if (!finalConfig.categories[key]) {
+            finalConfig.categories[key] = [];
+        }
+        finalConfig.categories[key].push(...layoutSummary.categoriesToAdd[key].slots);
+    }
+    // Add new slots
+    for (const key in layoutSummary.slotMods) {
+        const [categoryKey, slotKey] = key.split('_');
+        const value = layoutSummary.slotMods[key];
+        if (value > 0 && finalConfig.categories[categoryKey]) {
+            for (let i = 0; i < value; i++) {
+                finalConfig.categories[categoryKey].push(slotKey);
+            }
+        }
+    }
 
-    // The slot map must be generated from the FINAL config every time.
-    const finalSlotMap = generateSlotMap(finalConfig); // We'll move generateSlotMap to play.js
+    // THEN REMOVALS:
+    // Remove categories
+    layoutSummary.categoriesToRemove.forEach(categoryKey => {
+        delete finalConfig.categories[categoryKey];
+    });
+    // Remove slots
+    for (const key in layoutSummary.slotMods) {
+        const [categoryKey, slotKey] = key.split('_');
+        const value = layoutSummary.slotMods[key];
+        if (value < 0 && finalConfig.categories[categoryKey]) {
+            for (let i = 0; i < Math.abs(value); i++) {
+                const indexToRemove = finalConfig.categories[categoryKey].indexOf(slotKey);
+                if (indexToRemove > -1) {
+                    finalConfig.categories[categoryKey].splice(indexToRemove, 1);
+                }
+            }
+        }
+    }
+
+    // FINAL CLEANUP: Remove any categories that now have zero slots.
+    for (const categoryKey in finalConfig.categories) {
+        if (finalConfig.categories[categoryKey].length === 0) {
+            delete finalConfig.categories[categoryKey];
+        }
+    }
+
+    // 4. Generate the final slot map from the fully modified config.
+    const finalSlotMap = generateSlotMap(finalConfig);
 
     return { layoutConfig: finalConfig, slotMap: finalSlotMap };
 }

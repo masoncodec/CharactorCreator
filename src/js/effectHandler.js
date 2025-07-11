@@ -106,6 +106,55 @@ export const EffectHandler = {
     },
 
     /**
+     * Processes all active effects to find and aggregate equipment slot modifications.
+     * @param {Array<object>} allActiveEffects - The full list of currently active effects.
+     * @returns {object} A summary object with the net changes to the equipment layout.
+     */
+    processLayoutEffects: function(allActiveEffects) {
+        const summary = {
+            slotMods: {}, // e.g., { "weapons_main_hand": 1, "accessories_ring": -1 }
+            categoriesToAdd: {}, // e.g., { "implants": { name: "Implants", slots: ["neuro_link"] } }
+            categoriesToRemove: [] // e.g., ["armor"]
+        };
+
+        const slugify = (str) => str.toLowerCase().replace(/\s+/g, '_');
+
+        // --- Process Additions First ---
+        allActiveEffects.forEach(effect => {
+            if (effect.type === 'add_equip_category') {
+                const key = slugify(effect.name);
+                if (!summary.categoriesToAdd[key]) {
+                    summary.categoriesToAdd[key] = {
+                        name: effect.name, // Keep the original "pretty" name
+                        slots: []
+                    };
+                }
+                // Merge slots from multiple effects for the same category
+                summary.categoriesToAdd[key].slots.push(...effect.slots.map(slugify));
+            }
+            if (effect.type === 'equip_slot' && effect.value > 0) {
+                const key = `${slugify(effect.category)}_${slugify(effect.slot)}`;
+                summary.slotMods[key] = (summary.slotMods[key] || 0) + effect.value;
+            }
+        });
+
+        // --- Then Process Removals ---
+        allActiveEffects.forEach(effect => {
+            if (effect.type === 'remove_equip_category') {
+                summary.categoriesToRemove.push(slugify(effect.name));
+            }
+            if (effect.type === 'equip_slot' && effect.value < 0) {
+                const key = `${slugify(effect.category)}_${slugify(effect.slot)}`;
+                summary.slotMods[key] = (summary.slotMods[key] || 0) + effect.value;
+            }
+        });
+
+        console.log('Summary of equipment slots: ', summary);
+
+        return summary;
+    },
+
+    /**
      * Applies all currently active effects to a character object.
      * This function creates a new character object with effects applied,
      * it does NOT modify the original character object.

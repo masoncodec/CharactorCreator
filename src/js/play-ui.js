@@ -6,22 +6,45 @@ import { RollManager } from './RollManager.js';
 
 const MAX_MODIFIER_COLUMNS = 5;
 
+const UI_NAME_MAP = {
+    // Categories
+    "weapons": "Weapons",
+    "armor": "Armor",
+    "accessories": "Accessories",
+  
+    // Slot Types
+    "main-hand": "Main-Hand",
+    "off-hand": "Off-Hand",
+    "head": "Head",
+    "chest": "Chest",
+    "hands": "Hands",
+    "legs": "Legs",
+    "feet": "Feet",
+    "ring": "Ring",
+    "amulet": "Amulet",
+    "two-hand": "Two-Hand",
+
+    "implants": "Implants",
+    "optic_implant": "Optic Implant",
+    "neuro_link": "Neuro-Link"
+};
+
 // This new configuration object defines the layout for the equipment slots.
 // You can easily add, remove, or change slots here in the future.
 export const EQUIPMENT_SLOT_CONFIG = {
     // 1. Defines the default layout categories and their member slots.
     categories: {
-      "Weapons": ["main-hand", "main-hand", "main-hand", "main-hand", "off-hand", "off-hand", "off-hand", "off-hand"],
-      "Armor": ["head", "head", "chest", "hands", "legs", "feet"],
-      "Accessories": ["ring", "ring", "amulet"]
+        "weapons": ["main-hand", "main-hand", "main-hand", "main-hand", "off-hand", "off-hand", "off-hand", "off-hand"],
+        "armor": ["head", "head", "chest", "hands", "legs", "feet"],
+        "accessories": ["ring", "ring", "amulet"]
     },
   
     // 2. Defines the rules for combined slots that replace default slots.
     combined_slots: {
-      "two-hand": {
-        replaces: ["main-hand", "off-hand"], // Which default slots it replaces
-        label: "Two-Hand"                   // The label to display in the UI
-      }
+        "two-hand": {
+          replaces: ["main-hand", "off-hand"],
+          label: "two-hand" // Use the slug key here too
+        }
       // For future expansion, you could easily add another rule here, e.g.:
       // "full-body": { replaces: ["chest", "legs"], label: "Full-Body" }
     }
@@ -429,30 +452,27 @@ export function findTargetSlots(itemDef, equipmentSlots, itemIdToEquip, layoutCo
  * UPDATED: Now uses the fully dynamic layout to render combined slots correctly.
  */
 function renderEquipmentSlotsComponent(equipmentSlots, equipmentData, layoutConfig, slotMap) {
-    // Pass the new parameters down to getDynamicSlotLayout.
     const dynamicLayout = getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotMap);
     let slotsHtml = '';
 
-    for (const categoryName in dynamicLayout) {
-        slotsHtml += `<div class="equipment-category"><h3>${categoryName}</h3><div class="slots-container">`;
+    for (const categoryKey in dynamicLayout) {
+        // Look up the pretty display name for the category. Fall back to the key if not found.
+        const categoryDisplayName = UI_NAME_MAP[categoryKey] || categoryKey;
+        slotsHtml += `<div class="equipment-category"><h3>${categoryDisplayName}</h3><div class="slots-container">`;
         
-        const slots = dynamicLayout[categoryName];
+        const slots = dynamicLayout[categoryKey];
         slots.forEach(slotInfo => {
+            // ... (code to get item info is unchanged)
             const slotId = slotInfo.id;
-            // For a combined slot, we use its representative ID to find the item. For a normal slot, it's just its own ID.
             const representativeSlotId = slotInfo.representativeSlotId || slotId;
-            
-            // Get the slot's value, which could be an object or a string
             const slotValue = equipmentSlots[representativeSlotId];
-            // Extract the item ID from the value.
             const equippedItemId = slotValue?.itemId || slotValue;
-
             const itemDef = equippedItemId ? equipmentData[equippedItemId] : null;
 
-            const slotLabel = slotInfo.label;
+            // Look up the pretty display name for the slot label.
+            const slotDisplayName = UI_NAME_MAP[slotInfo.label] || slotInfo.label;
             const itemName = itemDef ? itemDef.name : "Empty";
             
-            // Add a dynamic class for spanning if the slot needs to be wider.
             const spanClass = slotInfo.span > 1 ? `slot-spans-${slotInfo.span}` : '';
             const slotClass = itemDef ? "equipment-slot filled" : "equipment-slot";
             const rarityClass = itemDef ? `rarity-${itemDef.rarity}` : '';
@@ -460,12 +480,11 @@ function renderEquipmentSlotsComponent(equipmentSlots, equipmentData, layoutConf
 
             slotsHtml += `
                 <div class="${slotClass} ${spanClass} ${rarityClass}" ${dataAttribute}>
-                    <div class="slot-label">${slotLabel}</div>
+                    <div class="slot-label">${slotDisplayName}</div>
                     <div class="slot-item-name">${itemName}</div>
                 </div>
             `;
         });
-
         slotsHtml += `</div></div>`;
     }
     return slotsHtml;
