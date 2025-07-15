@@ -3,14 +3,18 @@ import { EffectHandler } from './effectHandler.js';
 import { loadGameModules, loadDataForModule } from './dataLoader.js';
 import { alerter } from './alerter.js';
 import { RollManager } from './RollManager.js';
-import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, EQUIPMENT_SLOT_CONFIG, getEquippedCount, findTargetSlots } from './play-ui.js';
+import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, renderSummonsPanel, EQUIPMENT_SLOT_CONFIG, getEquippedCount, findTargetSlots } from './play-ui.js';
 import { aggregateAllAbilities } from './abilityAggregator.js';
 
-// Global variables
-let moduleDefinitions = {}, abilityData = {}, flawData = {}, perkData = {}, equipmentData = {}, activeAbilityStates = new Set(), activeCharacter = null;
+// --- Global variables ---
+let moduleDefinitions = {}, abilityData = {}, flawData = {}, perkData = {};
+let equipmentData = {}, activeAbilityStates = new Set(), activeCharacter = null;
+// ADDED: New global variables to hold bestiary data and the active layout.
+let bestiaryData = {}, activeLayout = {};
 
-// Add this new global variable near the top with the others.
-let activeLayout = {};
+// ADDED: A new module-level variable to hold the main EffectHandler instance so event handlers can access it.
+let mainEffectHandler;
+
 
 /**
  * Main function to process a character's data and render the entire layout.
@@ -22,22 +26,40 @@ async function processAndRenderAll(character) {
     }
 
     // --- NEW, CORRECTED ORDER OF OPERATIONS ---
+    
+    // ADDED: Instantiate the main EffectHandler for this processing cycle.
+    mainEffectHandler = new EffectHandler();
 
     // 1. First, aggregate all abilities from the character and their equipment.
     const allAbilities = aggregateAllAbilities(character, abilityData, equipmentData);
 
     // 2. Next, process these abilities to populate the EffectHandler's list of active effects.
-    //    This is the crucial step that must happen before layout generation.
-    EffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
+    // UPDATED: Now calls the method on the new `mainEffectHandler` instance.
+    mainEffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
+    
+    // --- NEW: AUTO-DISMISSAL (RECONCILIATION) LOGIC ---
+    // 3. Before applying effects, reconcile summons to remove any whose source is no longer active.
+    const validSummonSourceIds = new Set(
+        mainEffectHandler.activeEffects.filter(e => e.type === 'summon_creature').map(e => e.itemId)
+    );
+    if (character.summonedCreatures && character.summonedCreatures.length > 0) {
+        character.summonedCreatures = character.summonedCreatures.filter(summon =>
+            validSummonSourceIds.has(summon.source.id)
+        );
+    }
+    // --- END OF AUTO-DISMISSAL LOGIC ---
 
-    // 3. NOW, generate the dynamic layout. It can now correctly use the active effects.
-    const { layoutConfig, slotMap } = generateCharacterLayout(character);
+    // 4. NOW, generate the dynamic layout. It can now correctly use the active effects.
+    // UPDATED: The result of processLayoutEffects is now passed into generateCharacterLayout.
+    const layoutEffects = mainEffectHandler.processLayoutEffects(mainEffectHandler.activeEffects);
+    const { layoutConfig, slotMap } = generateCharacterLayout(character, layoutEffects);
 
-    // 4. Reconcile the character's saved slots against the new, dynamic layout to prevent data errors.
+    // 5. Reconcile the character's saved slots against the new, dynamic layout to prevent data errors.
     const reconciledCharacter = await reconcileEquipmentSlots(character, slotMap);
 
-    // 5. Apply all other effects (stat mods, etc.) to the reconciled character.
-    const effectedCharacter = EffectHandler.applyEffectsToCharacter(reconciledCharacter, 'play', activeAbilityStates);
+    // 6. Apply all other effects (stat mods, etc.) to the reconciled character.
+    // UPDATED: Calls the method on the instance and passes the newly loaded `bestiaryData`.
+    const effectedCharacter = mainEffectHandler.applyEffectsToCharacter(reconciledCharacter, 'play', activeAbilityStates, bestiaryData);
 
     // --- END OF NEW ORDER ---
 
@@ -69,31 +91,30 @@ async function processAndRenderAll(character) {
         .filter(Boolean);
         
     // --- RENDER EVERYTHING ---
+    // UPDATED: Pass the handler instance to the functions that need it.
     renderTopNav(effectedCharacter, moduleDefinitions);
-    renderMainTab(effectedCharacter, moduleDefinitions);
+    renderMainTab(effectedCharacter, moduleDefinitions, mainEffectHandler);
     renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);
     renderInventoryTab(effectedCharacter, equipmentData, layoutConfig, slotMap);
     renderEquipmentTab(equipmentItems, effectedCharacter.equipmentSlots, equipmentData, effectedCharacter, layoutConfig, slotMap);
+
+    // ADDED: Final call to render the summons panel.
+    renderSummonsPanel(effectedCharacter.summonedCreatures, bestiaryData);
 }
 
 /**
  * Creates a map of slot types to their unique instance IDs based on a layout config.
- * E.g., { "ring": ["ring_1", "ring_2"] }
- * @param {object} config - The equipment slot configuration object.
- * @returns {object} The generated slot map.
  */
 function generateSlotMap(config) {
+    // ... Function logic is unchanged ...
     const slotMap = {};
-    // Iterate through all slot types defined in the categories
     for (const categoryName in config.categories) {
         const slotTypes = config.categories[categoryName];
         slotTypes.forEach(slotType => {
-            // If we haven't seen this slot type before, initialize its array
             if (!slotMap[slotType]) {
                 slotMap[slotType] = [];
             }
-            // Create a unique instance ID, e.g., "ring_1", "ring_2"
             const instanceNumber = slotMap[slotType].length + 1;
             slotMap[slotType].push(`${slotType}_${instanceNumber}`);
         });
@@ -102,28 +123,25 @@ function generateSlotMap(config) {
 }
 
 /**
- * Generates the final equipment slot configuration and map for a character by applying
- * layout effects processed by the EffectHandler.
+ * Generates the final equipment slot configuration and map for a character by applying layout effects.
+ * UPDATED: Now receives the layout summary as a parameter instead of calculating it internally.
  * @param {object} character - The character object.
+ * @param {object} layoutSummary - The pre-processed summary of layout changes from the EffectHandler.
  * @returns {object} An object containing the final layoutConfig and slotMap.
  */
-function generateCharacterLayout(character) {
-    // 1. Get the pre-processed summary of all layout changes from the EffectHandler.
-    const layoutSummary = EffectHandler.processLayoutEffects(EffectHandler.activeEffects);
-
+function generateCharacterLayout(character, layoutSummary) {
+    // 1. The summary is now passed in directly.
+    
     // 2. Start with a deep copy of the base configuration.
     const finalConfig = JSON.parse(JSON.stringify(EQUIPMENT_SLOT_CONFIG));
 
-    // 3. Apply the summary to the config copy.
-    // ADDITIONS FIRST:
-    // Add new categories
+    // 3. Apply the summary to the config copy (logic is unchanged).
     for (const key in layoutSummary.categoriesToAdd) {
         if (!finalConfig.categories[key]) {
             finalConfig.categories[key] = [];
         }
         finalConfig.categories[key].push(...layoutSummary.categoriesToAdd[key].slots);
     }
-    // Add new slots
     for (const key in layoutSummary.slotMods) {
         const [categoryKey, slotKey] = key.split('_');
         const value = layoutSummary.slotMods[key];
@@ -133,13 +151,9 @@ function generateCharacterLayout(character) {
             }
         }
     }
-
-    // THEN REMOVALS:
-    // Remove categories
     layoutSummary.categoriesToRemove.forEach(categoryKey => {
         delete finalConfig.categories[categoryKey];
     });
-    // Remove slots
     for (const key in layoutSummary.slotMods) {
         const [categoryKey, slotKey] = key.split('_');
         const value = layoutSummary.slotMods[key];
@@ -152,8 +166,6 @@ function generateCharacterLayout(character) {
             }
         }
     }
-
-    // FINAL CLEANUP: Remove any categories that now have zero slots.
     for (const categoryKey in finalConfig.categories) {
         if (finalConfig.categories[categoryKey].length === 0) {
             delete finalConfig.categories[categoryKey];
@@ -167,53 +179,37 @@ function generateCharacterLayout(character) {
 }
 
 /**
- * Compares a character's equipment against a definitive layout, then returns a
- * new, clean character object with a perfectly sorted equipmentSlots object.
- * @param {object} character - The character object with current equipment.
- * @param {object} finalSlotMap - The newly generated slot map to check against.
- * @returns {Promise<object>} A new character object with a reconciled equipment state.
+ * Compares a character's equipment against a definitive layout.
  */
 async function reconcileEquipmentSlots(character, finalSlotMap) {
+    // ... Function logic is unchanged ...
     let characterNeedsUpdate = false;
     let newInventory = [...character.inventory];
-    
-    // This array, generated from the config, is the source of truth for the correct order.
     const orderedValidSlotIds = Object.values(finalSlotMap).flat();
     const newSortedSlots = {};
-
-    // 1. Build the new, sorted slots object from scratch.
     for (const slotId of orderedValidSlotIds) {
         if (character.equipmentSlots.hasOwnProperty(slotId)) {
-            // If the slot exists on the character, copy its value (item ID or null).
             newSortedSlots[slotId] = character.equipmentSlots[slotId];
         } else {
-            // If the valid slot was missing from the character data, add it.
             newSortedSlots[slotId] = null;
             characterNeedsUpdate = true;
         }
     }
-
-    // 2. Check if any items were in old, invalid slots that need to be unequipped.
     for (const originalSlotId in character.equipmentSlots) {
-        // If an original slot isn't in our new sorted object, it's invalid.
         if (!newSortedSlots.hasOwnProperty(originalSlotId)) {
             const itemIdToUnequip = character.equipmentSlots[originalSlotId];
             if (itemIdToUnequip) {
                 console.warn(`Reconciling: Invalid slot '${originalSlotId}' found. Unequipping '${itemIdToUnequip}'.`);
                 characterNeedsUpdate = true;
-                // Mark the item as unequipped in the inventory list.
                 newInventory = newInventory.map(item =>
                     item.id === itemIdToUnequip ? { ...item, equipped: false } : item
                 );
             }
         }
     }
-
     if (characterNeedsUpdate) {
-        // Save the updated, clean character data back to the database.
         return await db.updateCharacter(character.id, { inventory: newInventory, equipmentSlots: newSortedSlots });
     } else {
-        // Return the original character if no changes were needed.
         return character;
     }
 }
@@ -222,12 +218,12 @@ async function reconcileEquipmentSlots(character, finalSlotMap) {
  * Helper function to update the display for a KOB attribute roll.
  */
 function updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModifiers) {
+    // ... Function logic is unchanged ...
     let resultEl = row.querySelector('.roll-result');
     resultEl.textContent = modifiedResult;
     resultEl.classList.add('visible');
     setTimeout(() => resultEl.classList.remove('visible', 'fade-out'), 2500);
     setTimeout(() => resultEl.classList.add('fade-out'), 2000);
-
     let unmodifiedResultEl = row.querySelector('.unmodified-roll-result');
     if (activeModifiers.length > 0) {
         unmodifiedResultEl.textContent = baseResult;
@@ -336,6 +332,14 @@ async function handleUnequip(itemIdToUnequip) {
     const newInventory = activeCharacter.inventory.map(item =>
         item.id === itemIdToUnequip ? { ...item, equipped: false } : item
     );
+
+    // Before saving, check if the unequipped item is in the dismissed list.
+    if (character.dismissedPassiveSources && character.dismissedPassiveSources.includes(itemIdToUnequip)) {
+        console.log(`Resetting dismissal for source: ${itemIdToUnequip}`);
+        // If it is, filter it out. This allows it to be summoned again if re-equipped.
+        character.dismissedPassiveSources = character.dismissedPassiveSources.filter(id => id !== itemIdToUnequip);
+    }
+
     try {
         activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
         processAndRenderAll(activeCharacter);
@@ -358,6 +362,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             flawData = moduleSpecificData.flawData || {};
             perkData = moduleSpecificData.perkData || {};
             equipmentData = moduleSpecificData.equipmentAndLootData || {};
+            // ADDED: Storing the loaded bestiary data.
+            bestiaryData = moduleSpecificData.bestiaryData || {};
             processAndRenderAll(activeCharacter);
         } else {
             document.querySelector('.play-content-scrollable').innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
@@ -526,25 +532,136 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (useButton) alerter.show(`Using ${useButton.dataset.itemName}`, 'info');
             const craftButton = target.closest('.btn-craft');
             if (craftButton) alerter.show('Crafting system not yet implemented.', 'info');
-            const applyHealthBtn = target.closest('#applyHealthAdjustment');
-            if (applyHealthBtn) {
-                const healthInput = contentArea.querySelector('#healthAdjustmentInput');
+
+            // --- NEW: HANDLER FOR DISMISSING A SUMMON ---
+            const dismissButton = target.closest('.btn-dismiss-summon');
+            if (dismissButton) {
+                const instanceId = dismissButton.dataset.instanceId;
+                if (!instanceId) return;
+
+                const summonToDismiss = activeCharacter.summonedCreatures.find(s => s.instanceId === instanceId);
+                if (!summonToDismiss) return;
+                
+                // Initialize the array on the character if it doesn't exist
+                activeCharacter.dismissedPassiveSources = activeCharacter.dismissedPassiveSources || [];
+
+                // Check if the summon comes from a passive source (like equipment or a perk)
+                const isPassiveSource = summonToDismiss.source.type === 'equipment' || summonToDismiss.source.type === 'perk' || summonToDismiss.source.type === 'flaw';
+
+                if (isPassiveSource) {
+                    // If passive, add the source ID to the dismissed list to prevent re-summoning.
+                    if (!activeCharacter.dismissedPassiveSources.includes(summonToDismiss.source.id)) {
+                        activeCharacter.dismissedPassiveSources.push(summonToDismiss.source.id);
+                    }
+                }
+                
+                // For all summon types, filter the dismissed summon out of the active list.
+                const updatedSummons = activeCharacter.summonedCreatures.filter(s => s.instanceId !== instanceId);
+                
+                try {
+                    // Save both the updated summons list and the new dismissed list to the database.
+                    activeCharacter = await db.updateCharacter(activeCharacter.id, { 
+                        summonedCreatures: updatedSummons,
+                        dismissedPassiveSources: activeCharacter.dismissedPassiveSources
+                    });
+                    processAndRenderAll(activeCharacter);
+                } catch (err) {
+                    console.error('Failed to dismiss summon:', err);
+                    alerter.show('Failed to dismiss summon.', 'error');
+                }
+                return;
+            }
+
+            // --- NEW: HANDLER FOR SUMMON HEALTH CHANGES ---
+            const applySummonHealthBtn = target.closest('.btn-apply-health');
+            if (applySummonHealthBtn && applySummonHealthBtn.dataset.entityType === 'summon') {
+                const instanceId = applySummonHealthBtn.dataset.entityId;
+                const healthInput = contentArea.querySelector(`#health-adj-${instanceId}`);
+                const summon = activeCharacter.summonedCreatures.find(s => s.instanceId === instanceId);
+
+                // Early exit if we can't find the necessary elements or data.
+                if (!summon || !healthInput) return;
+                
+                const summonDef = bestiaryData[summon.creatureId];
+                if (!summonDef) return;
+
+                if (healthInput.value.trim() === '') {
+                    return alerter.show('Please enter a health adjustment value (e.g., -5, 10).', 'info');
+                }
+
+                const adjustment = parseInt(healthInput.value, 10);
+                if (isNaN(adjustment)) return alerter.show('Invalid input. Please use numbers only.', 'error');
+                
+                const newCurrentHealth = Math.max(0, Math.min(summon.currentHealth + adjustment, summonDef.health.max));
+
+                // --- NEW: AUTO-DISMISSAL ON ZERO HEALTH ---
+                if (newCurrentHealth === 0) {
+                    alerter.show(`${summonDef.name} was defeated and dismissed.`, 'info');
+                    
+                    // Re-use the exact same logic as the manual dismiss button for consistency.
+                    const isPassiveSource = summon.source.type === 'equipment' || summon.source.type === 'perk' || summon.source.type === 'flaw';
+                    if (isPassiveSource) {
+                        activeCharacter.dismissedPassiveSources = activeCharacter.dismissedPassiveSources || [];
+                        if (!activeCharacter.dismissedPassiveSources.includes(summon.source.id)) {
+                            activeCharacter.dismissedPassiveSources.push(summon.source.id);
+                        }
+                    }
+                    // Filter the defeated summon out of the array.
+                    activeCharacter.summonedCreatures = activeCharacter.summonedCreatures.filter(s => s.instanceId !== instanceId);
+
+                } else {
+                    // If health is not zero, just update the value on the existing summon object.
+                    summon.currentHealth = newCurrentHealth;
+                }
+
+                try {
+                    // This single database call now saves the result of either the dismissal or the health change.
+                    activeCharacter = await db.updateCharacter(activeCharacter.id, { 
+                        summonedCreatures: activeCharacter.summonedCreatures,
+                        dismissedPassiveSources: activeCharacter.dismissedPassiveSources 
+                    });
+                    processAndRenderAll(activeCharacter);
+                } catch(err) {
+                    console.error('Error updating summon state:', err);
+                    alerter.show('Error updating summon state.', 'error');
+                }
+                return;
+            }
+
+            // --- Logic for Character Health (ensure it doesn't conflict) ---
+            if (applySummonHealthBtn && applySummonHealthBtn.dataset.entityType === 'character') {
+                // CORRECTED: Use the button's data attribute to find the correct, dynamic input ID.
+                const healthInput = contentArea.querySelector(`#health-adj-${applySummonHealthBtn.dataset.entityId}`);
+                
+                if (!healthInput) return; // Guard against a missing input field.
+
                 const adjustment = parseInt(healthInput.value, 10);
                 if (isNaN(adjustment)) return alerter.show('Invalid input.', 'error');
+
                 const finalMaxHealth = activeCharacter.calculatedHealth ? activeCharacter.calculatedHealth.currentMax : activeCharacter.health.max;
                 const newCurrentHealth = Math.max(0, Math.min(activeCharacter.health.current + adjustment, finalMaxHealth));
+
                 try {
+                    // Note: This assumes you have a specific method in your db utility for health.
+                    // If not, you might use the more general db.updateCharacter().
                     activeCharacter = await db.updateCharacterHealth(activeCharacter.id, { current: newCurrentHealth });
                     processAndRenderAll(activeCharacter);
-                } catch(err) { console.error('Error updating character health:', err); alerter.show('Error updating health.', 'error'); }
+                } catch(err) { 
+                    console.error('Error updating character health:', err); 
+                    alerter.show('Error updating health.', 'error'); 
+                }
             }
+
             const rollButton = target.closest('.attribute-roll');
             if (rollButton) {
                 const row = rollButton.closest('.attribute-row');
                 const attributeName = row.dataset.attribute;
                 const dieType = row.dataset.dice;
                 let baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
-                const activeModifiers = EffectHandler.getEffectsForAttribute(attributeName, "modifier");
+                
+                // UPDATED: Use the `mainEffectHandler` instance to get modifiers.
+                const activeModifiers = mainEffectHandler.getEffectsForAttribute(attributeName, "modifier");
+                
                 let totalModifier = activeModifiers.reduce((sum, mod) => sum + (mod.modifier || 0), 0);
                 const modifiedResult = baseResult + totalModifier;
                 updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModifiers);
@@ -552,10 +669,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const hopeFearButton = target.closest('.hope-fear-roll-btn');
             if(hopeFearButton) {
                 const attributeName = hopeFearButton.dataset.attribute;
-                const numericalEffects = EffectHandler.getEffectsForAttribute(attributeName, 'modifier');
-                const diceNumEffects = EffectHandler.getEffectsForAttribute(attributeName, 'die_num');
+                
+                // UPDATED: Use the `mainEffectHandler` instance for all effect-related calculations.
+                const numericalEffects = mainEffectHandler.getEffectsForAttribute(attributeName, 'modifier');
+                const diceNumEffects = mainEffectHandler.getEffectsForAttribute(attributeName, 'die_num');
                 const baseValue = activeCharacter.attributes[attributeName] || 0;
-                const combinedValue = EffectHandler.getCombinedAttributeValue(attributeName, baseValue);
+                const combinedValue = mainEffectHandler.getCombinedAttributeValue(attributeName, baseValue);
+
                 const modifierData = {
                     totalNumerical: numericalEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
                     totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),

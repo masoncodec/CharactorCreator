@@ -41,6 +41,10 @@
                 "modifier": "ADD",
                 "value": 1
               }
+            },
+            {
+              "type": "summon_creature",
+              "creatureId": "lesser-imp"
             }
           ]
         }

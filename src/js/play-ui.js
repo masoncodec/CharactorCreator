@@ -32,30 +32,130 @@ const UI_NAME_MAP = {
     "gem": "Gem",
 };
 
-// This new configuration object defines the layout for the equipment slots.
-// You can easily add, remove, or change slots here in the future.
 export const EQUIPMENT_SLOT_CONFIG = {
-    // 1. Defines the default layout categories and their member slots.
     categories: {
         "weapons": ["main-hand", "main-hand", "main-hand", "main-hand", "off-hand", "off-hand", "off-hand", "off-hand"],
         "armor": ["head", "head", "chest", "hands", "legs", "feet"],
         "accessories": ["ring", "ring", "amulet"]
     },
-  
-    // 2. Defines the rules for combined slots that replace default slots.
     combined_slots: {
         "two-hand": {
           replaces: ["main-hand", "off-hand"],
-          label: "two-hand" // Use the slug key here too
+          label: "two-hand"
         }
-      // For future expansion, you could easily add another rule here, e.g.:
-      // "full-body": { replaces: ["chest", "legs"], label: "Full-Body" }
     }
 };
 
+// --- NEW REUSABLE COMPONENTS ---
+
 /**
- * Renders the top navigation bar with detailed character information.
+ * NEW: A reusable helper to render the health display for any entity (character or summon).
+ * @param {number} current - The current health value.
+ * @param {number} max - The maximum health value.
+ * @param {string} entityId - The unique ID for the entity (character ID or summon instance ID).
+ * @param {string} entityType - A string to differentiate ('character' or 'summon').
+ * @returns {string} The HTML for the health display.
  */
+function renderHealthComponent(current, max, entityId, entityType) {
+    const healthPercentage = max > 0 ? (current / max) * 100 : 0;
+    let healthClass = healthPercentage > 60 ? 'health-full' : healthPercentage > 30 ? 'health-medium' : 'health-low';
+    
+    // Use the entityId and entityType to create unique IDs for the input and button.
+    return `
+        <div class="health-controls">
+            <input type="number" id="health-adj-${entityId}" class="form-control health-adj-input" placeholder="e.g. -5, +10" />
+            <button id="health-apply-${entityId}" class="btn btn-primary btn-apply-health" data-entity-id="${entityId}" data-entity-type="${entityType}">Apply</button>
+        </div>
+        <div class="health-bar-container">
+            <div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div>
+        </div>
+        <div class="health-numbers">${current} / ${max}</div>
+    `;
+}
+
+/**
+ * NEW: A reusable helper to render an entity's abilities.
+ * @param {object} abilitiesDef - The abilities object from the definition (e.g., bestiaryData[id].abilities).
+ * @param {string} instanceId - The unique instance ID of the summon, for data attributes.
+ * @returns {string} The HTML for the abilities list.
+ */
+function renderAbilitiesComponent(abilitiesDef, instanceId) {
+    if (!abilitiesDef) return '';
+
+    const renderList = (abilities, type) => {
+        if (!abilities || abilities.length === 0) return '';
+        return abilities.map(ability => `
+            <li class="summon-ability">
+                <strong>${ability.name} <span class="ability-type-tag ${type}">${type.toUpperCase()}</span></strong>
+                <p>${ability.description}</p>
+                ${type === 'active' ? `<button class="btn btn-sm btn-action" data-instance-id="${instanceId}" data-ability-id="${ability.id}">Use</button>` : ''}
+            </li>
+        `).join('');
+    };
+
+    const passiveHtml = renderList(abilitiesDef.passive, 'passive');
+    const activeHtml = renderList(abilitiesDef.active, 'active');
+
+    let finalHtml = '';
+    if (passiveHtml) {
+        finalHtml += `<h6>Passive</h6><ul class="summon-ability-list">${passiveHtml}</ul>`;
+    }
+    if (activeHtml) {
+        finalHtml += `<h6>Active</h6><ul class="summon-ability-list">${activeHtml}</ul>`;
+    }
+    
+    return finalHtml || '<p>No special abilities.</p>';
+}
+
+
+// --- NEW MAIN RENDERING FUNCTION ---
+
+/**
+ * NEW: Renders the entire panel for summoned creatures.
+ * @param {Array<object>} summonInstances - The character's array of active summon instances.
+ * @param {object} bestiaryData - The master data for all creatures.
+ */
+export function renderSummonsPanel(summonInstances, bestiaryData) {
+    const container = document.getElementById('summons-panel-container');
+    if (!container) return;
+
+    if (!summonInstances || summonInstances.length === 0) {
+        container.innerHTML = ''; // Clear the panel if no summons exist
+        return;
+    }
+
+    const summonCardsHtml = summonInstances.map(instance => {
+        const def = bestiaryData[instance.creatureId];
+        if (!def) return ''; // Skip if creature definition is missing
+
+        return `
+            <div class="summon-card panel">
+                <div class="summon-header">
+                    <h3>${def.name}</h3>
+                    <button class="btn btn-danger btn-sm btn-dismiss-summon" data-instance-id="${instance.instanceId}">Dismiss</button>
+                </div>
+                <p class="summon-description"><em>${def.description}</em></p>
+                <div class="summon-health">
+                    ${renderHealthComponent(instance.currentHealth, def.health.max, instance.instanceId, 'summon')}
+                </div>
+                <div class="summon-abilities-section">
+                    <h4>Abilities</h4>
+                    ${renderAbilitiesComponent(def.abilities, instance.instanceId)}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="panel">
+            <h2>Summons</h2>
+            <div class="summons-grid">${summonCardsHtml}</div>
+        </div>
+    `;
+}
+
+// --- UPDATED AND EXISTING FUNCTIONS ---
+
 export function renderTopNav(character, moduleDefinitions) {
     const headerInfo = document.getElementById('character-header-info');
     if (!headerInfo || !character) return;
@@ -65,27 +165,27 @@ export function renderTopNav(character, moduleDefinitions) {
     headerInfo.innerHTML = `
         <h2>${character.info.name}</h2>
         <p>Level ${character.level} ${character.destiny} | ${character.purpose} | ${character.nurture} | ${moduleName}</p>
-    `; //
+    `;
 }
 
 /**
- * Renders the content for the 'Main' tab, including attributes, health, and resources.
+ * Renders the content for the 'Main' tab.
+ * UPDATED: Signature now accepts the mainEffectHandler instance and a placeholder for summons is added.
+ * @param {object} character - The character object.
+ * @param {object} moduleDefinitions - The definitions of all loaded modules.
+ * @param {EffectHandler} mainEffectHandler - The instantiated handler for the character.
  */
-export function renderMainTab(character, moduleDefinitions) {
+export function renderMainTab(character, moduleDefinitions, mainEffectHandler) {
     const panel = document.getElementById('main-panel');
-    if (!panel) return '';
+    if (!panel) return;
 
-    let systemType = 'KOB';
-    const moduleId = character.module;
-    if (moduleId && moduleDefinitions && moduleDefinitions[moduleId]) {
-        systemType = moduleDefinitions[moduleId].type || 'KOB';
-    }
+    let systemType = moduleDefinitions[character.module]?.type || 'KOB';
 
     let attributesHtml = '';
     if (systemType === 'Hope/Fear') {
-        attributesHtml = renderHopeFearUI(character);
+        attributesHtml = renderHopeFearUI(character, mainEffectHandler);
     } else {
-        attributesHtml = renderKOBUI(character);
+        attributesHtml = renderKOBUI(character, mainEffectHandler);
     }
 
     panel.innerHTML = `
@@ -95,30 +195,31 @@ export function renderMainTab(character, moduleDefinitions) {
         </div>
         <div class="panel health-panel">
             <h2>Health</h2>
-            <div class="character-health health-display"></div>
+            <div class="character-health">
+                ${renderHealthComponent(
+                    character.health.current,
+                    character.calculatedHealth ? character.calculatedHealth.currentMax : character.health.max,
+                    character.id,
+                    'character'
+                )}
+            </div>
         </div>
         <div class="panel resources-panel">
             <h2>Resources</h2>
             ${renderResources(character)}
         </div>
+        <div id="summons-panel-container"></div>
     `;
-    renderHealthDisplay(character);
 }
 
-/**
- * Renders the content for the 'Abilities' tab using the aggregated list.
- */
 export function renderAbilitiesTab(allAbilities, character) {
     const panel = document.getElementById('abilities-panel');
     if (!panel) return;
-    panel.innerHTML = renderAbilities(allAbilities, character);
-}
-
-/**
- * Helper function to generate HTML for the abilities list.
- */
-function renderAbilities(allAbilities, character) {
-    if (!allAbilities || allAbilities.length === 0) return '<div class="panel"><p>No abilities available.</p></div>';
+    
+    if (!allAbilities || allAbilities.length === 0) {
+        panel.innerHTML = '<div class="panel"><p>No abilities available.</p></div>';
+        return;
+    }
     
     const activeAbilitiesHtml = [];
     const passiveAbilitiesHtml = [];
@@ -131,7 +232,9 @@ function renderAbilities(allAbilities, character) {
             ? `<p class="ability-source">Source: ${ability.sourceName}</p>`
             : '';
 
-        let description = abilityDef.description.replace(/\${([^}]+)}/g, (match, p1) => { /* ... description parsing ... */ });
+        let description = abilityDef.description.replace(/\${([^}]+)}/g, (match, p1) => {
+             return abilityDef[p1] || p1; 
+        });
 
         if (ability.itemType === "active") {
             const isOn = character.activeAbilityIds && character.activeAbilityIds.has(ability.instancedId) ? 'selected' : '';
@@ -160,17 +263,13 @@ function renderAbilities(allAbilities, character) {
     const activeSection = activeAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Active Abilities</h2><ul id="activeAbilitiesList">${activeAbilitiesHtml.join('')}</ul></div>` : '';
     const passiveSection = passiveAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Passive Abilities</h2><ul id="passiveAbilitiesList">${passiveAbilitiesHtml.join('')}</ul></div>` : '';
 
-    return activeSection + passiveSection;
+    panel.innerHTML = activeSection + passiveSection;
 }
 
-/**
- * Renders the content for the 'Profile' tab, including flaws, perks, statuses, and languages.
- */
 export function renderProfileTab(character, flawData, perkData) {
     const panel = document.getElementById('profile-panel');
     if (!panel) return;
 
-    // The #traits-panel grid from the CSS is a good fit here
     panel.innerHTML = `
       <div id="traits-panel">
         <div class="panel">
@@ -193,7 +292,195 @@ export function renderProfileTab(character, flawData, perkData) {
     `;
 }
 
-// Renders the equipment table. This is now a reusable component.
+export function renderEquipmentTab(equipmentItems, equipmentSlots, equipmentData, character, layoutConfig, slotMap) {
+    const panel = document.getElementById('equipment-panel');
+    if (!panel) return;
+
+    panel.innerHTML = `
+        <div class="equipment-container">
+            <div class="equipment-column">
+                <div class="panel">
+                     <h2>Equipped Items</h2>
+                     <div id="equipment-slots-panel">
+                        ${renderEquipmentSlotsComponent(equipmentSlots, equipmentData, layoutConfig, slotMap)}
+                     </div>
+                </div>
+            </div>
+            <div class="equipment-column">
+                <div class="panel">
+                    ${renderEquipmentTableComponent(equipmentItems, character, equipmentData, layoutConfig, slotMap)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+export function renderInventoryTab(character, equipmentData, layoutConfig, slotMap) {
+    const panel = document.getElementById('inventory-panel');
+    if (!panel) return;
+
+    if (!character.inventory || character.inventory.length === 0) {
+        panel.innerHTML = '<div class="panel"><p>Inventory is empty.</p></div>';
+        return;
+    }
+
+    const equipmentItems = [];
+    const lootItems = [];
+
+    character.inventory.forEach(item => {
+        const definition = equipmentData[item.id];
+        if (!definition) return;
+        const fullItemData = { ...item, definition };
+        if (definition.type === 'equipment') {
+            equipmentItems.push(fullItemData);
+        } else if (definition.type === 'loot') {
+            lootItems.push(fullItemData);
+        }
+    });
+
+    panel.innerHTML = `
+        <div class="panel">
+            ${renderEquipmentTableComponent(equipmentItems, character, equipmentData, layoutConfig, slotMap)}
+        </div>
+        <div class="panel">
+            ${renderLootTableComponent(lootItems)}
+        </div>
+    `;
+}
+
+
+// --- HELPER RENDERING FUNCTIONS ---
+
+/**
+ * Renders the UI for the KOB attribute system.
+ * UPDATED: Signature now accepts the mainEffectHandler instance.
+ * @param {object} effectedCharacter - The character object after effects have been processed.
+ * @param {EffectHandler} mainEffectHandler - The instantiated handler for the character.
+ */
+function renderKOBUI(effectedCharacter, mainEffectHandler) {
+    let attributesHtml = '';
+    if (effectedCharacter.attributes) {
+        attributesHtml = Object.entries(effectedCharacter.attributes).map(([attr, die]) => {
+            // UPDATED: Use the passed-in instance to get effects.
+            const initialModifiers = mainEffectHandler.getEffectsForAttribute(attr, "modifier");
+            let modifierSpans = '';
+            for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+                const mod = initialModifiers[i];
+                if (mod) {
+                    modifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
+                } else {
+                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+                }
+            }
+            const unmodifiedResultHtml = initialModifiers.length > 0
+                ? `<div class="unmodified-roll-result"></div>`
+                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+            return `
+                <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
+                    <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
+                    <span class="die-type">${String(die).toUpperCase()}</span>
+                    <button class="btn-roll attribute-roll">Roll</button>
+                    <div class="roll-result"></div>
+                    ${modifierSpans}
+                    ${unmodifiedResultHtml}
+                </div>
+            `;
+        }).join('');
+
+        // UPDATED: Use the passed-in instance for Luck as well.
+        const initialLuckModifiers = mainEffectHandler.getEffectsForAttribute('luck', "modifier");
+        let luckModifierSpans = '';
+        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
+            const mod = initialLuckModifiers[i];
+            if (mod) {
+                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
+            } else {
+                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
+            }
+        }
+        const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
+            ? `<div class="unmodified-roll-result"></div>`
+            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
+        attributesHtml += `
+            <div class="attribute-row" data-attribute="luck" data-dice="d100">
+                <label>Luck</label>
+                <span class="die-type">D100</span>
+                <button class="btn-roll attribute-roll">Roll</button>
+                <div class="roll-result"></div>
+                ${luckModifierSpans}
+                ${unmodifiedLuckResultHtml}
+            </div>
+        `;
+    }
+    return attributesHtml;
+}
+
+/**
+ * Renders the UI for the Hope/Fear attribute system.
+ * UPDATED: Signature now accepts the mainEffectHandler instance.
+ * @param {object} effectedCharacter - The character object after effects have been processed.
+ * @param {EffectHandler} mainEffectHandler - The instantiated handler for the character.
+ */
+function renderHopeFearUI(effectedCharacter, mainEffectHandler) {
+    if (!effectedCharacter.attributes) return '';
+    
+    const containerStyle = "display: flex; flex-wrap: wrap; justify-content: space-around; gap: 1rem; padding: 1rem; background: #222; border-radius: 5px;";
+    const attributeStyle = "display: flex; flex-direction: column; align-items: center; gap: 0.5rem;";
+    const valueStyle = "font-size: 1.2rem; font-weight: bold; color: #a0c4ff;";
+
+    const attributeButtons = Object.keys(effectedCharacter.attributes).map(attr => {
+        const baseValue = effectedCharacter.attributes[attr];
+        // UPDATED: Use the passed-in instance to get the final value.
+        const finalValue = mainEffectHandler.getCombinedAttributeValue(attr, baseValue);
+
+        return `
+            <div class="hope-fear-attribute" style="${attributeStyle}">
+                <span class="hope-fear-name">${attr.charAt(0).toUpperCase() + attr.slice(1)}</span>
+                <span class="hope-fear-value" style="${valueStyle}">${finalValue >= 0 ? '+' : ''}${finalValue}</span>
+                <button class="btn-roll hope-fear-roll-btn" data-attribute="${attr}">Roll</button>
+            </div>
+        `;
+    }).join('');
+
+    return `<div class="hope-fear-container" style="${containerStyle}">${attributeButtons}</div>`;
+}
+
+function renderResources(character) {
+    if (!character.resources || character.resources.length === 0) return '<p>No resources.</p>';
+    return `<ul class="resource-list">${character.resources.map(r => `<li><strong>${r.type.charAt(0).toUpperCase() + r.type.slice(1)}:</strong> ${r.value} ${r.max !== undefined ? `/ ${r.max}` : ''}</li>`).join('')}</ul>`;
+}
+
+function renderLanguages(character) {
+    if (!character.languages || character.languages.length === 0) return '<p>No languages known.</p>';
+    return `<ul>${character.languages.map(lang => `<li>${lang}</li>`).join('')}</ul>`;
+}
+
+function renderStatuses(character) {
+    if (!character.statuses || character.statuses.length === 0) return '<p>No active statuses.</p>';
+    return `<ul>${character.statuses.map(s => `<li>${s.name}</li>`).join('')}</ul>`;
+}
+
+function renderFlaws(character, flawData) {
+    if (!character.flaws || character.flaws.length === 0) return '<p>No flaws.</p>';
+    return `<ul class="description-list">${character.flaws.map(flawState => {
+        const flawDef = flawData[flawState.id];
+        if (!flawDef) return `<li>Unknown Flaw (ID: ${flawState.id})</li>`;
+        return `<li class="item"><strong>${flawDef.name}</strong><p>${flawDef.description}</p></li>`;
+    }).join('')}</ul>`;
+}
+
+function renderPerks(character, perkData) {
+    if (!character.perks || character.perks.length === 0) return '<p>No perks.</p>';
+    return `<ul class="description-list">${character.perks.map(perkState => {
+        const perkDef = perkData[perkState.id];
+        if (!perkDef) return `<li>Unknown Perk (ID: ${perkState.id})</li>`;
+        return `<li class="item"><strong>${perkDef.name}</strong><p>${perkDef.description}</p></li>`;
+    }).join('')}</ul>`;
+}
+
+// All remaining functions below are part of the original file and are included for completeness,
+// but they do not require changes for this phase of the implementation.
+
 function renderEquipmentTableComponent(equipmentItems, character, equipmentData, layoutConfig, slotMap) {
     if (equipmentItems.length === 0) {
         return '<h2>Equipment</h2><p>No equipment.</p>';
@@ -203,7 +490,6 @@ function renderEquipmentTableComponent(equipmentItems, character, equipmentData,
         const itemDef = item.definition;
         
         let nameCell = itemDef.name;
-        // The equippedCount is now only calculated in play.js, so we reference it directly.
         if (item.equippedCount !== undefined) {
             nameCell += ` <span class="item-count-display">(${item.equippedCount} of ${item.quantity} Equipped)</span>`;
         }
@@ -211,20 +497,16 @@ function renderEquipmentTableComponent(equipmentItems, character, equipmentData,
         let actionButtonsHtml = '';
 
         if (item.quantity > 1) {
-            // Check if there are any valid slots left BEFORE showing the Equip button.
             const availableSlots = findTargetSlots(itemDef, character.equipmentSlots, item.id, layoutConfig, slotMap, equipmentData);
             
-            // Only show the "Equip" button if there are unequipped items AND an available slot.
             if (item.equippedCount < item.quantity && availableSlots.length > 0) {
                 actionButtonsHtml += `<button class="btn btn-success btn-sm btn-equip-stack" data-item-id="${item.id}">Equip</button>`;
             }
 
-            // Show the "Unequip" button only if at least one is equipped. (Logic is unchanged).
             if (item.equippedCount > 0) {
                 actionButtonsHtml += `<button class="btn btn-warning btn-sm btn-unequip-stack" data-item-id="${item.id}">Unequip</button>`;
             }
         } else {
-            // Logic for non-stackable items is unchanged.
             actionButtonsHtml = `<button class="btn btn-secondary btn-sm btn-equip" data-item-id="${item.id}">
                                     ${item.equipped ? 'Unequip' : 'Equip'}
                                  </button>`;
@@ -260,7 +542,6 @@ function renderEquipmentTableComponent(equipmentItems, character, equipmentData,
     `;
 }
 
-// Renders the Loot & Items table.
 function renderLootTableComponent(lootItems) {
     if (lootItems.length === 0) {
         return '<h2>Loot & Items</h2><p>No other items.</p>';
@@ -306,20 +587,11 @@ function renderLootTableComponent(lootItems) {
     `;
 }
 
-/**
- * Analyzes equipped items to generate the current slot layout for rendering.
- * This final version correctly detects combined items regardless of which specific
- * slot instances they occupy.
- * @param {object} equipmentSlots - The character's map of equipped items.
- * @param {object} equipmentData - The master list of all item definitions.
- * @returns {object} An object with categories as keys and arrays of slot objects as values.
- */
 function getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotMap) {
     const dynamicCategories = {};
     const allPossibleSlots = new Set(Object.values(slotMap).flat());
-    const combinedInstances = new Map(); // Use a Map to group slots by instanceId
+    const combinedInstances = new Map();
 
-    // First pass: Find all combined item instances and group their slots
     for (const slotId in equipmentSlots) {
         const slotValue = equipmentSlots[slotId];
         if (slotValue && typeof slotValue === 'object' && slotValue.instanceId) {
@@ -330,15 +602,13 @@ function getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotM
                 });
             }
             combinedInstances.get(slotValue.instanceId).slots.push(slotId);
-            allPossibleSlots.delete(slotId); // This slot is part of a combined item, so remove it from the default render list.
+            allPossibleSlots.delete(slotId);
         }
     }
 
-    // Second pass: Build the final layout for rendering
     for (const categoryName in layoutConfig.categories) {
         const renderedSlots = [];
 
-        // Add the processed combined item slots to the correct category
         combinedInstances.forEach((instance, instanceId) => {
             const itemDef = equipmentData[instance.itemId];
             const combinedConfig = layoutConfig.combined_slots[itemDef.equip_slot];
@@ -347,17 +617,15 @@ function getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotM
 
             if (layoutConfig.categories[categoryName].includes(slotBaseType)) {
                 renderedSlots.push({
-                    id: instanceId, // The "slot" ID is now the instanceId
+                    id: instanceId,
                     label: combinedConfig.label,
                     span: instance.slots.length,
-                    representativeSlotId: representativeSlotId // Still useful for getting item info
+                    representativeSlotId: representativeSlotId
                 });
-                // Ensure this instance isn't processed again for another category
                 combinedInstances.delete(instanceId);
             }
         });
 
-        // Add the remaining default single slots
         const uniqueSlotTypes = [...new Set(layoutConfig.categories[categoryName])];
         uniqueSlotTypes.forEach(slotType => {
             const instanceIds = slotMap[slotType] || [];
@@ -370,7 +638,7 @@ function getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotM
         });
         
         if (renderedSlots.length > 0) {
-            renderedSlots.sort((a, b) => { /* ... sorting logic is unchanged ... */ });
+            renderedSlots.sort((a, b) => a.id.localeCompare(b.id));
             dynamicCategories[categoryName] = renderedSlots;
         }
     }
@@ -378,21 +646,10 @@ function getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotM
     return dynamicCategories;
 }
 
-/**
- * Finds the best target slot(s) for an item, handling all item types.
- * @param {object} itemDef - The definition of the item to equip.
- * @param {object} equipmentSlots - The character's current equipment slots.
- * @param {string} itemIdToEquip - The ID of the item being equipped.
- * @param {object} layoutConfig - The character's final layout configuration.
- * @param {object} slotMap - The character's final slot map.
- * @param {object} equipmentData - The master list of all item definitions. // <-- NEW PARAMETER
- * @returns {Array<string>} An array of target slot IDs.
- */
 export function findTargetSlots(itemDef, equipmentSlots, itemIdToEquip, layoutConfig, slotMap, equipmentData) {
     const slotType = itemDef.equip_slot;
     const combinedConfig = layoutConfig.combined_slots[slotType];
 
-    // --- Logic for Standard/Repeatable Items (no changes here) ---
     if (!combinedConfig) {
         const instanceSlots = slotMap[slotType] || [];
         const emptySlot = instanceSlots.find(id => !equipmentSlots[id]);
@@ -404,28 +661,22 @@ export function findTargetSlots(itemDef, equipmentSlots, itemIdToEquip, layoutCo
         return [];
     }
 
-    // --- Logic for Combined-Slot Items (Corrected) ---
     if (combinedConfig) {
         const requiredTypes = combinedConfig.replaces;
         const potentialPrimarySlots = slotMap[requiredTypes[0]] || [];
         const potentialSecondarySlots = slotMap[requiredTypes[1]] || [];
         const occupiedByCombined = new Set();
 
-        // This loop now correctly uses the passed-in equipmentData.
         for (const slotId in equipmentSlots) {
             const slotValue = equipmentSlots[slotId];
             if (!slotValue) continue;
-
-            // Get the actual item ID, whether it's a string or inside an object.
             const realItemId = typeof slotValue === 'object' ? slotValue.itemId : slotValue;
-            const equippedItemDef = equipmentData[realItemId]; // Use the passed-in equipmentData
-
+            const equippedItemDef = equipmentData[realItemId];
             if (equippedItemDef && layoutConfig.combined_slots[equippedItemDef.equip_slot]) {
                 occupiedByCombined.add(slotId);
             }
         }
 
-        // The rest of the logic for finding the best pair remains the same.
         const availablePrimary = potentialPrimarySlots.filter(id => !occupiedByCombined.has(id));
         const availableSecondary = potentialSecondarySlots.filter(id => !occupiedByCombined.has(id));
         let bestPair = [];
@@ -450,29 +701,22 @@ export function findTargetSlots(itemDef, equipmentSlots, itemIdToEquip, layoutCo
     return [];
 }
 
-/**
- * Helper function to render the visual equipment slots UI.
- * UPDATED: Now uses the fully dynamic layout to render combined slots correctly.
- */
 function renderEquipmentSlotsComponent(equipmentSlots, equipmentData, layoutConfig, slotMap) {
     const dynamicLayout = getDynamicSlotLayout(equipmentSlots, equipmentData, layoutConfig, slotMap);
     let slotsHtml = '';
 
     for (const categoryKey in dynamicLayout) {
-        // Look up the pretty display name for the category. Fall back to the key if not found.
         const categoryDisplayName = UI_NAME_MAP[categoryKey] || categoryKey;
         slotsHtml += `<div class="equipment-category"><h3>${categoryDisplayName}</h3><div class="slots-container">`;
         
         const slots = dynamicLayout[categoryKey];
         slots.forEach(slotInfo => {
-            // ... (code to get item info is unchanged)
             const slotId = slotInfo.id;
             const representativeSlotId = slotInfo.representativeSlotId || slotId;
             const slotValue = equipmentSlots[representativeSlotId];
             const equippedItemId = slotValue?.itemId || slotValue;
             const itemDef = equippedItemId ? equipmentData[equippedItemId] : null;
 
-            // Look up the pretty display name for the slot label.
             const slotDisplayName = UI_NAME_MAP[slotInfo.label] || slotInfo.label;
             const itemName = itemDef ? itemDef.name : "Empty";
             
@@ -493,16 +737,6 @@ function renderEquipmentSlotsComponent(equipmentSlots, equipmentData, layoutConf
     return slotsHtml;
 }
 
-/**
- * Calculates how many instances of a given item are currently equipped.
- * This function is smart enough to differentiate between a single combined item
- * occupying multiple slots and multiple individual items occupying one slot each.
- *
- * @param {string} baseItemId - The base ID of the item to count (e.g., "example-ring-of-protection").
- * @param {object} character - The active character object.
- * @param {object} equipmentData - The master list of all item definitions.
- * @returns {number} The number of equipped instances of the item.
- */
 export function getEquippedCount(baseItemId, character, equipmentData, layoutConfig) {
     const itemDef = equipmentData[baseItemId];
     const equipmentSlots = character.equipmentSlots;
@@ -510,19 +744,16 @@ export function getEquippedCount(baseItemId, character, equipmentData, layoutCon
         return 0;
     }
 
-    // For combined items, we now need to count unique instances.
     if (layoutConfig.combined_slots[itemDef.equip_slot]) {
         const instances = new Set();
         for (const slotId in equipmentSlots) {
             const slotValue = equipmentSlots[slotId];
-            // Check if the slot contains an object with the matching itemId
             if (slotValue && typeof slotValue === 'object' && slotValue.itemId === baseItemId) {
                 instances.add(slotValue.instanceId);
             }
         }
         return instances.size;
     } else {
-        // Logic for standard, single-slot items is unchanged.
         let count = 0;
         for (const slotId in equipmentSlots) {
             if (equipmentSlots[slotId] === baseItemId) {
@@ -531,210 +762,4 @@ export function getEquippedCount(baseItemId, character, equipmentData, layoutCon
         }
         return count;
     }
-}
-
-/**
- * Renders the content for the 'Equipment' tab.
- * UPDATED: Accepts and passes down data for the slots.
- * @param {Array} equipmentItems - A list of the character's equipment.
- * @param {object} equipmentSlots - The character's map of equipped items.
- * @param {object} equipmentData - The master list of all item definitions.
- */
-export function renderEquipmentTab(equipmentItems, equipmentSlots, equipmentData, character, layoutConfig, slotMap) {
-    const panel = document.getElementById('equipment-panel');
-    if (!panel) return;
-
-    panel.innerHTML = `
-        <div class="equipment-container">
-            <div class="equipment-column">
-                <div class="panel">
-                     <h2>Equipped Items</h2>
-                     <div id="equipment-slots-panel">
-                        ${renderEquipmentSlotsComponent(equipmentSlots, equipmentData, layoutConfig, slotMap)}
-                     </div>
-                </div>
-            </div>
-            <div class="equipment-column">
-                <div class="panel">
-                    ${renderEquipmentTableComponent(equipmentItems, character, equipmentData, layoutConfig, slotMap)}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Renders the content for the 'Inventory' tab.
- * UPDATED: Now correctly receives and passes down the augmented equipmentItems array.
- * @param {object} character - The character object.
- * @param {object} equipmentData - A map of all equipment and loot definitions.
- */
-export function renderInventoryTab(character, equipmentData, layoutConfig, slotMap) {
-    const panel = document.getElementById('inventory-panel');
-    if (!panel) return;
-
-    if (!character.inventory || character.inventory.length === 0) {
-        panel.innerHTML = '<div class="panel"><p>Inventory is empty.</p></div>';
-        return;
-    }
-
-    // This logic now correctly separates the items for the two tables.
-    const equipmentItems = [];
-    const lootItems = [];
-
-    character.inventory.forEach(item => {
-        const definition = equipmentData[item.id];
-        if (!definition) return;
-
-        // The item object passed from play.js already has the definition and equippedCount.
-        // We just need to separate them into the correct lists.
-        const fullItemData = { ...item, definition };
-        if (definition.type === 'equipment') {
-            equipmentItems.push(fullItemData);
-        } else if (definition.type === 'loot') {
-            lootItems.push(fullItemData);
-        }
-    });
-
-    // The inventory tab renders both tables. Note that renderEquipmentTableComponent
-    // now correctly receives all the data it needs.
-    panel.innerHTML = `
-        <div class="panel">
-            ${renderEquipmentTableComponent(equipmentItems, character, equipmentData, layoutConfig, slotMap)}
-        </div>
-        <div class="panel">
-            ${renderLootTableComponent(lootItems)}
-        </div>
-    `;
-}
-
-
-// --- HELPER RENDERING FUNCTIONS (from original play.js) ---
-
-function renderKOBUI(effectedCharacter) {
-    let attributesHtml = '';
-    if (effectedCharacter.attributes) {
-        attributesHtml = Object.entries(effectedCharacter.attributes).map(([attr, die]) => {
-            const initialModifiers = EffectHandler.getEffectsForAttribute(attr, "modifier");
-            let modifierSpans = '';
-            for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-                const mod = initialModifiers[i];
-                if (mod) {
-                    modifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
-                } else {
-                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
-                }
-            }
-            const unmodifiedResultHtml = initialModifiers.length > 0
-                ? `<div class="unmodified-roll-result"></div>`
-                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-            return `
-                <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
-                    <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
-                    <span class="die-type">${String(die).toUpperCase()}</span>
-                    <button class="btn-roll attribute-roll">Roll</button>
-                    <div class="roll-result"></div>
-                    ${modifierSpans}
-                    ${unmodifiedResultHtml}
-                </div>
-            `;
-        }).join('');
-
-        const initialLuckModifiers = EffectHandler.getEffectsForAttribute('luck', "modifier");
-        let luckModifierSpans = '';
-        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-            const mod = initialLuckModifiers[i];
-            if (mod) {
-                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
-            } else {
-                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
-            }
-        }
-        const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
-            ? `<div class="unmodified-roll-result"></div>`
-            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-        attributesHtml += `
-            <div class="attribute-row" data-attribute="luck" data-dice="d100">
-                <label>Luck</label>
-                <span class="die-type">D100</span>
-                <button class="btn-roll attribute-roll">Roll</button>
-                <div class="roll-result"></div>
-                ${luckModifierSpans}
-                ${unmodifiedLuckResultHtml}
-            </div>
-        `;
-    }
-    return attributesHtml;
-}
-
-/**
- * Renders the UI for the Hope/Fear attribute system.
- * UPDATED: Now uses EffectHandler.getCombinedAttributeValue to display the final modified value.
- * @param {object} effectedCharacter - The character object after effects have been processed.
- */
-function renderHopeFearUI(effectedCharacter) {
-    if (!effectedCharacter.attributes) return '';
-    
-    const containerStyle = "display: flex; flex-wrap: wrap; justify-content: space-around; gap: 1rem; padding: 1rem; background: #222; border-radius: 5px;";
-    const attributeStyle = "display: flex; flex-direction: column; align-items: center; gap: 0.5rem;";
-    const valueStyle = "font-size: 1.2rem; font-weight: bold; color: #a0c4ff;";
-
-    const attributeButtons = Object.keys(effectedCharacter.attributes).map(attr => {
-        const baseValue = effectedCharacter.attributes[attr];
-        // Call the new centralized function to get the final value for display.
-        const finalValue = EffectHandler.getCombinedAttributeValue(attr, baseValue);
-
-        return `
-            <div class="hope-fear-attribute" style="${attributeStyle}">
-                <span class="hope-fear-name">${attr.charAt(0).toUpperCase() + attr.slice(1)}</span>
-                <span class="hope-fear-value" style="${valueStyle}">${finalValue >= 0 ? '+' : ''}${finalValue}</span>
-                <button class="btn-roll hope-fear-roll-btn" data-attribute="${attr}">Roll</button>
-            </div>
-        `;
-    }).join('');
-
-    return `<div class="hope-fear-container" style="${containerStyle}">${attributeButtons}</div>`;
-}
-
-function renderHealthDisplay(character) {
-    if (!character || !character.health) return; //
-    const healthDisplayContainer = document.querySelector('.character-health.health-display');
-    if (!healthDisplayContainer) return;
-    const currentMaxHealth = character.calculatedHealth ? character.calculatedHealth.currentMax : character.health.max; //
-    const healthPercentage = (character.health.current / currentMaxHealth) * 100; //
-    let healthClass = healthPercentage > 60 ? 'health-full' : healthPercentage > 30 ? 'health-medium' : 'health-low';
-    healthDisplayContainer.innerHTML = `<div class="health-controls"><input type="number" id="healthAdjustmentInput" placeholder="e.g. -5, +10" class="form-control" /><button id="applyHealthAdjustment" class="btn btn-primary">Apply</button></div><div class="health-bar-container"><div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div></div><div class="health-numbers">${character.health.current} / ${currentMaxHealth} ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}</div>`; //
-}
-
-function renderResources(character) {
-    if (!character.resources || character.resources.length === 0) return '<p>No resources.</p>'; //
-    return `<ul class="resource-list">${character.resources.map(r => `<li><strong>${r.type.charAt(0).toUpperCase() + r.type.slice(1)}:</strong> ${r.value} ${r.max !== undefined ? `/ ${r.max}` : ''}</li>`).join('')}</ul>`; //
-}
-
-function renderLanguages(character) {
-    if (!character.languages || character.languages.length === 0) return '<p>No languages known.</p>'; //
-    return `<ul>${character.languages.map(lang => `<li>${lang}</li>`).join('')}</ul>`; //
-}
-
-function renderStatuses(character) {
-    if (!character.statuses || character.statuses.length === 0) return '<p>No active statuses.</p>'; //
-    return `<ul>${character.statuses.map(s => `<li>${s.name}</li>`).join('')}</ul>`; //
-}
-
-function renderFlaws(character, flawData) {
-    if (!character.flaws || character.flaws.length === 0) return '<p>No flaws.</p>'; //
-    return `<ul class="description-list">${character.flaws.map(flawState => { //
-        const flawDef = flawData[flawState.id];
-        if (!flawDef) return `<li>Unknown Flaw (ID: ${flawState.id})</li>`;
-        return `<li class="item"><strong>${flawDef.name}</strong><p>${flawDef.description}</p></li>`;
-    }).join('')}</ul>`;
-}
-
-function renderPerks(character, perkData) {
-    if (!character.perks || character.perks.length === 0) return '<p>No perks.</p>'; //
-    return `<ul class="description-list">${character.perks.map(perkState => { //
-        const perkDef = perkData[perkState.id];
-        if (!perkDef) return `<li>Unknown Perk (ID: ${perkState.id})</li>`;
-        return `<li class="item"><strong>${perkDef.name}</strong><p>${perkDef.description}</p></li>`;
-    }).join('')}</ul>`;
 }

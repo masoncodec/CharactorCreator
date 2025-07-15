@@ -1,0 +1,149 @@
+{
+  "lesser-imp": {
+    "id": "lesser-imp",
+    "name": "Lesser Imp",
+    "description": "A mischievous and cowardly creature from another plane, summoned via a cursed ring.",
+    "health": { "max": 10 },
+    "attributes": {
+      "whimsy": 1,
+      "sturdy": 0,
+      "charm": 3,
+      "magic": 2,
+      "speed": -2,
+      "nature": -6
+    },
+    "abilities": {
+      "passive": [
+        {
+          "id": "pas_imp_charm",
+          "name": "Mischievous Charm",
+          "description": "Grants a +1 bonus to its own Charm checks.",
+          "effect": [
+            {
+              "type": "modifier",
+              "modifier": 1,
+              "name": "Modifier",
+              "attribute": "charm"
+            }
+          ]
+        }
+      ],
+      "active": [
+        {
+          "id": "act_imp_claw",
+          "name": "Claws",
+          "description": "Lashes out with poisonous claws.",
+          "effect": [
+            {
+              "type": "attack",
+              "target": "single_enemy",
+              "attribute_bonus": "whimsy",
+              "damage": [
+                { "type": "slashing", "dice": "1d6" },
+                { "type": "poison", "dice": "1d4", "value": 2 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "rock-golem-sentry": {
+    "id": "rock-golem-sentry",
+    "name": "Rock Golem Sentry",
+    "description": "A simple, animated construct of stone that obeys its master's will.",
+    "health": { "max": 25 },
+    "attributes": {
+      "whimsy": -5,
+      "sturdy": 5,
+      "charm": -5,
+      "magic": 0,
+      "speed": -3,
+      "nature": 2
+    },
+    "abilities": {
+      "passive": [
+        {
+          "id": "pas_golem_armor",
+          "name": "Stone Skin",
+          "description": "Its rocky hide provides natural armor.",
+          "effect": [
+            {
+              "type": "resistance_mod",
+              "damageType": "physical",
+              "value": 5
+            }
+          ]
+        }
+      ],
+      "active": [
+        {
+          "id": "act_golem_slam",
+          "name": "Slam",
+          "description": "A powerful but inaccurate slam.",
+          "effect": [
+            {
+              "type": "attack",
+              "target": "single_enemy",
+              "attribute_bonus": "sturdy",
+              "damage": [
+                { "type": "bludgeoning", "dice": "2d8" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "spirit-badger": {
+    "id": "spirit-badger",
+    "name": "Spirit Badger",
+    "description": "A tenacious spectral creature that never gives up.",
+    "health": { "max": 15 },
+    "attributes": {
+      "whimsy": 0,
+      "sturdy": 3,
+      "charm": 0,
+      "magic": 1,
+      "speed": 1,
+      "nature": 4
+    },
+    "abilities": {
+      "passive": [],
+      "active": [
+        {
+          "id": "act_badger_rage",
+          "name": "Badger Rage",
+          "description": "Temporarily empowers its sturdy attribute.",
+          "effect": [
+            {
+              "type": "modifier",
+              "modifier": 2,
+              "name": "Modifier",
+              "attribute": "sturdy",
+              "duration": "1-round"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "mud-elemental": {
+    "id": "mud-elemental",
+    "name": "Mud Elemental",
+    "description": "A shambling mound of mud with no discernible features or abilities.",
+    "health": { "max": 12 },
+    "attributes": {
+      "whimsy": 0,
+      "sturdy": 2,
+      "charm": -2,
+      "magic": 0,
+      "speed": -2,
+      "nature": 1
+    },
+    "abilities": {
+      "passive": [],
+      "active": []
+    }
+  }
+}
