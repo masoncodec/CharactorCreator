@@ -49,6 +49,41 @@ async function processAndRenderAll(character) {
     }
     // --- END OF AUTO-DISMISSAL LOGIC ---
 
+    // --- NEW: DYNAMIC HEALTH ADJUSTMENT LOGIC ---
+    // 1. Get the bonus from the last cycle, defaulting to 0 if it doesn't exist on the character.
+    const previousMaxHealthBonus = character.lastMaxHealthBonus ?? 0;
+
+    // 2. Calculate the new bonus from currently active effects.
+    // This filter ensures we only count effects that apply in the 'play' context.
+    const newMaxHealthBonus = mainEffectHandler.activeEffects
+        .filter(effect => {
+            if (effect.type !== 'max_health_mod') return false;
+            
+            const isPassiveEffect = effect.itemType === 'passive';
+            // This logic MUST match the condition inside EffectHandler's applyEffectsToCharacter method.
+            if (effect.itemType === 'active' || (isPassiveEffect && (effect.sourceType === 'equipment' || effect.sourceType === 'perk' || effect.sourceType === 'flaw'))) {
+                return true;
+            }
+            return false;
+        })
+        .reduce((sum, effect) => sum + effect.value, 0);
+
+    // 3. Determine the change in bonus between this cycle and the last.
+    const bonusChange = newMaxHealthBonus - previousMaxHealthBonus;
+
+    // 4. If the bonus has changed, apply that change to the character's current health.
+    if (bonusChange !== 0) {
+        const newCurrentHealth = (character.health.current ?? 0) + bonusChange;
+        
+        // Apply the edge case rule: health cannot drop below 0.
+        character.health.current = Math.max(0, newCurrentHealth);
+        console.log(`Max health bonus changed by ${bonusChange}. New current health: ${character.health.current}`);
+    }
+
+    // 5. Update the character object with the new bonus value so it will be persisted when saved.
+    character.lastMaxHealthBonus = newMaxHealthBonus;
+    // --- END OF DYNAMIC HEALTH ADJUSTMENT LOGIC ---
+
     // 4. NOW, generate the dynamic layout. It can now correctly use the active effects.
     // UPDATED: The result of processLayoutEffects is now passed into generateCharacterLayout.
     const layoutEffects = mainEffectHandler.processLayoutEffects(mainEffectHandler.activeEffects);
@@ -642,9 +677,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const newCurrentHealth = Math.max(0, Math.min(activeCharacter.health.current + adjustment, finalMaxHealth));
 
                 try {
-                    // Note: This assumes you have a specific method in your db utility for health.
-                    // If not, you might use the more general db.updateCharacter().
-                    activeCharacter = await db.updateCharacterHealth(activeCharacter.id, { current: newCurrentHealth });
+                    // UPDATED: Use the more general updateCharacter to save both properties.
+                    activeCharacter = await db.updateCharacter(activeCharacter.id, {
+                        "health.current": newCurrentHealth,
+                        "lastMaxHealthBonus": activeCharacter.lastMaxHealthBonus
+                    });
                     processAndRenderAll(activeCharacter);
                 } catch(err) { 
                     console.error('Error updating character health:', err); 
