@@ -532,5 +532,31 @@
     "value": 2,
     "stackable": false,
     "effect": []
+  },
+  "staff-with-empty-gems": {
+    "id": "staff-with-empty-gems",
+    "type": "equipment",
+    "category": "weapon",
+    "equip_slot": "main-hand",
+    "name": "Staff with Empty Gems",
+    "description": "A tiny, intricate whistle carved from a single piece of willow. Its sound is only audible to fey creatures and small animals.",
+    "rarity": "rare",
+    "weight": 0,
+    "abilities": {
+      "passive": [
+        {
+          "id": "pas_pixie_charm",
+          "name": "Mischievous Charm",
+          "description": "Grants a +1 bonus to Persuasion checks.",
+          "effect": [
+            {
+              "type": "add_equip_category",
+              "name": "staff_gems",
+              "slots": ["gem", "gem"]
+            }
+          ]
+        }
+      ]
+    }
   }
 }

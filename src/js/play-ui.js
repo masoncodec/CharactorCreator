@@ -26,7 +26,10 @@ const UI_NAME_MAP = {
 
     "implants": "Implants",
     "optic_implant": "Optic Implant",
-    "neuro_link": "Neuro-Link"
+    "neuro_link": "Neuro-Link",
+
+    "staff_gems": "Staff Gems",
+    "gem": "Gem",
 };
 
 // This new configuration object defines the layout for the equipment slots.
