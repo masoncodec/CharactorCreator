@@ -25,20 +25,14 @@ async function processAndRenderAll(character) {
         return;
     }
 
-    // --- NEW, CORRECTED ORDER OF OPERATIONS ---
+    // --- LOGIC ORDER ---
     
-    // ADDED: Instantiate the main EffectHandler for this processing cycle.
+    // 1. Instantiate handler and process all active effects from abilities, perks, etc.
     mainEffectHandler = new EffectHandler();
-
-    // 1. First, aggregate all abilities from the character and their equipment.
     const allAbilities = aggregateAllAbilities(character, abilityData, equipmentData);
-
-    // 2. Next, process these abilities to populate the EffectHandler's list of active effects.
-    // UPDATED: Now calls the method on the new `mainEffectHandler` instance.
     mainEffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
     
-    // --- NEW: AUTO-DISMISSAL (RECONCILIATION) LOGIC ---
-    // 3. Before applying effects, reconcile summons to remove any whose source is no longer active.
+    // 2. Reconcile summons based on active effects (removes summons whose source is gone).
     const validSummonSourceIds = new Set(
         mainEffectHandler.activeEffects.filter(e => e.type === 'summon_creature').map(e => e.itemId)
     );
@@ -47,62 +41,49 @@ async function processAndRenderAll(character) {
             validSummonSourceIds.has(summon.source.id)
         );
     }
-    // --- END OF AUTO-DISMISSAL LOGIC ---
 
-    // --- NEW: DYNAMIC HEALTH ADJUSTMENT LOGIC ---
-    // 1. Get the bonus from the last cycle, defaulting to 0 if it doesn't exist on the character.
-    const previousMaxHealthBonus = character.lastMaxHealthBonus ?? 0;
+    // 3. Generate dynamic equipment layout based on effects.
+    const layoutEffects = mainEffectHandler.processLayoutEffects(mainEffectHandler.activeEffects);
+    const { layoutConfig, slotMap } = generateCharacterLayout(character, layoutEffects);
 
-    // 2. Calculate the new bonus from currently active effects.
-    // This filter ensures we only count effects that apply in the 'play' context.
+    // 4. Reconcile equipped items against the new layout. This returns the most up-to-date character object.
+    const reconciledCharacter = await reconcileEquipmentSlots(character, slotMap);
+
+    // --- MOVED: DYNAMIC HEALTH LOGIC NOW RUNS *AFTER* RECONCILIATION ---
+    // This ensures we are always modifying the freshest version of the character object.
+    const previousMaxHealthBonus = reconciledCharacter.lastMaxHealthBonus ?? 0;
     const newMaxHealthBonus = mainEffectHandler.activeEffects
         .filter(effect => {
             if (effect.type !== 'max_health_mod') return false;
-            
             const isPassiveEffect = effect.itemType === 'passive';
-            // This logic MUST match the condition inside EffectHandler's applyEffectsToCharacter method.
             if (effect.itemType === 'active' || (isPassiveEffect && (effect.sourceType === 'equipment' || effect.sourceType === 'perk' || effect.sourceType === 'flaw'))) {
                 return true;
             }
             return false;
         })
         .reduce((sum, effect) => sum + effect.value, 0);
-
-    // 3. Determine the change in bonus between this cycle and the last.
+    
     const bonusChange = newMaxHealthBonus - previousMaxHealthBonus;
 
-    // 4. If the bonus has changed, apply that change to the character's current health.
     if (bonusChange !== 0) {
-        const newCurrentHealth = (character.health.current ?? 0) + bonusChange;
-        
-        // Apply the edge case rule: health cannot drop below 0.
-        character.health.current = Math.max(0, newCurrentHealth);
-        console.log(`Max health bonus changed by ${bonusChange}. New current health: ${character.health.current}`);
+        const newCurrentHealth = (reconciledCharacter.health.current ?? 0) + bonusChange;
+        reconciledCharacter.health.current = Math.max(0, newCurrentHealth);
+        console.log(`Max health bonus changed by ${bonusChange}. New current health: ${reconciledCharacter.health.current}`);
     }
+    reconciledCharacter.lastMaxHealthBonus = newMaxHealthBonus;
+    // --- END OF MOVED LOGIC ---
 
-    // 5. Update the character object with the new bonus value so it will be persisted when saved.
-    character.lastMaxHealthBonus = newMaxHealthBonus;
-    // --- END OF DYNAMIC HEALTH ADJUSTMENT LOGIC ---
-
-    // 4. NOW, generate the dynamic layout. It can now correctly use the active effects.
-    // UPDATED: The result of processLayoutEffects is now passed into generateCharacterLayout.
-    const layoutEffects = mainEffectHandler.processLayoutEffects(mainEffectHandler.activeEffects);
-    const { layoutConfig, slotMap } = generateCharacterLayout(character, layoutEffects);
-
-    // 5. Reconcile the character's saved slots against the new, dynamic layout to prevent data errors.
-    const reconciledCharacter = await reconcileEquipmentSlots(character, slotMap);
-
-    // 6. Apply all other effects (stat mods, etc.) to the reconciled character.
-    // UPDATED: Calls the method on the instance and passes the newly loaded `bestiaryData`.
+    // 5. Apply all other effects (stat mods, etc.) to the reconciled character.
     const effectedCharacter = mainEffectHandler.applyEffectsToCharacter(reconciledCharacter, 'play', activeAbilityStates, bestiaryData);
 
-    // --- END OF NEW ORDER ---
-
-    // Store the generated layout in our global variable so event handlers can access it.
+    // 6. Store the generated layout globally so event handlers can access it.
     activeLayout = { layoutConfig, slotMap };
 
-    // This copies all dynamically calculated properties from the effected character
-    // back to the main character object, making them available to all event handlers.
+    // --- FINAL STATE UPDATE ---
+    // This copies all dynamically calculated properties from the final `effectedCharacter`
+    // back to the main `character` object, ensuring the state is consistent for the next interaction.
+    character.health.current = effectedCharacter.health.current;
+    character.lastMaxHealthBonus = effectedCharacter.lastMaxHealthBonus;
     character.calculatedHealth = effectedCharacter.calculatedHealth;
     character.languages = effectedCharacter.languages;
     character.activeRollEffects = effectedCharacter.activeRollEffects;
@@ -113,6 +94,7 @@ async function processAndRenderAll(character) {
     character.resistances = effectedCharacter.resistances;
     character.movement = effectedCharacter.movement;
 
+    // This gets a list of all items that are equipment, for rendering.
     const equipmentItems = effectedCharacter.inventory
         .map(item => {
             const definition = equipmentData[item.id];
@@ -126,15 +108,12 @@ async function processAndRenderAll(character) {
         .filter(Boolean);
         
     // --- RENDER EVERYTHING ---
-    // UPDATED: Pass the handler instance to the functions that need it.
     renderTopNav(effectedCharacter, moduleDefinitions);
     renderMainTab(effectedCharacter, moduleDefinitions, mainEffectHandler);
     renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);
     renderInventoryTab(effectedCharacter, equipmentData, layoutConfig, slotMap);
     renderEquipmentTab(equipmentItems, effectedCharacter.equipmentSlots, equipmentData, effectedCharacter, layoutConfig, slotMap);
-
-    // ADDED: Final call to render the summons panel.
     renderSummonsPanel(effectedCharacter.summonedCreatures, bestiaryData);
 }
 
@@ -665,10 +644,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // --- Logic for Character Health (ensure it doesn't conflict) ---
             if (applySummonHealthBtn && applySummonHealthBtn.dataset.entityType === 'character') {
-                // CORRECTED: Use the button's data attribute to find the correct, dynamic input ID.
                 const healthInput = contentArea.querySelector(`#health-adj-${applySummonHealthBtn.dataset.entityId}`);
                 
-                if (!healthInput) return; // Guard against a missing input field.
+                if (!healthInput) return;
 
                 const adjustment = parseInt(healthInput.value, 10);
                 if (isNaN(adjustment)) return alerter.show('Invalid input.', 'error');
@@ -677,11 +655,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const newCurrentHealth = Math.max(0, Math.min(activeCharacter.health.current + adjustment, finalMaxHealth));
 
                 try {
-                    // UPDATED: Use the more general updateCharacter to save both properties.
+                    // --- TEST CODE ---
+                    // Create a new health object by copying the old one and updating the current value.
+                    const newHealthObject = {
+                        ...activeCharacter.health,
+                        current: newCurrentHealth
+                    };
+
+                    // Update the database by saving the entire new health object.
                     activeCharacter = await db.updateCharacter(activeCharacter.id, {
-                        "health.current": newCurrentHealth,
-                        "lastMaxHealthBonus": activeCharacter.lastMaxHealthBonus
+                        health: newHealthObject,
+                        lastMaxHealthBonus: activeCharacter.lastMaxHealthBonus
                     });
+                    // --- END OF TEST CODE ---
+                    
                     processAndRenderAll(activeCharacter);
                 } catch(err) { 
                     console.error('Error updating character health:', err); 
