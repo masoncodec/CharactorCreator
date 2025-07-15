@@ -1,51 +1,48 @@
-// effectHandler.js
-// This module centralizes the logic for processing and applying character effects
-// derived from abilities, flaws, and perks.
+// effectHandler.js (Updated)
+// This module centralizes the logic for processing and applying character effects.
 
 export const EffectHandler = {
-    // Stores currently active effects that influence character stats or state
-    activeEffects: [], // This will be a list of processed effects, not just raw ability effects
+    activeEffects: [],
 
     /**
-     * Processes active abilities, flaws, and perks to compile their effects.
-     * This function should be called whenever character state might change (e.g., ability toggle, character load).
-     * @param {object} character - The character object containing abilities, flaws, and perks.
-     * @param {object} abilityData - A map of all ability definitions by ID.
+     * Processes a pre-aggregated list of abilities, plus flaws and perks, to compile their effects.
+     * UPDATED: Now uses the new top-level itemType property from the aggregated ability objects.
+     * @param {Array<object>} allAbilities - The master list of abilities from the abilityAggregator.
+     * @param {object} character - The character object, needed for flaws and perks.
      * @param {object} flawData - A map of all flaw definitions by ID.
-     * @param {object} perkData - A map of all perk definitions by ID. // ADDED: perkData parameter
+     * @param {object} perkData - A map of all perk definitions by ID.
      * @param {Set<string>} activeAbilityStates - A Set of IDs of currently toggled active abilities.
-     * @param {string} context - The context in which effects are being processed ('wizard' or 'play').
+     * @param {string} context - The context in which effects are being processed.
      */
-    processActiveAbilities: function(character, abilityData, flawData, perkData, activeAbilityStates, context) { // ADDED perkData
-        this.activeEffects = []; // Clear previous active effects
-
+    processActiveAbilities: function(allAbilities, character, flawData, perkData, activeAbilityStates, context) {
+        this.activeEffects = [];
         if (!character) return;
 
-        // Process Abilities
-        if (character.abilities) {
-            character.abilities.forEach(abilityState => {
-                const abilityDef = abilityData[abilityState.id];
-                if (abilityDef && abilityDef.effect) {
-                    // An ability is 'active' if it's passive, or if it's an active ability AND its ID is in activeAbilityStates
-                    const isActive = (abilityDef.type === "passive") || (abilityDef.type === "active" && activeAbilityStates.has(abilityState.id));
+        // Process the unified list of all abilities
+        if (allAbilities) {
+            allAbilities.forEach(ability => {
+                const abilityDef = ability.definition;
+                if (!abilityDef || !abilityDef.effect) return;
 
-                    if (isActive) {
-                        abilityDef.effect.forEach(effect => {
-                            // Store the raw effect data along with context
-                            this.activeEffects.push({
-                                ...effect,
-                                itemName: abilityDef.name, // Renamed for consistency across sources
-                                itemId: abilityState.id,
-                                itemType: abilityDef.type, // 'active' or 'passive'
-                                sourceType: "ability" // Indicate source is an ability
-                            });
+                // UPDATED: Check the top-level `ability.itemType` property now, not ability.definition.type
+                const isEffectivelyActive = (ability.itemType === "passive") || (ability.itemType === "active" && activeAbilityStates.has(ability.instancedId));
+
+                if (isEffectivelyActive) {
+                    abilityDef.effect.forEach(effect => {
+                        // UPDATED: Add the itemType to the effect object for later use.
+                        this.activeEffects.push({
+                            ...effect,
+                            itemType: ability.itemType, // Pass the type ('active' or 'passive') along
+                            itemName: abilityDef.name,
+                            itemId: ability.instancedId,
+                            sourceType: ability.sourceType
                         });
-                    }
+                    });
                 }
             });
         }
 
-        // Process Flaws
+        // Process Flaws and Perks (This logic is unchanged)
         if (character.flaws && flawData) {
             character.flaws.forEach(flawState => {
                 const flawDef = flawData[flawState.id];
@@ -53,17 +50,15 @@ export const EffectHandler = {
                     flawDef.effect.forEach(effect => {
                         this.activeEffects.push({
                             ...effect,
-                            itemName: flawDef.name, // Use flaw name for context
-                            itemId: flawState.id, // Include flaw ID
-                            itemType: "passive", // Treat functionally as passive for effect processing
-                            sourceType: "flaw" // Indicate source is a flaw
+                            itemName: flawDef.name,
+                            itemId: flawState.id,
+                            itemType: "passive", // Treat functionally as passive
+                            sourceType: "flaw"
                         });
                     });
                 }
             });
         }
-
-        // Process Perks // ADDED: New section for Perks
         if (character.perks && perkData) {
             character.perks.forEach(perkState => {
                 const perkDef = perkData[perkState.id];
@@ -71,10 +66,10 @@ export const EffectHandler = {
                     perkDef.effect.forEach(effect => {
                         this.activeEffects.push({
                             ...effect,
-                            itemName: perkDef.name, // Use perk name for context
-                            itemId: perkState.id, // Include perk ID
-                            itemType: "passive", // Treat functionally as passive for effect processing
-                            sourceType: "perk" // Indicate source is a perk
+                            itemName: perkDef.name,
+                            itemId: perkState.id,
+                            itemType: "passive", // Treat functionally as passive
+                            sourceType: "perk"
                         });
                     });
                 }
@@ -99,6 +94,67 @@ export const EffectHandler = {
     },
 
     /**
+     * NEW: Calculates the final value of an attribute by adding all active numerical modifiers.
+     * @param {string} attributeName - The name of the attribute to calculate.
+     * @param {number} baseValue - The character's base value for that attribute.
+     * @returns {number} The final, combined value of the attribute.
+     */
+    getCombinedAttributeValue: function(attributeName, baseValue) {
+        const numericalModifiers = this.getEffectsForAttribute(attributeName, 'modifier');
+        const totalModifier = numericalModifiers.reduce((sum, effect) => sum + (effect.modifier || 0), 0);
+        return baseValue + totalModifier;
+    },
+
+    /**
+     * Processes all active effects to find and aggregate equipment slot modifications.
+     * @param {Array<object>} allActiveEffects - The full list of currently active effects.
+     * @returns {object} A summary object with the net changes to the equipment layout.
+     */
+    processLayoutEffects: function(allActiveEffects) {
+        const summary = {
+            slotMods: {}, // e.g., { "weapons_main_hand": 1, "accessories_ring": -1 }
+            categoriesToAdd: {}, // e.g., { "implants": { name: "Implants", slots: ["neuro_link"] } }
+            categoriesToRemove: [] // e.g., ["armor"]
+        };
+
+        const slugify = (str) => str.toLowerCase().replace(/\s+/g, '_');
+
+        // --- Process Additions First ---
+        allActiveEffects.forEach(effect => {
+            if (effect.type === 'add_equip_category') {
+                const key = slugify(effect.name);
+                if (!summary.categoriesToAdd[key]) {
+                    summary.categoriesToAdd[key] = {
+                        name: effect.name, // Keep the original "pretty" name
+                        slots: []
+                    };
+                }
+                // Merge slots from multiple effects for the same category
+                summary.categoriesToAdd[key].slots.push(...effect.slots.map(slugify));
+            }
+            if (effect.type === 'equip_slot' && effect.value > 0) {
+                const key = `${slugify(effect.category)}_${slugify(effect.slot)}`;
+                summary.slotMods[key] = (summary.slotMods[key] || 0) + effect.value;
+            }
+        });
+
+        // --- Then Process Removals ---
+        allActiveEffects.forEach(effect => {
+            if (effect.type === 'remove_equip_category') {
+                summary.categoriesToRemove.push(slugify(effect.name));
+            }
+            if (effect.type === 'equip_slot' && effect.value < 0) {
+                const key = `${slugify(effect.category)}_${slugify(effect.slot)}`;
+                summary.slotMods[key] = (summary.slotMods[key] || 0) + effect.value;
+            }
+        });
+
+        console.log('Summary of equipment slots: ', summary);
+
+        return summary;
+    },
+
+    /**
      * Applies all currently active effects to a character object.
      * This function creates a new character object with effects applied,
      * it does NOT modify the original character object.
@@ -106,8 +162,11 @@ export const EffectHandler = {
      * @param {string} context - The context for applying effects ('wizard' or 'play').
      * @returns {object} A new character object with effects applied.
      */
-    applyEffectsToCharacter: function(character, context) {
+    applyEffectsToCharacter: function(character, context, activeAbilityStates) {
         let modifiedCharacter = JSON.parse(JSON.stringify(character)); // Deep clone to avoid direct mutation
+
+        // This makes the returned object a complete package for the renderer.
+        modifiedCharacter.activeAbilityIds = activeAbilityStates;
 
         // Initialize or reset dynamic values that will be recalculated by effects
         // Store base max health if not already present, to allow modifications
@@ -160,15 +219,18 @@ export const EffectHandler = {
                     // If source is a flaw or perk, it's always considered 'passive' for this effect,
                     // applying in 'wizard' context as per your requirement.
                     // Existing abilities still use their specific type (active/passive).
-                    const isPassiveEffect = effect.itemType === 'passive' || effect.sourceType === 'flaw' || effect.sourceType === 'perk';
+                    const isPassiveEffect = effect.itemType === 'passive'; // Simplified check
 
                     if (context === 'wizard' && isPassiveEffect) {
                         if (modifiedCharacter.calculatedHealth) {
                             modifiedCharacter.calculatedHealth.currentMax += effect.value;
                         }
-                    } else if (context === 'play' && effect.itemType === 'active') { // Only active abilities apply in 'play' context here
-                        if (modifiedCharacter.calculatedHealth) {
-                            modifiedCharacter.calculatedHealth.currentMax += effect.value;
+                    } else if (context === 'play') {
+                        // Apply effect if ability is active OR if it's a passive effect from equipment
+                        if (effect.itemType === 'active' || (isPassiveEffect && effect.sourceType === 'equipment')) {
+                            if (modifiedCharacter.calculatedHealth) {
+                                modifiedCharacter.calculatedHealth.currentMax += effect.value;
+                            }
                         }
                     }
                     break;

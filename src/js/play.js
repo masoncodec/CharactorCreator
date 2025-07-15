@@ -1,497 +1,610 @@
-// play.js (Updated)
-// This file handles the main character display and interaction on the play page.
-// REFACTORED: To use the new on-demand, module-based data loading system.
-
-// Import shared modules
+// play.js (Corrected and Final)
 import { EffectHandler } from './effectHandler.js';
-// UPDATED: Importing the new data loader functions.
 import { loadGameModules, loadDataForModule } from './dataLoader.js';
 import { alerter } from './alerter.js';
 import { RollManager } from './RollManager.js';
-
-const MAX_MODIFIER_COLUMNS = 5;
+import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, EQUIPMENT_SLOT_CONFIG, getEquippedCount, findTargetSlots } from './play-ui.js';
+import { aggregateAllAbilities } from './abilityAggregator.js';
 
 // Global variables
-let moduleDefinitions = {};
-let abilityData = {};
-let flawData = {};
-let perkData = {};
-let activeAbilityStates = new Set();
-let activeCharacter = null;
+let moduleDefinitions = {}, abilityData = {}, flawData = {}, perkData = {}, equipmentData = {}, activeAbilityStates = new Set(), activeCharacter = null;
 
-// This function remains the same, but now depends on the data loaded on-demand.
-function processAndRenderCharacter(character) {
+// Add this new global variable near the top with the others.
+let activeLayout = {};
+
+/**
+ * Main function to process a character's data and render the entire layout.
+ */
+async function processAndRenderAll(character) {
     if (!character) {
-        document.getElementById('characterDetails').innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
+        document.querySelector('.play-content-scrollable').innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
         return;
     }
 
-    EffectHandler.processActiveAbilities(character, abilityData, flawData, perkData, activeAbilityStates, 'play');
-    const effectedCharacter = EffectHandler.applyEffectsToCharacter(character, 'play');
+    // --- NEW, CORRECTED ORDER OF OPERATIONS ---
 
-    const characterDetails = document.getElementById('characterDetails');
-    const characterNameHeader = document.getElementById('characterNameHeader');
+    // 1. First, aggregate all abilities from the character and their equipment.
+    const allAbilities = aggregateAllAbilities(character, abilityData, equipmentData);
 
-    if (characterNameHeader) {
-        // --- UPDATED: Now includes character's level ---
-        characterNameHeader.innerHTML = `
-            ${effectedCharacter.info.name}
-            <span class="character-subheader">Level ${effectedCharacter.level || 1} | Destiny: ${effectedCharacter.destiny} | Class: ${effectedCharacter.module || 'Crescendo'}</span>
-        `;
-    }
+    // 2. Next, process these abilities to populate the EffectHandler's list of active effects.
+    //    This is the crucial step that must happen before layout generation.
+    EffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
 
-    let systemType = 'KOB';
-    const moduleId = effectedCharacter.module;
-    if (moduleId && moduleDefinitions && moduleDefinitions[moduleId]) {
-        const moduleInfo = moduleDefinitions[moduleId];
-        systemType = moduleInfo.type || 'KOB';
-    }
+    // 3. NOW, generate the dynamic layout. It can now correctly use the active effects.
+    const { layoutConfig, slotMap } = generateCharacterLayout(character);
 
-    let attributesHtml = '';
-    if (systemType === 'Hope/Fear') {
-        attributesHtml = renderHopeFearUI(effectedCharacter);
-    } else {
-        attributesHtml = renderKOBUI(effectedCharacter);
-    }
+    // 4. Reconcile the character's saved slots against the new, dynamic layout to prevent data errors.
+    const reconciledCharacter = await reconcileEquipmentSlots(character, slotMap);
 
-    characterDetails.innerHTML = `
-        <div class="character-stats">
-            <h4>Attributes</h4>
-            <div class="attributes-grid-container">${attributesHtml}</div>
-        </div>
-        <div class="character-health health-display"></div>
-        ${renderResources(effectedCharacter)}
-        ${renderLanguages(effectedCharacter)}
-        ${renderStatuses(effectedCharacter)}
-        ${renderFlaws(effectedCharacter)}
-        ${renderPerks(effectedCharacter)}
-        ${effectedCharacter.inventory && effectedCharacter.inventory.length > 0 ? `...` : ''}
-        ${renderAbilities(effectedCharacter)}
-        <div class="character-info">...</div>
-    `;
+    // 5. Apply all other effects (stat mods, etc.) to the reconciled character.
+    const effectedCharacter = EffectHandler.applyEffectsToCharacter(reconciledCharacter, 'play', activeAbilityStates);
 
-    renderHealthDisplay(effectedCharacter);
+    // --- END OF NEW ORDER ---
 
-    if (systemType === 'Hope/Fear') {
-        attachHopeFearRollListeners(effectedCharacter);
-    } else {
-        attachAttributeRollListeners();
-    }
+    // Store the generated layout in our global variable so event handlers can access it.
+    activeLayout = { layoutConfig, slotMap };
+
+    // This copies all dynamically calculated properties from the effected character
+    // back to the main character object, making them available to all event handlers.
+    character.calculatedHealth = effectedCharacter.calculatedHealth;
+    character.languages = effectedCharacter.languages;
+    character.activeRollEffects = effectedCharacter.activeRollEffects;
+    character.temporaryBuffs = effectedCharacter.temporaryBuffs;
+    character.summonedCreatures = effectedCharacter.summonedCreatures;
+    character.statuses = effectedCharacter.statuses;
+    character.resources = effectedCharacter.resources;
+    character.resistances = effectedCharacter.resistances;
+    character.movement = effectedCharacter.movement;
+
+    const equipmentItems = effectedCharacter.inventory
+        .map(item => {
+            const definition = equipmentData[item.id];
+            if (!definition || definition.type !== 'equipment') return null;
+            const fullItemData = { ...item, definition };
+            if (item.quantity > 1) {
+                fullItemData.equippedCount = getEquippedCount(item.id, effectedCharacter, equipmentData, layoutConfig);
+            }
+            return fullItemData;
+        })
+        .filter(Boolean);
+        
+    // --- RENDER EVERYTHING ---
+    renderTopNav(effectedCharacter, moduleDefinitions);
+    renderMainTab(effectedCharacter, moduleDefinitions);
+    renderAbilitiesTab(allAbilities, effectedCharacter);
+    renderProfileTab(effectedCharacter, flawData, perkData);
+    renderInventoryTab(effectedCharacter, equipmentData, layoutConfig, slotMap);
+    renderEquipmentTab(equipmentItems, effectedCharacter.equipmentSlots, equipmentData, effectedCharacter, layoutConfig, slotMap);
 }
 
-// ... All other functions (renderHopeFearUI, attachHopeFearRollListeners, renderKOBUI, etc.) remain the same ...
-function renderHopeFearUI(effectedCharacter) {
-    if (!effectedCharacter.attributes) return '';
+/**
+ * Creates a map of slot types to their unique instance IDs based on a layout config.
+ * E.g., { "ring": ["ring_1", "ring_2"] }
+ * @param {object} config - The equipment slot configuration object.
+ * @returns {object} The generated slot map.
+ */
+function generateSlotMap(config) {
+    const slotMap = {};
+    // Iterate through all slot types defined in the categories
+    for (const categoryName in config.categories) {
+        const slotTypes = config.categories[categoryName];
+        slotTypes.forEach(slotType => {
+            // If we haven't seen this slot type before, initialize its array
+            if (!slotMap[slotType]) {
+                slotMap[slotType] = [];
+            }
+            // Create a unique instance ID, e.g., "ring_1", "ring_2"
+            const instanceNumber = slotMap[slotType].length + 1;
+            slotMap[slotType].push(`${slotType}_${instanceNumber}`);
+        });
+    }
+    return slotMap;
+}
+
+/**
+ * Generates the final equipment slot configuration and map for a character by applying
+ * layout effects processed by the EffectHandler.
+ * @param {object} character - The character object.
+ * @returns {object} An object containing the final layoutConfig and slotMap.
+ */
+function generateCharacterLayout(character) {
+    // 1. Get the pre-processed summary of all layout changes from the EffectHandler.
+    const layoutSummary = EffectHandler.processLayoutEffects(EffectHandler.activeEffects);
+
+    // 2. Start with a deep copy of the base configuration.
+    const finalConfig = JSON.parse(JSON.stringify(EQUIPMENT_SLOT_CONFIG));
+
+    // 3. Apply the summary to the config copy.
+    // ADDITIONS FIRST:
+    // Add new categories
+    for (const key in layoutSummary.categoriesToAdd) {
+        if (!finalConfig.categories[key]) {
+            finalConfig.categories[key] = [];
+        }
+        finalConfig.categories[key].push(...layoutSummary.categoriesToAdd[key].slots);
+    }
+    // Add new slots
+    for (const key in layoutSummary.slotMods) {
+        const [categoryKey, slotKey] = key.split('_');
+        const value = layoutSummary.slotMods[key];
+        if (value > 0 && finalConfig.categories[categoryKey]) {
+            for (let i = 0; i < value; i++) {
+                finalConfig.categories[categoryKey].push(slotKey);
+            }
+        }
+    }
+
+    // THEN REMOVALS:
+    // Remove categories
+    layoutSummary.categoriesToRemove.forEach(categoryKey => {
+        delete finalConfig.categories[categoryKey];
+    });
+    // Remove slots
+    for (const key in layoutSummary.slotMods) {
+        const [categoryKey, slotKey] = key.split('_');
+        const value = layoutSummary.slotMods[key];
+        if (value < 0 && finalConfig.categories[categoryKey]) {
+            for (let i = 0; i < Math.abs(value); i++) {
+                const indexToRemove = finalConfig.categories[categoryKey].indexOf(slotKey);
+                if (indexToRemove > -1) {
+                    finalConfig.categories[categoryKey].splice(indexToRemove, 1);
+                }
+            }
+        }
+    }
+
+    // FINAL CLEANUP: Remove any categories that now have zero slots.
+    for (const categoryKey in finalConfig.categories) {
+        if (finalConfig.categories[categoryKey].length === 0) {
+            delete finalConfig.categories[categoryKey];
+        }
+    }
+
+    // 4. Generate the final slot map from the fully modified config.
+    const finalSlotMap = generateSlotMap(finalConfig);
+
+    return { layoutConfig: finalConfig, slotMap: finalSlotMap };
+}
+
+/**
+ * Compares a character's equipment against a definitive layout, then returns a
+ * new, clean character object with a perfectly sorted equipmentSlots object.
+ * @param {object} character - The character object with current equipment.
+ * @param {object} finalSlotMap - The newly generated slot map to check against.
+ * @returns {Promise<object>} A new character object with a reconciled equipment state.
+ */
+async function reconcileEquipmentSlots(character, finalSlotMap) {
+    let characterNeedsUpdate = false;
+    let newInventory = [...character.inventory];
     
-    const containerStyle = "display: flex; flex-wrap: wrap; justify-content: space-around; gap: 1rem; padding: 1rem; background: #222; border-radius: 5px;";
-    const attributeStyle = "display: flex; flex-direction: column; align-items: center; gap: 0.5rem;";
-    const valueStyle = "font-size: 1.2rem; font-weight: bold; color: #a0c4ff;";
+    // This array, generated from the config, is the source of truth for the correct order.
+    const orderedValidSlotIds = Object.values(finalSlotMap).flat();
+    const newSortedSlots = {};
 
-    const attributeButtons = Object.keys(effectedCharacter.attributes).map(attr => {
-        const baseValue = effectedCharacter.attributes[attr];
-        return `
-            <div class="hope-fear-attribute" style="${attributeStyle}">
-                <span class="hope-fear-name">${attr.charAt(0).toUpperCase() + attr.slice(1)}</span>
-                <span class="hope-fear-value" style="${valueStyle}">${baseValue >= 0 ? '+' : ''}${baseValue}</span>
-                <button class="btn-roll hope-fear-roll-btn" data-attribute="${attr}">Roll</button>
-            </div>
-        `;
-    }).join('');
-
-    return `<div class="hope-fear-container" style="${containerStyle}">${attributeButtons}</div>`;
-}
-
-function attachHopeFearRollListeners(effectedCharacter) {
-    document.querySelectorAll('.hope-fear-roll-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const attributeName = this.dataset.attribute;
-            
-            const numericalEffects = EffectHandler.getEffectsForAttribute(attributeName, 'modifier');
-            const diceNumEffects = EffectHandler.getEffectsForAttribute(attributeName, 'die_num');
-            
-            const baseValue = effectedCharacter.attributes[attributeName] || 0;
-
-            const modifierData = {
-                totalNumerical: numericalEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
-                totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
-                sources: [...numericalEffects, ...diceNumEffects]
-            };
-
-            const rollManager = new RollManager(attributeName.charAt(0).toUpperCase() + attributeName.slice(1), modifierData, baseValue);
-            rollManager.show();
-        });
-    });
-}
-
-function renderKOBUI(effectedCharacter) {
-    let attributesHtml = '';
-    if (effectedCharacter.attributes) {
-        attributesHtml = Object.entries(effectedCharacter.attributes).map(([attr, die]) => {
-            const initialModifiers = EffectHandler.getEffectsForAttribute(attr, "modifier");
-            let modifierSpans = '';
-            for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-                const mod = initialModifiers[i];
-                if (mod) {
-                    modifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
-                } else {
-                    modifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
-                }
-            }
-            const unmodifiedResultHtml = initialModifiers.length > 0
-                ? `<div class="unmodified-roll-result"></div>`
-                : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-            return `
-                <div class="attribute-row" data-attribute="${attr}" data-dice="${die}">
-                    <label>${attr.charAt(0).toUpperCase() + attr.slice(1)}</label>
-                    <span class="die-type">${String(die).toUpperCase()}</span>
-                    <button class="btn-roll attribute-roll">Roll</button>
-                    <div class="roll-result"></div>
-                    ${modifierSpans}
-                    ${unmodifiedResultHtml}
-                </div>
-            `;
-        }).join('');
-
-        const initialLuckModifiers = EffectHandler.getEffectsForAttribute('luck', "modifier");
-        let luckModifierSpans = '';
-        for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
-            const mod = initialLuckModifiers[i];
-            if (mod) {
-                luckModifierSpans += `<span class="modifier-display" style="color: ${mod.modifier > 0 ? '#03AC13' : '#FF0000'};" data-item-name="${mod.itemName}" data-source-type="${mod.sourceType}">${(mod.modifier > 0 ? '+' : '') + mod.modifier}</span>`;
-            } else {
-                luckModifierSpans += `<span class="modifier-display empty-modifier-cell">&nbsp;</span>`;
-            }
-        }
-        const unmodifiedLuckResultHtml = initialLuckModifiers.length > 0
-            ? `<div class="unmodified-roll-result"></div>`
-            : `<div class="unmodified-roll-result empty-unmodified-cell">&nbsp;</div>`;
-        attributesHtml += `
-            <div class="attribute-row" data-attribute="luck" data-dice="d100">
-                <label>Luck</label>
-                <span class="die-type">D100</span>
-                <button class="btn-roll attribute-roll">Roll</button>
-                <div class="roll-result"></div>
-                ${luckModifierSpans}
-                ${unmodifiedLuckResultHtml}
-            </div>
-        `;
-    }
-    return attributesHtml;
-}
-
-function updateAttributeRollDisplay(assignmentElement, baseResult, modifiedResult, activeModifiers) {
-    let yellowResultEl = assignmentElement.querySelector('.roll-result');
-    let blueResultEl = assignmentElement.querySelector('.unmodified-roll-result');
-    if (!yellowResultEl || !blueResultEl) return;
-    yellowResultEl.classList.remove('visible', 'fade-out');
-    blueResultEl.classList.remove('visible', 'fade-out');
-    blueResultEl.classList.remove('empty-unmodified-cell');
-    assignmentElement.querySelectorAll('.modifier-display, .empty-modifier-cell').forEach(el => el.remove());
-    yellowResultEl.textContent = modifiedResult;
-    yellowResultEl.classList.add('visible');
-    setTimeout(() => yellowResultEl.classList.add('fade-out'), 2000);
-    const modifiersToDisplay = activeModifiers.slice(0, MAX_MODIFIER_COLUMNS);
-    const rollResultColumn = assignmentElement.querySelector('.roll-result');
-    let lastInsertedElement = rollResultColumn;
-    modifiersToDisplay.forEach(mod => {
-        const modSpan = document.createElement('span');
-        modSpan.classList.add('modifier-display');
-        modSpan.textContent = (mod.modifier > 0 ? '+' : '') + mod.modifier;
-        modSpan.style.color = mod.modifier > 0 ? '#03AC13' : '#FF0000';
-        modSpan.dataset.itemName = mod.itemName;
-        modSpan.dataset.sourceType = mod.sourceType;
-        lastInsertedElement.insertAdjacentElement('afterend', modSpan);
-        lastInsertedElement = modSpan;
-    });
-    for (let i = modifiersToDisplay.length; i < MAX_MODIFIER_COLUMNS; i++) {
-        const emptyModSpan = document.createElement('span');
-        emptyModSpan.classList.add('modifier-display', 'empty-modifier-cell');
-        emptyModSpan.innerHTML = '&nbsp;';
-        lastInsertedElement.insertAdjacentElement('afterend', emptyModSpan);
-        lastInsertedElement = emptyModSpan;
-    }
-    if (activeModifiers.length > 0) {
-        blueResultEl.textContent = baseResult;
-        blueResultEl.classList.add('visible');
-        setTimeout(() => blueResultEl.classList.add('fade-out'), 2000);
-    } else {
-        blueResultEl.textContent = '';
-        blueResultEl.classList.add('empty-unmodified-cell');
-    }
-}
-
-function attachAttributeRollListeners() {
-    document.querySelectorAll('.attribute-roll').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const assignment = this.closest('.attribute-row');
-            const attributeName = assignment.getAttribute('data-attribute');
-            const dieType = assignment.getAttribute('data-dice');
-            let baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
-            const relevantActiveEffects = EffectHandler.activeEffects.filter(effect =>
-                effect.attribute && effect.attribute.toLowerCase() === attributeName && effect.cost && effect.sourceType === "ability"
-            );
-            let canAffordAll = true;
-            const costsToDeduct = {};
-            relevantActiveEffects.forEach(effect => {
-                const costResource = effect.cost.resource;
-                const costValue = parseInt(effect.cost.value, 10);
-                if (!costsToDeduct[costResource]) costsToDeduct[costResource] = 0;
-                costsToDeduct[costResource] += costValue;
-            });
-            for (const resourceType in costsToDeduct) {
-                const totalCost = costsToDeduct[resourceType];
-                const charResource = activeCharacter.resources.find(r => r.type === resourceType);
-                if (!charResource || charResource.value < totalCost) {
-                    canAffordAll = false;
-                    alerter.show(`Not enough ${resourceType} to use abilities affecting ${attributeName}.`, 'error');
-                    break;
-                }
-            }
-            if (!canAffordAll) return;
-            if (Object.keys(costsToDeduct).length > 0) {
-                const newResources = activeCharacter.resources.map(res => {
-                    if (costsToDeduct[res.type]) return { ...res, value: res.value - costsToDeduct[res.type] };
-                    return res;
-                });
-                db.updateCharacterResources(activeCharacter.id, newResources).then(updatedChar => {
-                    activeCharacter = updatedChar;
-                    processAndRenderCharacter(activeCharacter);
-                    alerter.show(`Costs deducted for active abilities affecting ${attributeName}.`, 'info');
-                }).catch(err => {
-                    alerter.show('Error deducting costs. See console.', 'error');
-                    console.error('Error deducting character resources:', err);
-                    return;
-                });
-            }
-            const activeModifiers = EffectHandler.getEffectsForAttribute(attributeName, "modifier");
-            let totalModifier = activeModifiers.reduce((sum, mod) => sum + (mod.modifier || 0), 0);
-            const modifiedResult = baseResult + totalModifier;
-            updateAttributeRollDisplay(assignment, baseResult, modifiedResult, activeModifiers);
-        });
-    });
-}
-
-function renderAbilities(character) {
-    if (!character.abilities || character.abilities.length === 0) return '';
-    const activeAbilitiesHtml = [];
-    const passiveAbilitiesHtml = [];
-    character.abilities.forEach(abilityState => {
-        const abilityDef = abilityData[abilityState.id];
-        if (!abilityDef) return;
-        let description = abilityDef.description.replace(/\${([^}]+)}/g, (match, p1) => {
-            try {
-                const path = p1.split('.');
-                let current = abilityDef;
-                for (let i = 0; i < path.length; i++) { current = current?.[path[i]]; }
-                return current !== undefined ? current : match;
-            } catch (e) { return match; }
-        });
-        let optionsHtml = '';
-        if (abilityDef.options && abilityState.selections && abilityState.selections.length > 0) {
-            const selectedOptionNames = abilityState.selections.map(selection => {
-                const option = abilityDef.options.find(opt => opt.id === selection.id);
-                return option ? option.name : selection.id;
-            }).join(', ');
-            optionsHtml = `<p class="ability-selections">Selections: ${selectedOptionNames}</p>`;
-        }
-        if (abilityDef.type === "active") {
-            const isOn = activeAbilityStates.has(abilityState.id) ? 'selected' : '';
-            activeAbilitiesHtml.push(`<li class="ability-list-item"><button class="ability-button ability-card ${isOn}" data-ability-id="${abilityState.id}"><strong>${abilityDef.name}</strong> <span class="ability-type-tag active">ACTIVE</span><p>${description}</p>${optionsHtml}</button></li>`);
+    // 1. Build the new, sorted slots object from scratch.
+    for (const slotId of orderedValidSlotIds) {
+        if (character.equipmentSlots.hasOwnProperty(slotId)) {
+            // If the slot exists on the character, copy its value (item ID or null).
+            newSortedSlots[slotId] = character.equipmentSlots[slotId];
         } else {
-            passiveAbilitiesHtml.push(`<li class="ability-card passive-ability-item"><strong>${abilityDef.name}</strong> <span class="ability-type-tag passive">PASSIVE</span><p>${description}</p>${optionsHtml}</li>`);
+            // If the valid slot was missing from the character data, add it.
+            newSortedSlots[slotId] = null;
+            characterNeedsUpdate = true;
         }
-    });
-    return `<div class="character-abilities"><h4>Abilities</h4><div class="abilities-section-active"><h5>Active Abilities</h5><ul id="activeAbilitiesList">${activeAbilitiesHtml.join('')}</ul></div><div class="abilities-section-passive"><h5>Passive Abilities</h5><ul id="passiveAbilitiesList">${passiveAbilitiesHtml.join('')}</ul></div></div>`;
-}
+    }
 
-function highlightActiveNav(pageName) {
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-        if (link.getAttribute('href').includes(pageName)) {
-            link.classList.add('active');
-        }
-    });
-}
-
-function renderHealthDisplay(character) {
-    if (!character || !character.health) return;
-    const healthDisplayContainer = document.querySelector('.character-health.health-display');
-    if (!healthDisplayContainer) return;
-    const currentMaxHealth = character.calculatedHealth ? character.calculatedHealth.currentMax : character.health.max;
-    const healthPercentage = (character.health.current / currentMaxHealth) * 100;
-    let healthClass = healthPercentage > 60 ? 'health-full' : healthPercentage > 30 ? 'health-medium' : 'health-low';
-    healthDisplayContainer.innerHTML = `<h4>Health</h4><div class="health-controls"><input type="number" id="healthAdjustmentInput" placeholder="e.g. -5, +10" class="form-control" /><button id="applyHealthAdjustment" class="btn btn-primary">Apply</button></div><div class="health-bar-container"><div class="health-bar ${healthClass}" style="width: ${healthPercentage}%"></div></div><div class="health-numbers">${character.health.current} / ${currentMaxHealth} ${character.health.temporary ? `(+${character.health.temporary} temp)` : ''}</div>`;
-    const applyButton = document.getElementById('applyHealthAdjustment');
-    const inputField = document.getElementById('healthAdjustmentInput');
-    applyButton.addEventListener('click', function() {
-        const adjustment = parseInt(inputField.value, 10);
-        if (isNaN(adjustment)) { alerter.show('Invalid input.', 'error'); inputField.value = ''; return; }
-        let newCurrentHealth = Math.max(0, character.health.current + adjustment);
-        const finalMaxHealth = character.calculatedHealth ? character.calculatedHealth.currentMax : character.health.max;
-        newCurrentHealth = Math.min(newCurrentHealth, finalMaxHealth);
-        db.updateCharacterHealth(activeCharacter.id, { current: newCurrentHealth }).then(updatedCharacter => {
-            activeCharacter = updatedCharacter;
-            processAndRenderCharacter(activeCharacter);
-            inputField.value = '';
-        }).catch(err => {
-            alerter.show('Error updating health.', 'error');
-            console.error('Error updating character health:', err);
-        });
-    });
-    inputField.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyButton.click(); } });
-}
-
-function renderResources(character) {
-    if (!character.resources || character.resources.length === 0) return '';
-    return `<div class="character-resources"><h4>Resources</h4><ul class="resource-list">${character.resources.map(r => `<li><strong>${r.type.charAt(0).toUpperCase() + r.type.slice(1)}:</strong> ${r.value} ${r.max !== undefined ? `/ ${r.max}` : ''}</li>`).join('')}</ul></div>`;
-}
-
-function renderLanguages(character) {
-    if (!character.languages || character.languages.length === 0) return '';
-    return `<div class="character-languages"><h4>Languages</h4><ul>${character.languages.map(lang => `<li>${lang}</li>`).join('')}</ul></div>`;
-}
-
-function renderStatuses(character) {
-    if (!character.statuses || character.statuses.length === 0) return '';
-    return `<div class="character-statuses"><h4>Active Statuses</h4><ul>${character.statuses.map(s => `<li>${s.name}</li>`).join('')}</ul></div>`;
-}
-
-function renderFlaws(character) {
-    if (!character.flaws || character.flaws.length === 0) return '';
-    return `<div class="character-flaws"><h4>Flaws</h4><ul>${character.flaws.map(flawState => {
-        const flawDef = flawData[flawState.id];
-        if (!flawDef) return `<li>Unknown Flaw (ID: ${flawState.id})</li>`;
-        let optionsHtml = '';
-        if (flawDef.options && flawState.selections && flawState.selections.length > 0) {
-            optionsHtml = `<p class="flaw-selections">Selections: ${flawState.selections.map(s => { const o = flawDef.options.find(opt => opt.id === s.id); return o ? o.name : s.id; }).join(', ')}</p>`;
-        }
-        return `<li class="flaw-item"><strong>${flawDef.name}</strong><p>${flawDef.description}</p>${optionsHtml}</li>`;
-    }).join('')}</ul></div>`;
-}
-
-function renderPerks(character) {
-    if (!character.perks || character.perks.length === 0) return '';
-    return `<div class="character-perks"><h4>Perks</h4><ul>${character.perks.map(perkState => {
-        const perkDef = perkData[perkState.id];
-        if (!perkDef) return `<li>Unknown Perk (ID: ${perkState.id})</li>`;
-        let optionsHtml = '';
-        if (perkDef.options && perkState.selections && perkState.selections.length > 0) {
-            optionsHtml = `<p class="perk-selections">Selections: ${perkState.selections.map(s => { const o = perkDef.options.find(opt => opt.id === s.id); return o ? o.name : s.id; }).join(', ')}</p>`;
-        }
-        return `<li class="perk-item"><strong>${perkDef.name}</strong><p>${perkDef.description}</p>${optionsHtml}</li>`;
-    }).join('')}</ul></div>`;
-}
-
-
-document.addEventListener('DOMContentLoaded', async function() {
-    highlightActiveNav('play.html');
-
-    const characterDetails = document.getElementById('characterDetails');
-    if (characterDetails) {
-        characterDetails.addEventListener('click', function(event) {
-            let targetModSpan = event.target.closest('.modifier-display');
-            if (targetModSpan && !targetModSpan.classList.contains('empty-modifier-cell')) {
-                targetModSpan.querySelectorAll('.modifier-tooltip').forEach(tip => tip.remove());
-                const tooltip = document.createElement('div');
-                tooltip.classList.add('modifier-tooltip');
-                const itemName = targetModSpan.dataset.itemName;
-                const sourceType = targetModSpan.dataset.sourceType;
-                tooltip.textContent = `${itemName} (Source: ${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)})`;
-                targetModSpan.appendChild(tooltip);
-                setTimeout(() => { if (targetModSpan.contains(tooltip)) targetModSpan.removeChild(tooltip); }, 3000);
+    // 2. Check if any items were in old, invalid slots that need to be unequipped.
+    for (const originalSlotId in character.equipmentSlots) {
+        // If an original slot isn't in our new sorted object, it's invalid.
+        if (!newSortedSlots.hasOwnProperty(originalSlotId)) {
+            const itemIdToUnequip = character.equipmentSlots[originalSlotId];
+            if (itemIdToUnequip) {
+                console.warn(`Reconciling: Invalid slot '${originalSlotId}' found. Unequipping '${itemIdToUnequip}'.`);
+                characterNeedsUpdate = true;
+                // Mark the item as unequipped in the inventory list.
+                newInventory = newInventory.map(item =>
+                    item.id === itemIdToUnequip ? { ...item, equipped: false } : item
+                );
             }
+        }
+    }
+
+    if (characterNeedsUpdate) {
+        // Save the updated, clean character data back to the database.
+        return await db.updateCharacter(character.id, { inventory: newInventory, equipmentSlots: newSortedSlots });
+    } else {
+        // Return the original character if no changes were needed.
+        return character;
+    }
+}
+
+/**
+ * Helper function to update the display for a KOB attribute roll.
+ */
+function updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModifiers) {
+    let resultEl = row.querySelector('.roll-result');
+    resultEl.textContent = modifiedResult;
+    resultEl.classList.add('visible');
+    setTimeout(() => resultEl.classList.remove('visible', 'fade-out'), 2500);
+    setTimeout(() => resultEl.classList.add('fade-out'), 2000);
+
+    let unmodifiedResultEl = row.querySelector('.unmodified-roll-result');
+    if (activeModifiers.length > 0) {
+        unmodifiedResultEl.textContent = baseResult;
+        unmodifiedResultEl.classList.remove('empty-unmodified-cell');
+        unmodifiedResultEl.classList.add('visible');
+        setTimeout(() => unmodifiedResultEl.classList.remove('visible', 'fade-out'), 2500);
+        setTimeout(() => unmodifiedResultEl.classList.add('fade-out'), 2000);
+    }
+}
+
+/**
+ * Master function to handle all item equip actions with priority-based logic.
+ * @param {string} itemId The ID of the item to equip.
+ */
+async function handleEquip(itemId) {
+    if (!activeCharacter || !itemId) return;
+    const { layoutConfig, slotMap } = activeLayout;
+    const itemDef = equipmentData[itemId];
+    const itemInInventory = activeCharacter.inventory.find(i => i.id === itemId);
+    const equippedCount = getEquippedCount(itemId, activeCharacter, equipmentData, layoutConfig);
+
+    // This check now works correctly for both standard and combined items.
+    if (!itemInInventory || itemInInventory.quantity <= equippedCount) {
+        return alerter.show('No unequipped instances of this item are available.', 'warn');
+    }
+
+    const targetSlots = findTargetSlots(itemDef, activeCharacter.equipmentSlots, itemId, layoutConfig, slotMap, equipmentData);
+
+    if (targetSlots.length === 0) {
+        return alerter.show('All available slots are already filled with this item.', 'warn');
+    }
+
+    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+    let newInventory = [...activeCharacter.inventory];
+
+    // Unequip whatever is in the target slots first.
+    targetSlots.forEach(slotId => {
+        const itemToReplace = newEquipmentSlots[slotId];
+        if (itemToReplace) {
+            // Unequip logic must now handle both strings and objects
+            const idToUnequip = typeof itemToReplace === 'object' ? itemToReplace.itemId : itemToReplace;
+            const instanceToUnequip = typeof itemToReplace === 'object' ? itemToReplace.instanceId : null;
+
+            if (instanceToUnequip) {
+                // If replacing a combined item, remove all parts of that instance.
+                for (const sId in newEquipmentSlots) {
+                    if (newEquipmentSlots[sId]?.instanceId === instanceToUnequip) {
+                        newEquipmentSlots[sId] = null;
+                    }
+                }
+            } else {
+                 newEquipmentSlots[slotId] = null;
+            }
+            
+            // Update inventory status after checking if it's equipped elsewhere
+            const isStillEquipped = Object.values(newEquipmentSlots).some(v => (v && v.itemId === idToUnequip) || v === idToUnequip);
+            if(!isStillEquipped){
+                 newInventory = newInventory.map(item => item.id === idToUnequip ? { ...item, equipped: false } : item);
+            }
+        }
+    });
+
+    // Now, equip the new item.
+    if (layoutConfig.combined_slots[itemDef.equip_slot]) {
+        // For combined items, create the new data structure with a unique instanceId.
+        const instanceId = `${itemId}_instance_${Date.now()}`;
+        targetSlots.forEach(slotId => {
+            newEquipmentSlots[slotId] = { itemId: itemId, instanceId: instanceId };
+        });
+    } else {
+        // For standard items, just place the ID string.
+        targetSlots.forEach(slotId => {
+            newEquipmentSlots[slotId] = itemId;
         });
     }
+
+    // Update the inventory status of the item being equipped.
+    newInventory = newInventory.map(item => item.id === itemId ? { ...item, equipped: true } : item);
 
     try {
+        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
+        processAndRenderAll(activeCharacter);
+    } catch (err) {
+        console.error('Failed to equip item:', err);
+        alerter.show('Failed to equip item.', 'error');
+    }
+}
+
+/**
+ * Reusable async function to handle all unequip actions.
+ * @param {string} itemIdToUnequip The ID of the item to unequip.
+ */
+async function handleUnequip(itemIdToUnequip) {
+    if (!activeCharacter || !itemIdToUnequip) return;
+    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+
+    // Find all slots that hold this item ID, whether as a string or in an object.
+    for (const slotId in newEquipmentSlots) {
+        const slotValue = newEquipmentSlots[slotId];
+        const idInSlot = slotValue?.itemId || slotValue;
+        if (idInSlot === itemIdToUnequip) {
+            newEquipmentSlots[slotId] = null;
+        }
+    }
+    
+    const newInventory = activeCharacter.inventory.map(item =>
+        item.id === itemIdToUnequip ? { ...item, equipped: false } : item
+    );
+    try {
+        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
+        processAndRenderAll(activeCharacter);
+    } catch (err) { console.error('Failed to unequip item:', err); alerter.show('Failed to unequip item.', 'error'); }
+}
+
+/**
+ * Initializes the page on load: loads data, sets up listeners.
+ */
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // --- DATA LOADING ---
         const { moduleSystemData } = await loadGameModules();
         moduleDefinitions = moduleSystemData;
-        console.log('play.js: All module definitions loaded.');
-
         activeCharacter = await db.getActiveCharacter();
-        if (!activeCharacter) {
-            alerter.show('No active character found.', 'info');
-            characterDetails.innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
-            return;
+        if (activeCharacter) {
+            const moduleDef = moduleDefinitions[activeCharacter.module];
+            const moduleSpecificData = await loadDataForModule(moduleDef);
+            abilityData = moduleSpecificData.abilityData || {};
+            flawData = moduleSpecificData.flawData || {};
+            perkData = moduleSpecificData.perkData || {};
+            equipmentData = moduleSpecificData.equipmentAndLootData || {};
+            processAndRenderAll(activeCharacter);
+        } else {
+            document.querySelector('.play-content-scrollable').innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
         }
 
-        if (!activeCharacter.module) {
-            console.error('Active character is missing the required "module" property.');
-            alerter.show('Character is from an older version and is missing a module definition.', 'error');
-            characterDetails.innerHTML = `<p><strong>Error:</strong> This character cannot be loaded because it's from an older version of the game. It must be updated with a module assignment.</p>`;
-            return;
-        }
+        // --- SINGLE EVENT LISTENER FOR ALL DYNAMIC ACTIONS ---
+        const contentArea = document.querySelector('.play-content-scrollable');
+        contentArea.addEventListener('click', async (event) => {
+            if (!activeCharacter) return;
+            const target = event.target;
 
-        console.log(`play.js: Loading data for module: ${activeCharacter.module}`);
-        const moduleDef = moduleDefinitions[activeCharacter.module];
-        const moduleSpecificData = await loadDataForModule(moduleDef);
+            // --- Logic to unequip by clicking a filled slot in the UI ---
+            const unequipSlot = target.closest('.equipment-slot.filled');
+            if (unequipSlot) {
+                const slotId = unequipSlot.dataset.slotId;
+                const slotValue = activeCharacter.equipmentSlots[slotId];
+                if (!slotValue) return;
 
-        abilityData = moduleSpecificData.abilityData || {};
-        flawData = moduleSpecificData.flawData || {};
-        perkData = moduleSpecificData.perkData || {};
-        console.log('play.js: Module-specific data loaded successfully.');
-        
-        processAndRenderCharacter(activeCharacter);
+                // --- NEW, PRECISE LOGIC ---
+                // Check if the item in the clicked slot is a combined-slot item (which is an object).
+                if (typeof slotValue === 'object' && slotValue.instanceId) {
+                    // It's a combined item. We need to unequip only this specific instance.
+                    const instanceIdToRemove = slotValue.instanceId;
+                    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
 
-    } catch (error) {
-        console.error('play.js: A critical error occurred during initialization:', error);
-        alerter.show('Failed to load game or character data. Please check the console.', 'error');
-    }
+                    // Find all slots occupied by this specific instance and set them to null.
+                    for (const sId in newEquipmentSlots) {
+                        if (newEquipmentSlots[sId]?.instanceId === instanceIdToRemove) {
+                            newEquipmentSlots[sId] = null;
+                        }
+                    }
 
-    document.getElementById('characterDetails').addEventListener('click', function(event) {
-        const button = event.target.closest('.ability-button');
-        if (button) {
-            const abilityId = button.dataset.abilityId;
-            if (activeAbilityStates.has(abilityId)) {
-                activeAbilityStates.delete(abilityId);
-            } else {
-                activeAbilityStates.add(abilityId);
+                    // Save the change and re-render.
+                    try {
+                        activeCharacter = await db.updateCharacter(activeCharacter.id, { equipmentSlots: newEquipmentSlots });
+                        processAndRenderAll(activeCharacter);
+                    } catch (err) {
+                        console.error('Failed to unequip instance:', err);
+                        alerter.show('Failed to unequip instance.', 'error');
+                    }
+
+                } else {
+                    // --- EXISTING LOGIC FOR STANDARD ITEMS ---
+                    // This handles unequipping single-slot items like helmets or rings.
+                    const itemIdToUnequip = slotValue; // It's just an ID string here.
+                    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+                    let newInventory = [...activeCharacter.inventory];
+                    newEquipmentSlots[slotId] = null;
+
+                    const isStillEquippedElsewhere = Object.values(newEquipmentSlots).includes(itemIdToUnequip);
+                    if (!isStillEquippedElsewhere) {
+                        newInventory = newInventory.map(item =>
+                            item.id === itemIdToUnequip ? { ...item, equipped: false } : item
+                        );
+                    }
+                    
+                    try {
+                        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
+                        processAndRenderAll(activeCharacter);
+                    } catch (err) {
+                        console.error('Failed to unequip from slot:', err);
+                        alerter.show('Failed to unequip from slot.', 'error');
+                    }
+                }
+                return; // Stop further event processing.
             }
-            processAndRenderCharacter(activeCharacter);
-        }
-    });
 
-    // --- NEW: Event listener for the Level Up button ---
-    document.getElementById('levelUpBtn')?.addEventListener('click', function() {
-        if (!activeCharacter) {
-            alerter.show('No active character to level up.', 'error');
-            return;
-        }
-        // Save the character ID to sessionStorage to trigger level-up mode in the wizard
-        sessionStorage.setItem('levelUpCharacterId', activeCharacter.id);
-        
-        // Redirect to the character wizard
-        window.location.href = 'character-creator.html';
-    });
-    // --- END NEW ---
-
-    document.getElementById('rollD20').addEventListener('click', function() {
-        const result = Math.floor(Math.random() * 20) + 1;
-        const diceResult = document.getElementById('diceResult');
-        diceResult.textContent = '...';
-        setTimeout(() => { diceResult.textContent = result; }, 500);
-    });
-
-    document.getElementById('exportSingleCharacterBtn').addEventListener('click', function() {
-        if (!activeCharacter) {
-            alerter.show('No character selected to export.', 'info');
-            return;
-        }
-        db.exportCharacter(activeCharacter.id, activeCharacter.info.name).then(function(exportData) {
-            if (!exportData) {
-                alerter.show('Selected character not found for export.', 'error');
+            // --- Logic for the standard Equip/Unequip button (for non-stackable items) ---
+            const equipButton = target.closest('.btn-equip');
+            if (equipButton) {
+                const itemId = equipButton.dataset.itemId;
+                const itemInstance = activeCharacter.inventory.find(i => i.id === itemId);
+                if (itemInstance && itemInstance.equipped) {
+                    await handleUnequip(itemId);
+                } else {
+                    // **MODIFICATION HERE**
+                    await handleEquip(itemId); 
+                }
                 return;
             }
-            const a = document.createElement('a');
-            a.href = exportData.url;
-            a.download = exportData.filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(exportData.url), 100);
-        }).catch(function(err) {
-            console.error('Export failed:', err);
-            alerter.show('Export failed: ' + err, 'error');
+
+            // --- Logic for Stackable Item Equip Button ---
+            const equipStackButton = target.closest('.btn-equip-stack');
+            if (equipStackButton) {
+                const itemId = equipStackButton.dataset.itemId;
+                // **MODIFICATION HERE**
+                await handleEquip(itemId); 
+                return;
+            }
+
+            // --- Logic for Stackable Item Unequip Button ---
+            const unequipStackButton = target.closest('.btn-unequip-stack');
+            if (unequipStackButton) {
+                const itemId = unequipStackButton.dataset.itemId;
+                const itemDef = equipmentData[itemId];
+
+                // Check if the item is a multi-slot item.
+                if (itemDef && activeLayout.layoutConfig.combined_slots[itemDef.equip_slot]) {
+                    // --- NEW LOGIC FOR MULTI-SLOT STACKABLE ITEMS ---
+                    const equippedInstances = {};
+
+                    // 1. Find all equipped instances of this item by grouping slots by instanceId.
+                    for (const slotId in activeCharacter.equipmentSlots) {
+                        const slotValue = activeCharacter.equipmentSlots[slotId];
+                        if (slotValue?.itemId === itemId && slotValue.instanceId) {
+                            if (!equippedInstances[slotValue.instanceId]) {
+                                equippedInstances[slotValue.instanceId] = [];
+                            }
+                            equippedInstances[slotValue.instanceId].push(slotId);
+                        }
+                    }
+                    
+                    const instanceIds = Object.keys(equippedInstances);
+
+                    if (instanceIds.length > 0) {
+                        // 2. Find the "last" instance by sorting the IDs (which contain timestamps).
+                        instanceIds.sort(); // A simple alphabetical sort works on the timestamp string.
+                        const instanceIdToRemove = instanceIds[instanceIds.length - 1]; // Get the newest one.
+
+                        let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+
+                        // 3. Remove all slots belonging to that specific instance.
+                        for (const slotId in newEquipmentSlots) {
+                            if (newEquipmentSlots[slotId]?.instanceId === instanceIdToRemove) {
+                                newEquipmentSlots[slotId] = null;
+                            }
+                        }
+
+                        try {
+                            activeCharacter = await db.updateCharacter(activeCharacter.id, { equipmentSlots: newEquipmentSlots });
+                            processAndRenderAll(activeCharacter);
+                        } catch (err) {
+                            console.error('Failed to unequip multi-slot stackable instance:', err);
+                            alerter.show('Failed to unequip instance.', 'error');
+                        }
+                    }
+                } else {
+                    // --- EXISTING LOGIC FOR SINGLE-SLOT STACKABLE ITEMS (like rings) ---
+                    // This logic is correct and remains unchanged.
+                    const equipSlotType = itemDef?.equip_slot;
+                    const instanceSlots = activeLayout.slotMap[equipSlotType] || [];
+                    const occupiedSlots = instanceSlots.filter(id => activeCharacter.equipmentSlots[id] === itemId);
+
+                    if (occupiedSlots.length > 0) {
+                        const slotToUnequip = occupiedSlots[occupiedSlots.length - 1];
+                        let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+                        let newInventory = [...activeCharacter.inventory];
+                        newEquipmentSlots[slotToUnequip] = null;
+                        
+                        // After this unequip, check if it was the last one equipped.
+                        if (occupiedSlots.length - 1 === 0) {
+                            newInventory = newInventory.map(item => item.id === itemId ? { ...item, equipped: false } : item);
+                        }
+
+                        try {
+                            activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
+                            processAndRenderAll(activeCharacter);
+                        } catch (err) { console.error('Failed to unequip stackable item:', err); alerter.show('Failed to unequip item.', 'error'); }
+                    }
+                }
+                return; // Stop further event processing.
+            }
+            
+            // --- Logic for other buttons (Use, Craft, Health, Rolls) ---
+            const useButton = target.closest('.btn-use');
+            if (useButton) alerter.show(`Using ${useButton.dataset.itemName}`, 'info');
+            const craftButton = target.closest('.btn-craft');
+            if (craftButton) alerter.show('Crafting system not yet implemented.', 'info');
+            const applyHealthBtn = target.closest('#applyHealthAdjustment');
+            if (applyHealthBtn) {
+                const healthInput = contentArea.querySelector('#healthAdjustmentInput');
+                const adjustment = parseInt(healthInput.value, 10);
+                if (isNaN(adjustment)) return alerter.show('Invalid input.', 'error');
+                const finalMaxHealth = activeCharacter.calculatedHealth ? activeCharacter.calculatedHealth.currentMax : activeCharacter.health.max;
+                const newCurrentHealth = Math.max(0, Math.min(activeCharacter.health.current + adjustment, finalMaxHealth));
+                try {
+                    activeCharacter = await db.updateCharacterHealth(activeCharacter.id, { current: newCurrentHealth });
+                    processAndRenderAll(activeCharacter);
+                } catch(err) { console.error('Error updating character health:', err); alerter.show('Error updating health.', 'error'); }
+            }
+            const rollButton = target.closest('.attribute-roll');
+            if (rollButton) {
+                const row = rollButton.closest('.attribute-row');
+                const attributeName = row.dataset.attribute;
+                const dieType = row.dataset.dice;
+                let baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
+                const activeModifiers = EffectHandler.getEffectsForAttribute(attributeName, "modifier");
+                let totalModifier = activeModifiers.reduce((sum, mod) => sum + (mod.modifier || 0), 0);
+                const modifiedResult = baseResult + totalModifier;
+                updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModifiers);
+            }
+            const hopeFearButton = target.closest('.hope-fear-roll-btn');
+            if(hopeFearButton) {
+                const attributeName = hopeFearButton.dataset.attribute;
+                const numericalEffects = EffectHandler.getEffectsForAttribute(attributeName, 'modifier');
+                const diceNumEffects = EffectHandler.getEffectsForAttribute(attributeName, 'die_num');
+                const baseValue = activeCharacter.attributes[attributeName] || 0;
+                const combinedValue = EffectHandler.getCombinedAttributeValue(attributeName, baseValue);
+                const modifierData = {
+                    totalNumerical: numericalEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
+                    totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
+                    sources: [...numericalEffects, ...diceNumEffects]
+                };
+                const rollManager = new RollManager(attributeName, combinedValue, modifierData, baseValue);
+                rollManager.show();
+            }
+            const abilityButton = target.closest('.ability-button');
+            if (abilityButton) {
+                const abilityId = abilityButton.dataset.abilityId;
+                if (activeAbilityStates.has(abilityId)) activeAbilityStates.delete(abilityId);
+                else activeAbilityStates.add(abilityId);
+                processAndRenderAll(activeCharacter);
+            }
         });
-    });
+
+        // --- STATIC LISTENERS (for elements outside the main content area) ---
+        const tabsNav = document.querySelector('.tabs-nav');
+        tabsNav.addEventListener('click', (event) => {
+            const target = event.target.closest('.tab-button');
+            if (!target) return;
+            tabsNav.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            target.classList.add('active');
+            const tabId = target.dataset.tab;
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.toggle('active', panel.id === tabId);
+            });
+        });
+        document.getElementById('levelUpBtn')?.addEventListener('click', () => {
+            if (!activeCharacter) return;
+            sessionStorage.setItem('levelUpCharacterId', activeCharacter.id);
+            window.location.href = 'character-creator.html';
+        });
+        document.getElementById('exportSingleCharacterBtn').addEventListener('click', () => {
+            if (!activeCharacter) return;
+            db.exportCharacter(activeCharacter.id, activeCharacter.info.name).then(exportData => {
+                const a = document.createElement('a');
+                a.href = exportData.url;
+                a.download = exportData.filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(exportData.url), 100);
+            }).catch(err => alerter.show('Export failed: ' + err, 'error'));
+        });
+
+    } catch (error) {
+        console.error('A critical error occurred during initialization:', error);
+        alerter.show('Failed to load game data. Check console.', 'error');
+    }
 });
