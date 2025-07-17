@@ -11,7 +11,7 @@ let moduleDefinitions = {}, abilityData = {}, flawData = {}, perkData = {};
 let equipmentData = {}, activeAbilityStates = new Set(), activeCharacter = null;
 let bestiaryData = {}, activeLayout = {};
 let mainEffectHandler;
-
+let allAbilities = []; // NEW: Store allAbilities globally so event handlers can access it.
 
 /**
  * Main function to process a character's data and render the entire layout.
@@ -24,59 +24,41 @@ async function processAndRenderAll(character) {
 
     // --- LOGIC ORDER ---
     
-    // 1. Instantiate handler and process all active effects from abilities, perks, etc.
+    // 1. Instantiate handler and process all active effects.
     mainEffectHandler = new EffectHandler();
-    const allAbilities = aggregateAllAbilities(character, abilityData, equipmentData);
+    allAbilities = aggregateAllAbilities(character, abilityData, equipmentData);
     mainEffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
     
-    // 2. Reconcile summons based on active effects (removes summons whose source is gone).
-    const validSummonSourceIds = new Set(
-        mainEffectHandler.activeEffects.filter(e => e.type === 'summon_creature').map(e => e.itemId)
-    );
+    // 2. Reconcile summons based on active effects.
+    const validSummonSourceIds = new Set(mainEffectHandler.activeEffects.filter(e => e.type === 'summon_creature').map(e => e.itemId));
     if (character.summonedCreatures && character.summonedCreatures.length > 0) {
-        character.summonedCreatures = character.summonedCreatures.filter(summon =>
-            validSummonSourceIds.has(summon.source.id)
-        );
+        character.summonedCreatures = character.summonedCreatures.filter(summon => validSummonSourceIds.has(summon.source.id));
     }
-
-    // 3. Generate dynamic equipment layout based on effects.
+    
+    // 3. Generate dynamic equipment layout.
     const layoutEffects = mainEffectHandler.processLayoutEffects(mainEffectHandler.activeEffects);
     const { layoutConfig, slotMap } = generateCharacterLayout(character, layoutEffects);
-
-    // 4. Reconcile equipped items against the new layout. This returns the most up-to-date character object.
-    const reconciledCharacter = await reconcileEquipmentSlots(character, slotMap);
-
-    // 5. DYNAMIC HEALTH LOGIC NOW RUNS *AFTER* RECONCILIATION
-    const previousMaxHealthBonus = reconciledCharacter.lastMaxHealthBonus ?? 0;
-    const newMaxHealthBonus = mainEffectHandler.activeEffects
-        .filter(effect => {
-            if (effect.type !== 'max_health_mod') return false;
-            const isPassiveEffect = effect.itemType === 'passive';
-            if (effect.itemType === 'active' || (isPassiveEffect && (effect.sourceType === 'equipment' || effect.sourceType === 'perk' || effect.sourceType === 'flaw'))) {
-                return true;
-            }
-            return false;
-        })
-        .reduce((sum, effect) => sum + effect.value, 0);
     
+    // 4. Reconcile equipped items.
+    const reconciledCharacter = await reconcileEquipmentSlots(character, slotMap);
+    
+    // 5. DYNAMIC HEALTH LOGIC.
+    const previousMaxHealthBonus = reconciledCharacter.lastMaxHealthBonus ?? 0;
+    const newMaxHealthBonus = mainEffectHandler.activeEffects.filter(e => e.type === 'max_health_mod' && (e.itemType === 'active' || (e.itemType === 'passive' && ['equipment', 'perk', 'flaw'].includes(e.sourceType)))).reduce((sum, e) => sum + e.value, 0);
     const bonusChange = newMaxHealthBonus - previousMaxHealthBonus;
-
     if (bonusChange !== 0) {
-        const newCurrentHealth = (reconciledCharacter.health.current ?? 0) + bonusChange;
-        reconciledCharacter.health.current = Math.max(0, newCurrentHealth);
-        console.log(`Max health bonus changed by ${bonusChange}. New current health: ${reconciledCharacter.health.current}`);
+        reconciledCharacter.health.current = Math.max(0, (reconciledCharacter.health.current ?? 0) + bonusChange);
     }
     reconciledCharacter.lastMaxHealthBonus = newMaxHealthBonus;
-
-    // 6. Apply all other effects (stat mods, etc.) to the reconciled character.
+    
+    // 6. Apply all other effects.
     const effectedCharacter = mainEffectHandler.applyEffectsToCharacter(reconciledCharacter, 'play', activeAbilityStates, bestiaryData);
-
-    // 7. Store the generated layout globally so event handlers can access it.
+    
+    // 7. Store layout globally.
     activeLayout = { layoutConfig, slotMap };
-
+    
     // --- FINAL STATE UPDATE ---
-    // This copies all dynamically calculated properties from the final `effectedCharacter`
-    // back to the main `character` object, ensuring the state is consistent for the next interaction.
+    // This ensures the global character object has all the latest calculated data.
     character.health.current = effectedCharacter.health.current;
     character.lastMaxHealthBonus = effectedCharacter.lastMaxHealthBonus;
     character.calculatedHealth = effectedCharacter.calculatedHealth;
@@ -88,18 +70,8 @@ async function processAndRenderAll(character) {
     character.resources = effectedCharacter.resources;
     character.resistances = effectedCharacter.resistances;
     character.movement = effectedCharacter.movement;
-
-    const equipmentItems = effectedCharacter.inventory
-        .map(item => {
-            const definition = equipmentData[item.id];
-            if (!definition || definition.type !== 'equipment') return null;
-            const fullItemData = { ...item, definition };
-            if (item.quantity > 1) {
-                fullItemData.equippedCount = getEquippedCount(item.id, effectedCharacter, equipmentData, layoutConfig);
-            }
-            return fullItemData;
-        })
-        .filter(Boolean);
+    
+    const equipmentItems = effectedCharacter.inventory.map(item => { const def = equipmentData[item.id]; if (!def || def.type !== 'equipment') return null; const full = { ...item, definition: def }; if (item.quantity > 1) { full.equippedCount = getEquippedCount(item.id, effectedCharacter, equipmentData, layoutConfig); } return full; }).filter(Boolean);
         
     // --- RENDER EVERYTHING ---
     renderTopNav(effectedCharacter, moduleDefinitions);
@@ -356,7 +328,7 @@ async function handleUnequip(itemIdToUnequip) {
  */
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // --- DATA LOADING ---
+        // Data loading is unchanged
         const { moduleSystemData } = await loadGameModules();
         moduleDefinitions = moduleSystemData;
         activeCharacter = await db.getActiveCharacter();
@@ -379,7 +351,63 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!activeCharacter) return;
             const target = event.target;
 
+            // --- HANDLER FOR CHARACTER ABILITY ATTACK ROLLS ---
+            const abilityRollButton = target.closest('.btn-ability-roll');
+            if (abilityRollButton) {
+                const abilityId = abilityRollButton.dataset.abilityId;
+                const ability = allAbilities.find(a => a.instancedId === abilityId);
+                if (!ability || !ability.definition.effect) return;
 
+                const attackEffect = ability.definition.effect.find(e => e.type === 'attack');
+                if (!attackEffect) return;
+
+                const rollDefinitions = [];
+                const attackAttr = attackEffect.attribute_bonus;
+                const baseValue = activeCharacter.attributes[attackAttr] || 0;
+
+                const numericalEffects = mainEffectHandler.getEffectsForAttribute(attackAttr, 'modifier');
+                const diceNumEffects = mainEffectHandler.getEffectsForAttribute(attackAttr, 'die_num');
+                const combinedValue = mainEffectHandler.getCombinedAttributeValue(attackAttr, baseValue);
+
+                rollDefinitions.push({
+                    groupType: 'hope_fear',
+                    label: `${ability.definition.name} - Attack Roll`,
+                    attributeName: attackAttr,
+                    baseValue: baseValue,
+                    modifierData: {
+                        combinedValue: combinedValue,
+                        totalNumerical: numericalEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
+                        totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
+                        sources: [...numericalEffects, ...diceNumEffects]
+                    }
+                });
+                
+                if (attackEffect.damage && attackEffect.damage.length > 0) {
+                    rollDefinitions.push({
+                        groupType: 'damage',
+                        label: 'Damage',
+                        rolls: attackEffect.damage.map(d => ({
+                            label: d.type,
+                            dice: d.dice,
+                            baseValue: d.value || 0
+                        }))
+                    });
+                }
+
+                const rollManager = new RollManager(rollDefinitions);
+                rollManager.show();
+                return;
+            }
+            
+            // --- HANDLER FOR NON-ATTACK ABILITY TOGGLES ---
+            const abilityToggleButton = target.closest('.ability-toggle');
+            if (abilityToggleButton) {
+                const abilityId = abilityToggleButton.dataset.abilityId;
+                if (activeAbilityStates.has(abilityId)) activeAbilityStates.delete(abilityId);
+                else activeAbilityStates.add(abilityId);
+                processAndRenderAll(activeCharacter);
+                return;
+            }
 
             // --- NEW: HANDLER FOR A SUMMON'S ABILITY ACTION ---
             const actionButton = target.closest('.btn-action');
@@ -745,14 +773,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }];
                 const rollManager = new RollManager(rollDefinitions);
                 rollManager.show();
-            }
-
-            const abilityButton = target.closest('.ability-button');
-            if (abilityButton) {
-                const abilityId = abilityButton.dataset.abilityId;
-                if (activeAbilityStates.has(abilityId)) activeAbilityStates.delete(abilityId);
-                else activeAbilityStates.add(abilityId);
-                processAndRenderAll(activeCharacter);
             }
         });
 

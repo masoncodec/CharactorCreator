@@ -212,6 +212,12 @@ export function renderMainTab(character, moduleDefinitions, mainEffectHandler) {
     `;
 }
 
+/**
+ * Renders the content for the 'Abilities' tab.
+ * UPDATED: Corrected the class name for the toggle button for consistency.
+ * @param {Array<object>} allAbilities - The aggregated list of all character abilities.
+ * @param {object} character - The character object.
+ */
 export function renderAbilitiesTab(allAbilities, character) {
     const panel = document.getElementById('abilities-panel');
     if (!panel) return;
@@ -237,31 +243,48 @@ export function renderAbilitiesTab(allAbilities, character) {
         });
 
         if (ability.itemType === "active") {
-            const isOn = character.activeAbilityIds && character.activeAbilityIds.has(ability.instancedId) ? 'selected' : '';
+            const hasAttackEffect = abilityDef.effect?.some(e => e.type === 'attack');
+            let actionButtonHTML = '';
+
+            if (hasAttackEffect) {
+                actionButtonHTML = `<button class="btn btn-primary btn-ability-roll" data-ability-id="${ability.instancedId}">Roll</button>`;
+            } else {
+                const isOn = character.activeAbilityIds && character.activeAbilityIds.has(ability.instancedId) ? 'selected' : '';
+                // CORRECTED: Removed the extra '.ability-button' class for consistency.
+                actionButtonHTML = `<button class="ability-toggle ${isOn}" data-ability-id="${ability.instancedId}">Toggle</button>`;
+            }
+
             activeAbilitiesHtml.push(
-                `<li class="ability-list-item">
-                    <button class="ability-button ability-card ${isOn}" data-ability-id="${ability.instancedId}">
+                `<li class="ability-card active-ability-item">
+                    <div class="ability-card-header">
                         <strong>${abilityDef.name}</strong> 
                         <span class="ability-type-tag active">ACTIVE</span>
-                        <p>${description}</p>
+                    </div>
+                    <p class="ability-card-description">${description}</p>
+                    <div class="ability-card-footer">
                         ${sourceLabel}
-                    </button>
+                        <div class="ability-card-actions">${actionButtonHTML}</div>
+                    </div>
                 </li>`
             );
         } else {
             passiveAbilitiesHtml.push(
                 `<li class="ability-card passive-ability-item">
-                    <strong>${abilityDef.name}</strong> 
-                    <span class="ability-type-tag passive">PASSIVE</span>
-                    <p>${description}</p>
-                    ${sourceLabel}
+                    <div class="ability-card-header">
+                        <strong>${abilityDef.name}</strong> 
+                        <span class="ability-type-tag passive">PASSIVE</span>
+                    </div>
+                    <p class="ability-card-description">${description}</p>
+                     <div class="ability-card-footer">
+                        ${sourceLabel}
+                    </div>
                 </li>`
             );
         }
     });
 
-    const activeSection = activeAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Active Abilities</h2><ul id="activeAbilitiesList">${activeAbilitiesHtml.join('')}</ul></div>` : '';
-    const passiveSection = passiveAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Passive Abilities</h2><ul id="passiveAbilitiesList">${passiveAbilitiesHtml.join('')}</ul></div>` : '';
+    const activeSection = activeAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Active Abilities</h2><ul id="activeAbilitiesList" class="ability-list">${activeAbilitiesHtml.join('')}</ul></div>` : '';
+    const passiveSection = passiveAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Passive Abilities</h2><ul id="passiveAbilitiesList" class="ability-list">${passiveAbilitiesHtml.join('')}</ul></div>` : '';
 
     panel.innerHTML = activeSection + passiveSection;
 }

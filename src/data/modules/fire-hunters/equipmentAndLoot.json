@@ -66,25 +66,24 @@
         {
           "id": "act_longsword_slash",
           "name": "Slash",
-          "type": "ATTACK",
           "cost": { "stamina": 5 },
           "description": "A standard slashing attack. Versatile (1d10).",
           "effect": [
             {
-              "type": "DAMAGE",
+              "type": "attack",
               "target": "single_enemy",
-              "parameters": {
-                "damageType": "slashing",
-                "dice": "1d8",
-                "attribute_bonus": "STR"
-              }
+              "attribute_bonus": "whimsy",
+              "damage": [
+                { "type": "slashing", "dice": "1d6" },
+                { "type": "poison", "dice": "1d4", "value": 2 }
+              ]
             }
           ]
         },
         {
           "id": "act_longsword_thrust",
           "name": "Thrust",
-          "type": "ATTACK",
+          "type": "attack",
           "cost": { "stamina": 3 },
           "description": "A finesse piercing attack.",
           "effect": [
@@ -372,7 +371,7 @@
         {
           "id": "act_moonstaff_strike",
           "name": "Strike",
-          "type": "ATTACK",
+          "type": "attack",
           "cost": { "stamina": 4 },
           "description": "A standard bludgeoning attack. Versatile (1d8).",
           "effect": [
@@ -389,7 +388,7 @@
         {
           "id": "act_moonstaff_sparks",
           "name": "Disorienting Sparks",
-          "type": "ATTACK",
+          "type": "attack",
           "cost": { "stamina": 2 },
           "description": "On hit, the target has disadvantage on its next attack roll.",
           "effect": [

@@ -333,6 +333,27 @@
     font-size: 0.9rem;
 }
 
+.ability-toggle {
+    background-color: #6c757d; /* Default 'off' state color */
+    color: white;
+    border: 1px solid #6c757d;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.ability-toggle:hover {
+    background-color: #5a6268;
+}
+
+/* This is the crucial new rule for the 'on' state */
+.ability-toggle.selected {
+    background-color: #28a745; /* Green color when active */
+    border-color: #28a745;
+    box-shadow: 0 0 8px rgba(40, 167, 69, 0.7);
+}
+
 @media (max-width: 768px) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
