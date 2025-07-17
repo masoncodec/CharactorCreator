@@ -9,10 +9,7 @@ import { aggregateAllAbilities } from './abilityAggregator.js';
 // --- Global variables ---
 let moduleDefinitions = {}, abilityData = {}, flawData = {}, perkData = {};
 let equipmentData = {}, activeAbilityStates = new Set(), activeCharacter = null;
-// ADDED: New global variables to hold bestiary data and the active layout.
 let bestiaryData = {}, activeLayout = {};
-
-// ADDED: A new module-level variable to hold the main EffectHandler instance so event handlers can access it.
 let mainEffectHandler;
 
 
@@ -49,8 +46,7 @@ async function processAndRenderAll(character) {
     // 4. Reconcile equipped items against the new layout. This returns the most up-to-date character object.
     const reconciledCharacter = await reconcileEquipmentSlots(character, slotMap);
 
-    // --- MOVED: DYNAMIC HEALTH LOGIC NOW RUNS *AFTER* RECONCILIATION ---
-    // This ensures we are always modifying the freshest version of the character object.
+    // 5. DYNAMIC HEALTH LOGIC NOW RUNS *AFTER* RECONCILIATION
     const previousMaxHealthBonus = reconciledCharacter.lastMaxHealthBonus ?? 0;
     const newMaxHealthBonus = mainEffectHandler.activeEffects
         .filter(effect => {
@@ -71,12 +67,11 @@ async function processAndRenderAll(character) {
         console.log(`Max health bonus changed by ${bonusChange}. New current health: ${reconciledCharacter.health.current}`);
     }
     reconciledCharacter.lastMaxHealthBonus = newMaxHealthBonus;
-    // --- END OF MOVED LOGIC ---
 
-    // 5. Apply all other effects (stat mods, etc.) to the reconciled character.
+    // 6. Apply all other effects (stat mods, etc.) to the reconciled character.
     const effectedCharacter = mainEffectHandler.applyEffectsToCharacter(reconciledCharacter, 'play', activeAbilityStates, bestiaryData);
 
-    // 6. Store the generated layout globally so event handlers can access it.
+    // 7. Store the generated layout globally so event handlers can access it.
     activeLayout = { layoutConfig, slotMap };
 
     // --- FINAL STATE UPDATE ---
@@ -94,7 +89,6 @@ async function processAndRenderAll(character) {
     character.resistances = effectedCharacter.resistances;
     character.movement = effectedCharacter.movement;
 
-    // This gets a list of all items that are equipment, for rendering.
     const equipmentItems = effectedCharacter.inventory
         .map(item => {
             const definition = equipmentData[item.id];
@@ -121,7 +115,6 @@ async function processAndRenderAll(character) {
  * Creates a map of slot types to their unique instance IDs based on a layout config.
  */
 function generateSlotMap(config) {
-    // ... Function logic is unchanged ...
     const slotMap = {};
     for (const categoryName in config.categories) {
         const slotTypes = config.categories[categoryName];
@@ -196,7 +189,6 @@ function generateCharacterLayout(character, layoutSummary) {
  * Compares a character's equipment against a definitive layout.
  */
 async function reconcileEquipmentSlots(character, finalSlotMap) {
-    // ... Function logic is unchanged ...
     let characterNeedsUpdate = false;
     let newInventory = [...character.inventory];
     const orderedValidSlotIds = Object.values(finalSlotMap).flat();
@@ -232,7 +224,6 @@ async function reconcileEquipmentSlots(character, finalSlotMap) {
  * Helper function to update the display for a KOB attribute roll.
  */
 function updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModifiers) {
-    // ... Function logic is unchanged ...
     let resultEl = row.querySelector('.roll-result');
     resultEl.textContent = modifiedResult;
     resultEl.classList.add('visible');
@@ -376,7 +367,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             flawData = moduleSpecificData.flawData || {};
             perkData = moduleSpecificData.perkData || {};
             equipmentData = moduleSpecificData.equipmentAndLootData || {};
-            // ADDED: Storing the loaded bestiary data.
             bestiaryData = moduleSpecificData.bestiaryData || {};
             processAndRenderAll(activeCharacter);
         } else {
@@ -388,6 +378,75 @@ document.addEventListener('DOMContentLoaded', async () => {
         contentArea.addEventListener('click', async (event) => {
             if (!activeCharacter) return;
             const target = event.target;
+
+
+
+            // --- NEW: HANDLER FOR A SUMMON'S ABILITY ACTION ---
+            const actionButton = target.closest('.btn-action');
+            if (actionButton) {
+                const instanceId = actionButton.dataset.instanceId;
+                const abilityId = actionButton.dataset.abilityId;
+
+                const summonInstance = activeCharacter.summonedCreatures.find(s => s.instanceId === instanceId);
+                if (!summonInstance) return;
+
+                const summonDef = bestiaryData[summonInstance.creatureId];
+                if (!summonDef || !summonDef.abilities) return;
+
+                const abilityDef = summonDef.abilities.active?.find(a => a.id === abilityId);
+                if (!abilityDef || !abilityDef.effect) return;
+
+                const attackEffect = abilityDef.effect.find(e => e.type === 'attack');
+                if (!attackEffect) return; // Only handle attack effects for now
+
+                // --- Build the Roll Definition ---
+                const rollDefinitions = [];
+
+                // 1. Create the Attack Roll Group
+                const attackAttr = attackEffect.attribute_bonus;
+                const baseValue = summonDef.attributes[attackAttr] || 0;
+                
+                // Create a temporary effect handler for the summon to calculate its own modifiers
+                const summonEffectHandler = new EffectHandler();
+                summonEffectHandler.processActiveAbilities(
+                    (summonDef.abilities.passive || []).map(p => ({ definition: p, itemType: 'passive' })), // Simulate ability structure
+                    summonDef, {}, {}, new Set(), 'play'
+                );
+                const numericalEffects = summonEffectHandler.getEffectsForAttribute(attackAttr, 'modifier');
+                const diceNumEffects = summonEffectHandler.getEffectsForAttribute(attackAttr, 'die_num');
+                const combinedValue = summonEffectHandler.getCombinedAttributeValue(attackAttr, baseValue);
+
+                rollDefinitions.push({
+                    groupType: 'hope_fear',
+                    label: `${abilityDef.name} - Attack Roll`,
+                    attributeName: attackAttr,
+                    baseValue: baseValue,
+                    modifierData: {
+                        combinedValue: combinedValue,
+                        totalNumerical: numericalEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
+                        totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
+                        sources: [...numericalEffects, ...diceNumEffects]
+                    }
+                });
+                
+                // 2. Create the Damage Roll Group
+                if (attackEffect.damage && attackEffect.damage.length > 0) {
+                    rollDefinitions.push({
+                        groupType: 'damage',
+                        label: 'Damage',
+                        rolls: attackEffect.damage.map(d => ({
+                            label: d.type,
+                            dice: d.dice,
+                            baseValue: d.value || 0
+                        }))
+                    });
+                }
+
+                // 3. Launch the Roll Manager
+                const rollManager = new RollManager(rollDefinitions);
+                rollManager.show();
+                return;
+            }
 
             // --- Logic to unequip by clicking a filled slot in the UI ---
             const unequipSlot = target.closest('.equipment-slot.filled');
@@ -642,33 +701,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            // --- Logic for Character Health (ensure it doesn't conflict) ---
             if (applySummonHealthBtn && applySummonHealthBtn.dataset.entityType === 'character') {
                 const healthInput = contentArea.querySelector(`#health-adj-${applySummonHealthBtn.dataset.entityId}`);
-                
                 if (!healthInput) return;
-
                 const adjustment = parseInt(healthInput.value, 10);
                 if (isNaN(adjustment)) return alerter.show('Invalid input.', 'error');
-
                 const finalMaxHealth = activeCharacter.calculatedHealth ? activeCharacter.calculatedHealth.currentMax : activeCharacter.health.max;
                 const newCurrentHealth = Math.max(0, Math.min(activeCharacter.health.current + adjustment, finalMaxHealth));
-
                 try {
-                    // --- TEST CODE ---
-                    // Create a new health object by copying the old one and updating the current value.
                     const newHealthObject = {
                         ...activeCharacter.health,
                         current: newCurrentHealth
                     };
-
-                    // Update the database by saving the entire new health object.
                     activeCharacter = await db.updateCharacter(activeCharacter.id, {
                         health: newHealthObject,
                         lastMaxHealthBonus: activeCharacter.lastMaxHealthBonus
                     });
-                    // --- END OF TEST CODE ---
-                    
                     processAndRenderAll(activeCharacter);
                 } catch(err) { 
                     console.error('Error updating character health:', err); 
@@ -676,38 +724,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
 
-            const rollButton = target.closest('.attribute-roll');
-            if (rollButton) {
-                const row = rollButton.closest('.attribute-row');
-                const attributeName = row.dataset.attribute;
-                const dieType = row.dataset.dice;
-                let baseResult = Math.floor(Math.random() * parseInt(dieType.substring(1))) + 1;
-                
-                // UPDATED: Use the `mainEffectHandler` instance to get modifiers.
-                const activeModifiers = mainEffectHandler.getEffectsForAttribute(attributeName, "modifier");
-                
-                let totalModifier = activeModifiers.reduce((sum, mod) => sum + (mod.modifier || 0), 0);
-                const modifiedResult = baseResult + totalModifier;
-                updateAttributeRollDisplay(row, baseResult, modifiedResult, activeModifiers);
-            }
             const hopeFearButton = target.closest('.hope-fear-roll-btn');
             if(hopeFearButton) {
                 const attributeName = hopeFearButton.dataset.attribute;
-                
-                // UPDATED: Use the `mainEffectHandler` instance for all effect-related calculations.
                 const numericalEffects = mainEffectHandler.getEffectsForAttribute(attributeName, 'modifier');
                 const diceNumEffects = mainEffectHandler.getEffectsForAttribute(attributeName, 'die_num');
                 const baseValue = activeCharacter.attributes[attributeName] || 0;
                 const combinedValue = mainEffectHandler.getCombinedAttributeValue(attributeName, baseValue);
-
-                const modifierData = {
-                    totalNumerical: numericalEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
-                    totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
-                    sources: [...numericalEffects, ...diceNumEffects]
-                };
-                const rollManager = new RollManager(attributeName, combinedValue, modifierData, baseValue);
+                const rollDefinitions = [{
+                    groupType: 'hope_fear',
+                    label: `${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
+                    attributeName: attributeName,
+                    baseValue: baseValue,
+                    modifierData: {
+                        combinedValue: combinedValue,
+                        totalNumerical: numericalEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
+                        totalDiceNum: diceNumEffects.reduce((sum, eff) => sum + (eff.modifier || 0), 0),
+                        sources: [...numericalEffects, ...diceNumEffects]
+                    }
+                }];
+                const rollManager = new RollManager(rollDefinitions);
                 rollManager.show();
             }
+
             const abilityButton = target.closest('.ability-button');
             if (abilityButton) {
                 const abilityId = abilityButton.dataset.abilityId;

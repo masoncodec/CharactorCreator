@@ -88,7 +88,7 @@ function renderAbilitiesComponent(abilitiesDef, instanceId) {
             <li class="summon-ability">
                 <strong>${ability.name} <span class="ability-type-tag ${type}">${type.toUpperCase()}</span></strong>
                 <p>${ability.description}</p>
-                ${type === 'active' ? `<button class="btn btn-sm btn-action" data-instance-id="${instanceId}" data-ability-id="${ability.id}">Use</button>` : ''}
+                ${type === 'active' ? `<button class="btn btn-sm btn-action" data-instance-id="${instanceId}" data-ability-id="${ability.id}">Roll</button>` : ''}
             </li>
         `).join('');
     };

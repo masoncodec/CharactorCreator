@@ -30,6 +30,8 @@
   max-width: 550px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   z-index: 1001;
+  max-height: 97vh;
+  overflow-y: auto;
 }
 
 .roll-modal-close {
@@ -48,10 +50,45 @@
   margin-top: 0;
   margin-bottom: 1.5rem;
   font-size: 2.2rem;
+  padding-top: 1rem; 
 }
+
+/* --- NEW: Styles for the navigation tabs --- */
+.roll-modal-nav {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #444;
+}
+
+.roll-modal-nav-link {
+  display: inline-block;
+  padding: 8px 16px;
+  background-color: #4a4a4a;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 20px; /* Pill shape */
+  font-size: 0.9rem;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+}
+
+.roll-modal-nav-link:hover {
+  background-color: #007bff;
+}
+/* --- END OF NEW STYLES --- */
+
 
 .roll-modal-section {
   margin-bottom: 1.5rem;
+}
+
+.roll-group + .roll-group {
+    border-top: 2px solid #444;
+    padding-top: 1.5rem;
+    margin-top: 1.5rem;
 }
 
 .roll-modal-section h4 {
@@ -103,13 +140,10 @@
   gap: 1rem;
 }
 
-.results-grid.two-col {
-  grid-template-columns: 1fr 1fr;
-}
+.results-grid.two-col { grid-template-columns: 1fr 1fr; }
+.results-grid.three-col { grid-template-columns: 1fr 1fr 1fr; }
+.results-grid.four-col { grid-template-columns: 1fr 1fr 1fr 1fr; } /* Added for more damage types */
 
-.results-grid.three-col {
-  grid-template-columns: 1fr 1fr 1fr;
-}
 
 .result-box {
   display: flex;
@@ -121,22 +155,12 @@
   border-radius: 5px;
   text-align: center;
   border: 2px solid transparent;
-  /* Base border for smooth transition */
   transition: border-color 0.3s ease-in-out;
 }
 
-/* Highlighting styles */
-.result-box.hope-win {
-  border-color: #28a745;
-}
-
-.result-box.fear-win {
-  border-color: #dc3545;
-}
-
-.result-box.d6-box {
-  background: #33415c;
-}
+.result-box.hope-win { border-color: #28a745; }
+.result-box.fear-win { border-color: #dc3545; }
+.result-box.d6-box { background: #33415c; }
 
 .result-box.total-box {
   grid-column: 1 / -1;
@@ -144,9 +168,7 @@
   margin-top: 1rem;
 }
 
-.total-box.critical-success {
-  border-color: #ffc107;
-}
+.total-box.critical-success { border-color: #ffc107; }
 
 .result-label {
   font-size: 1rem;
@@ -168,4 +190,8 @@
   font-size: 0.8rem;
   color: #ccc;
   min-height: 1.2em;
+}
+
+.damage-total-value {
+    /* Inherits size from .result-value */
 }
