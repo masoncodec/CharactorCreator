@@ -34,17 +34,22 @@
           "description": "Grants a +1 bonus to attack rolls.",
           "effect": [
             {
-              "type": "MOD_STAT",
-              "target": "self",
-              "parameters": {
-                "stat": "attack_roll",
-                "modifier": "ADD",
-                "value": 1
-              }
-            },
-            {
               "type": "summon_creature",
               "creatureId": "lesser-imp"
+            }
+          ]
+        },
+        {
+          "id": "high_ground_bonus_passive",
+          "name": "High Ground Passive",
+          "description": "You have a tactical advantage.",
+          "condition": "If you are physically at a higher elevation than your target.",
+          "effect": [
+            {
+              "type": "modifier",
+              "name": "Modifier",
+              "attribute": "whimsy",
+              "modifier": 2
             }
           ]
         }
@@ -75,26 +80,45 @@
               "attribute_bonus": "whimsy",
               "damage": [
                 { "type": "slashing", "dice": "1d6" },
-                { "type": "poison", "dice": "1d4", "value": 2 }
+                { "type": "poison", "dice": "1d4", "value": 2 },
+                { "type": "fire", "dice": "1d4"}
               ]
             }
           ]
         },
         {
-          "id": "act_longsword_thrust",
-          "name": "Thrust",
-          "type": "attack",
-          "cost": { "stamina": 3 },
-          "description": "A finesse piercing attack.",
+          "id": "high_ground_bonus_active",
+          "name": "High Ground Active",
+          "description": "You have a tactical advantage.",
+          "condition": "If you are physically at a higher elevation than your target.",
           "effect": [
             {
-              "type": "DAMAGE",
-              "target": "single_enemy",
-              "parameters": {
-                "damageType": "piercing",
-                "dice": "1d6",
-                "attribute_bonus": "DEX"
-              }
+              "type": "modifier",
+              "name": "Modifier",
+              "attribute": "whimsy",
+              "modifier": 2
+            }
+          ]
+        },
+        {
+          "id": "damage",
+          "name": "Damage BOI",
+          "description": "does damage mods and stuff",
+          "effect": [
+            {
+              "type": "damage_mod",
+              "damage_type": "slashing",
+              "value": 2                 
+            },
+            {
+              "type": "damage_mod",
+              "damage_type": "all",      
+              "value": 1                 
+            },
+            {
+              "type": "damage_dice_mod",
+              "damage_type": "fire",     
+              "dice": "1d6"              
             }
           ]
         }

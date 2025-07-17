@@ -1,33 +1,42 @@
-// RollManager.js
-// A self-contained, generalized module to create and manage a modal for complex dice rolls.
-// It supports different "Roll Groups" like attribute checks and damage rolls within a single modal.
+// RollManager.js (Corrected and Final)
 
 export class RollManager {
   /**
    * Constructs the RollManager.
-   * @param {Array<object>} rollDefinitions - An array of objects, each defining a "Roll Group" to be displayed.
+   * @param {Array<object>} rollDefinitions - An array of objects, each defining a "Roll Group".
+   * @param {Set<string>} initialToggledStates - A set of ability IDs that are toggled on globally.
    */
-  constructor(rollDefinitions) {
+  constructor(rollDefinitions, initialToggledStates = new Set()) {
     this.rollDefinitions = rollDefinitions;
     this.modalElement = null;
-    this.critOccurred = false; // State to track if a crit has happened for subsequent rolls.
+    this.tooltipElement = null;
+    this.critOccurred = false;
 
+    this.hopeFearGroup = this.rollDefinitions.find(def => def.groupType === 'hope_fear');
+    if (this.hopeFearGroup) {
+        this.toggledStates = new Set(initialToggledStates); 
+        this.allToggleableAbilities = [
+            ...(this.hopeFearGroup.availableActives || []),
+            ...(this.hopeFearGroup.availableConditionals || [])
+        ];
+    }
+    
     this._boundClose = this.close.bind(this);
     this._boundHandleClick = this._handleClick.bind(this);
+    this._boundCloseOnEscape = (e) => { if (e.key === "Escape") this.close(); };
   }
 
-  /**
-   * Creates the modal HTML, appends it to the body, and attaches event listeners.
-   */
   show() {
     document.body.insertAdjacentHTML('beforeend', this._createModalHTML());
     this.modalElement = document.getElementById('roll-manager-modal');
+    this.tooltipElement = document.getElementById('roll-manager-tooltip');
     this._attachEventListeners();
+    
+    if (this.hopeFearGroup) {
+        this._updateModifierDisplay();
+    }
   }
 
-  /**
-   * Removes the modal from the DOM and cleans up event listeners.
-   */
   close() {
     if (this.modalElement) {
       this.modalElement.remove();
@@ -35,53 +44,65 @@ export class RollManager {
     document.removeEventListener('keydown', this._boundCloseOnEscape);
   }
 
-  /**
-   * Attaches all necessary event listeners for the modal.
-   */
   _attachEventListeners() {
     this.modalElement.addEventListener('click', this._boundHandleClick);
-    this._boundCloseOnEscape = (e) => { if (e.key === "Escape") this._boundClose(); };
     document.addEventListener('keydown', this._boundCloseOnEscape);
   }
 
-  /**
-   * Central click handler for the entire modal.
-   * @param {Event} e - The click event.
-   */
   _handleClick(e) {
     const target = e.target;
-    // Handle close actions
-    if (target.closest('.roll-modal-close') || target.classList.contains('roll-modal-backdrop')) {
-      this.close();
-      return;
+
+    if (!target.closest('.roll-manager-tooltip') && !target.closest('[data-action="show-info-tooltip"]') && !target.closest('[data-action="show-breakdown-tooltip"]')) {
+        this._hideTooltip();
     }
 
-    // Handle roll button clicks
+    const closeButton = target.closest('.roll-modal-close');
+    const backdrop = target.classList.contains('roll-modal-backdrop');
+    if (closeButton || backdrop) {
+        this.close();
+        return;
+    }
+
     const rollButton = target.closest('.roll-group-btn');
     if (rollButton) {
       const groupId = parseInt(rollButton.dataset.groupId, 10);
       this._executeRoll(groupId);
       return;
     }
+    
+    if (target.matches('[data-action="show-info-tooltip"]')) {
+        e.stopPropagation(); 
+        const abilityId = target.dataset.abilityId;
+        const ability = this.allToggleableAbilities.find(a => a.instancedId === abilityId || a.definition.id === abilityId);
+        if (ability) {
+            const content = `<h5>${ability.definition.name}</h5><p>${ability.definition.description}</p>`;
+            this._showTooltip(content, target);
+        }
+        return;
+    }
+    
+    const abilityToggler = target.closest('[data-action="toggle-ability"]');
+    if (abilityToggler) {
+        const abilityId = abilityToggler.dataset.abilityId;
+        if (this.toggledStates.has(abilityId)) {
+            this.toggledStates.delete(abilityId);
+            abilityToggler.classList.remove('toggled-on');
+        } else {
+            this.toggledStates.add(abilityId);
+            abilityToggler.classList.add('toggled-on');
+        }
+        this._updateModifierDisplay();
+        return;
+    }
 
-    // --- NEW: Handle navigation link clicks ---
-    const navLink = target.closest('.roll-modal-nav-link');
-    if (navLink) {
-      e.preventDefault(); // Prevent default anchor tag behavior
-      const targetId = navLink.getAttribute('href').substring(1); // Get the ID from the href
-      const targetElement = this.modalElement.querySelector(`#${targetId}`);
-      if (targetElement) {
-        // Smoothly scroll the target group into view
-        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-      return;
+    const breakdownDisplayer = target.closest('[data-action="show-breakdown-tooltip"]');
+    if(breakdownDisplayer) {
+        e.stopPropagation();
+        this._showBreakdownTooltip(breakdownDisplayer);
+        return;
     }
   }
-
-  /**
-   * Executes a roll for a specific group based on its type.
-   * @param {number} groupId - The index of the roll group in the definitions array.
-   */
+  
   _executeRoll(groupId) {
     const groupDef = this.rollDefinitions[groupId];
     const groupEl = this.modalElement.querySelector(`.roll-group[data-group-id="${groupId}"]`);
@@ -96,18 +117,15 @@ export class RollManager {
         break;
     }
   }
-
-  /**
-   * Handles the logic for a Hope/Fear (2d12) roll.
-   * @param {object} groupDef - The definition object for this roll group.
-   * @param {HTMLElement} groupEl - The container element for this group in the modal.
-   */
+  
   _executeHopeFearRoll(groupDef, groupEl) {
-    // This function's internal logic is unchanged.
-    const { combinedValue, totalDiceNum } = groupDef.modifierData;
+    const { totalNumerical, totalDiceNum } = this._calculateCurrentModifiers();
+    const finalValue = groupDef.baseValue + totalNumerical;
+    
     const highestHope = Math.floor(Math.random() * 12) + 1;
     const highestFear = Math.floor(Math.random() * 12) + 1;
     let d6Modifier = 0;
+
     if (totalDiceNum !== 0) {
       const numD6ToRoll = Math.abs(totalDiceNum);
       const d6Rolls = [];
@@ -119,6 +137,7 @@ export class RollManager {
       groupEl.querySelector('.d6-roll-result').textContent = `${d6Modifier >= 0 ? '+' : ''}${d6Modifier}`;
       groupEl.querySelector('.d6-roll-details').textContent = `(Rolled: ${d6Rolls.join(', ')})`;
     }
+
     groupEl.querySelector('.hope-roll-result').textContent = highestHope;
     groupEl.querySelector('.fear-roll-result').textContent = highestFear;
     const hopeBoxEl = groupEl.querySelector('.hope-box');
@@ -128,13 +147,14 @@ export class RollManager {
     const totalResultEl = groupEl.querySelector('.total-roll-result');
     totalResultEl.classList.remove('critical-text');
     totalResultEl.parentElement.classList.remove('critical-success');
+
     if (highestHope === highestFear) {
       this.critOccurred = true;
       totalResultEl.textContent = "CRITICAL SUCCESS!!";
       totalResultEl.classList.add('critical-text');
       totalResultEl.parentElement.classList.add('critical-success');
     } else {
-      const finalTotal = highestHope + highestFear + combinedValue + d6Modifier;
+      const finalTotal = highestHope + highestFear + finalValue + d6Modifier;
       totalResultEl.textContent = finalTotal;
       if (highestHope > highestFear) {
         hopeBoxEl.classList.add('hope-win');
@@ -144,127 +164,248 @@ export class RollManager {
     }
   }
 
-  /**
-   * Handles the logic for a damage roll group.
-   * @param {object} groupDef - The definition object for this roll group.
-   * @param {HTMLElement} groupEl - The container element for this group in the modal.
-   */
   _executeDamageRoll(groupDef, groupEl) {
-    // This function's internal logic is unchanged.
     let totalDamage = 0;
+    const appliedEffects = [];
+
+    (this.hopeFearGroup.passiveAbilities || []).forEach(ab => {
+        if(ab.definition.effect) appliedEffects.push(...ab.definition.effect);
+    });
+    this.toggledStates.forEach(abilityId => {
+        const ability = this.allToggleableAbilities.find(a => a.instancedId === abilityId || a.definition.id === abilityId);
+        if (ability?.definition.effect) {
+            appliedEffects.push(...ability.definition.effect);
+        }
+    });
+
     groupDef.rolls.forEach((rollDef, index) => {
-      let numDice = parseInt(rollDef.dice.split('d')[0], 10);
-      const dieType = parseInt(rollDef.dice.split('d')[1], 10);
-      const baseValue = rollDef.baseValue || 0;
+      let baseDice = [rollDef.dice];
+      let baseValue = rollDef.baseValue || 0;
+      
       if (this.critOccurred) {
-        numDice *= 2;
+        baseDice = baseDice.flatMap(d => [d, d]);
       }
+
+      appliedEffects.forEach(eff => {
+          if (eff.type === 'damage_mod' && (eff.damage_type === 'all' || eff.damage_type === rollDef.label)) baseValue += eff.value;
+          if (eff.type === 'damage_dice_mod' && (eff.damage_type === 'all' || eff.damage_type === rollDef.label)) baseDice.push(eff.dice);
+      });
+      
       let rollSum = 0;
       const individualRolls = [];
-      for (let i = 0; i < numDice; i++) {
-        const roll = Math.floor(Math.random() * dieType) + 1;
-        rollSum += roll;
-        individualRolls.push(roll);
-      }
+      baseDice.forEach(diceString => {
+          const [num, type] = diceString.split('d').map(Number);
+          for(let i=0; i<num; i++){
+              const roll = Math.floor(Math.random() * type) + 1;
+              rollSum += roll;
+              individualRolls.push(roll);
+          }
+      });
+
       const finalValue = rollSum + baseValue;
       totalDamage += finalValue;
+      
       const valueEl = groupEl.querySelector(`#damage-value-${index}`);
       const detailsEl = groupEl.querySelector(`#damage-details-${index}`);
       if (valueEl) valueEl.textContent = finalValue;
-      if (detailsEl) detailsEl.textContent = `(Rolled ${numDice}d${dieType} [${individualRolls.join(', ')}] + ${baseValue})`;
+      if (detailsEl) detailsEl.textContent = `(${baseDice.join(' + ')} [${individualRolls.join(', ')}] + ${baseValue})`;
     });
+
     const totalValueEl = groupEl.querySelector('.damage-total-value');
     if (totalValueEl) totalValueEl.textContent = totalDamage;
   }
+  
+  _calculateCurrentModifiers() {
+    let totalNumerical = 0;
+    let totalDiceNum = 0;
+    const relevantAttribute = this.hopeFearGroup.attributeName;
 
+    const processAbilityEffects = (ability) => {
+        if (!ability?.definition.effect) return;
+        ability.definition.effect.forEach(eff => {
+            if (eff.attribute === relevantAttribute) {
+                if (eff.type === 'modifier') totalNumerical += eff.modifier;
+                if (eff.type === 'die_num') totalDiceNum += eff.modifier;
+            }
+        });
+    };
+
+    (this.hopeFearGroup.passiveAbilities || []).forEach(processAbilityEffects);
+    this.toggledStates.forEach(abilityId => {
+        const ability = this.allToggleableAbilities.find(a => a.instancedId === abilityId || a.definition.id === abilityId);
+        processAbilityEffects(ability);
+    });
+    
+    return { totalNumerical, totalDiceNum };
+  }
 
   /**
-   * Generates the entire modal's HTML structure from the roll definitions.
-   * @returns {string} The HTML string for the modal.
+   * REVISED: Now dynamically shows/hides the dice roll box and adjusts the grid.
    */
-  _createModalHTML() {
-    // --- NEW: Generate the navigation section if there is more than one roll group ---
-    let navHTML = '';
-    if (this.rollDefinitions.length > 1) {
-      const navLinks = this.rollDefinitions.map((groupDef, index) => {
-        // Extract a short name for the tab, e.g., "Attack Roll" from "Claw - Attack Roll"
-        const shortLabel = groupDef.label.split(' - ')[1] || groupDef.label;
-        return `<a href="#roll-group-${index}" class="roll-modal-nav-link">${shortLabel}</a>`;
-      }).join('');
-      navHTML = `<div class="roll-modal-nav">${navLinks}</div>`;
-    }
+  _updateModifierDisplay() {
+    const { totalNumerical, totalDiceNum } = this._calculateCurrentModifiers();
+    const finalValue = this.hopeFearGroup.baseValue + totalNumerical;
 
-    // Generate the HTML for each main roll group
+    this.modalElement.querySelector('#mod-total-numerical').textContent = `${finalValue >= 0 ? '+' : ''}${finalValue}`;
+    this.modalElement.querySelector('#mod-total-dice').textContent = `${totalDiceNum >= 0 ? '+' : ''}${totalDiceNum}d6`;
+
+    const d6Box = this.modalElement.querySelector('.d6-box');
+    const resultsGrid = this.modalElement.querySelector('.results-grid');
+
+    if (d6Box && resultsGrid) {
+        const hasDiceMods = totalDiceNum !== 0;
+        // Toggle the visibility of the d6 dice box
+        d6Box.style.display = hasDiceMods ? 'flex' : 'none';
+        // Toggle the grid layout between 2 and 3 columns to prevent the empty gap
+        resultsGrid.classList.toggle('three-col', hasDiceMods);
+        resultsGrid.classList.toggle('two-col', !hasDiceMods);
+    }
+  }
+
+  /**
+   * REVISED: Now displays the ability's definition name.
+   */
+  _showBreakdownTooltip(targetElement) {
+    const relevantAttribute = this.hopeFearGroup.attributeName;
+    let content = '<h5>Applied Effects</h5><ul>';
+    content += `<li><strong>Base Value:</strong> ${this.hopeFearGroup.baseValue}</li>`;
+
+    const processAbilityEffectsForTooltip = (ability, isToggled = false) => {
+        if (!ability?.definition.effect) return;
+        ability.definition.effect.forEach(eff => {
+            if (eff.attribute === relevantAttribute && (eff.type === 'modifier' || eff.type === 'die_num')) {
+                // FIX 2: Use the ability's own name from its definition.
+                const displayName = ability.definition.name;
+                content += `<li><strong>${displayName}${isToggled ? ' (Toggled)' : ''}:</strong> ${eff.modifier > 0 ? '+' : ''}${eff.modifier} ${eff.type === 'die_num' ? 'dice' : ''}</li>`;
+            }
+        });
+    };
+
+    (this.hopeFearGroup.passiveAbilities || []).forEach(ab => processAbilityEffectsForTooltip(ab, false));
+    this.toggledStates.forEach(abilityId => {
+        const ability = this.allToggleableAbilities.find(a => a.instancedId === abilityId || a.definition.id === abilityId);
+        processAbilityEffectsForTooltip(ability, true);
+    });
+
+    content += '</ul>';
+    this._showTooltip(content, targetElement, 'below');
+  }
+
+  _showTooltip(content, targetElement, positionHint = 'right') {
+    this.tooltipElement.innerHTML = content;
+    this.tooltipElement.style.visibility = 'hidden';
+    this.tooltipElement.style.display = 'block';
+
+    const modalContent = this.modalElement.querySelector('.roll-modal-content');
+    const modalRect = modalContent.getBoundingClientRect();
+    const targetRect = targetElement.getBoundingClientRect();
+    const tooltipRect = this.tooltipElement.getBoundingClientRect();
+
+    let top, left;
+
+    if (positionHint === 'below') {
+        top = targetRect.bottom - modalRect.top + 5;
+        left = (modalContent.clientWidth / 2) - (tooltipRect.width / 2);
+        if (left < 0) left = 5;
+        if (left + tooltipRect.width > modalContent.clientWidth) {
+            left = modalContent.clientWidth - tooltipRect.width - 5;
+        }
+    } else {
+        const spaceRight = modalRect.right - targetRect.right;
+        const spaceLeft = targetRect.left - modalRect.left;
+        top = targetRect.top - modalRect.top;
+        if (spaceRight >= tooltipRect.width + 10) {
+            left = targetRect.right - modalRect.left + 10;
+        } else if (spaceLeft >= tooltipRect.width + 10) {
+            left = targetRect.left - modalRect.left - tooltipRect.width - 10;
+        } else {
+            left = targetRect.right - modalRect.left + 10;
+        }
+    }
+    
+    this.tooltipElement.style.top = `${top}px`;
+    this.tooltipElement.style.left = `${left}px`;
+    this.tooltipElement.style.visibility = 'visible';
+  }
+  
+  _hideTooltip() {
+      if (this.tooltipElement) {
+        this.tooltipElement.style.display = 'none';
+      }
+  }
+
+  _createModalHTML() {
     const groupHTML = this.rollDefinitions.map((groupDef, index) => {
       switch (groupDef.groupType) {
         case 'hope_fear':
-          // Pass the navHTML to the first group so it can be rendered at the top.
-          return this._createHopeFearGroupHTML(groupDef, index, index === 0 ? navHTML : '');
+          return this._createHopeFearGroupHTML(groupDef, index);
         case 'damage':
           return this._createDamageGroupHTML(groupDef, index);
         default:
           return '';
       }
     }).join('');
-
     return `
       <div id="roll-manager-modal">
         <div class="roll-modal-backdrop"></div>
         <div class="roll-modal-content">
           <button class="roll-modal-close">&times;</button>
           ${groupHTML}
+          <div id="roll-manager-tooltip" class="roll-manager-tooltip" style="display: none;"></div>
         </div>
       </div>
     `;
   }
 
-  /**
-   * Creates the HTML for a Hope/Fear roll group.
-   * @param {object} groupDef - The definition for this group.
-   * @param {number} groupId - The index of this group.
-   * @param {string} navHTML - The HTML for the navigation tabs (only passed for the first group).
-   * @returns {string} The HTML for this group.
-   */
-  _createHopeFearGroupHTML(groupDef, groupId, navHTML = '') {
-    const { baseValue, modifierData } = groupDef;
-    const { combinedValue, totalDiceNum, sources } = modifierData;
-    const modifierSourcesHTML = sources.map(source =>
-      `<li><strong>${source.itemName}:</strong> ${source.type === 'modifier' ? 'MOD' : 'DICE'} ${source.modifier > 0 ? '+' : ''}${source.modifier}</li>`
-    ).join('');
-    const baseValueHTML = `<li><strong>Base Value:</strong> ${baseValue >= 0 ? '+' : ''}${baseValue}</li>`;
-    
-    let d6BoxHTML = '';
-    if (totalDiceNum !== 0) {
-      d6BoxHTML = `
-        <div class="result-box d6-box">
+  _createHopeFearGroupHTML(groupDef, groupId) {
+    // The d6 box is now always included in the HTML. 
+    // Its visibility and the grid layout are handled dynamically by _updateModifierDisplay.
+    const d6BoxHTML = `<div class="result-box d6-box" style="display: none;">
           <span class="result-label">Dice Roll</span>
           <span class="result-value d6-roll-result">--</span>
           <span class="result-details d6-roll-details"></span>
-        </div>
-      `;
+        </div>`;
+    
+    // The grid starts as two-column and is updated dynamically.
+    const gridClass = 'two-col';
+
+    let activesHTML = '';
+    if (groupDef.availableActives && groupDef.availableActives.length > 0) {
+        activesHTML = `<div class="roll-modal-section interactive-modifiers">
+              <h5>Active Abilities</h5>
+              <div class="ability-toggle-grid">
+                ${groupDef.availableActives.map(ab => this._createToggleButtonHTML(ab)).join('')}
+              </div>
+            </div>`;
+    }
+    let conditionalsHTML = '';
+    if (groupDef.availableConditionals && groupDef.availableConditionals.length > 0) {
+        conditionalsHTML = `<div class="roll-modal-section interactive-modifiers">
+              <h5>Conditional Abilities</h5>
+              <div class="ability-toggle-list">
+                 ${groupDef.availableConditionals.map(ab => this._createToggleButtonHTML(ab, true)).join('')}
+              </div>
+            </div>`;
     }
 
     return `
       <div class="roll-group" id="roll-group-${groupId}" data-group-id="${groupId}">
         <h2 class="roll-modal-header">${groupDef.label}</h2>
-        ${navHTML}
         <div class="roll-modal-section modifiers-section">
           <h4>Modifiers Breakdown</h4>
-          <div class="modifier-totals">
-            <span>Total Numerical Mod: <strong>${combinedValue >= 0 ? '+' : ''}${combinedValue}</strong></span>
-            <span>Dice Num: <strong>${totalDiceNum >= 0 ? '+' : ''}${totalDiceNum}d6</strong></span>
+          <div class="modifier-totals" data-action="show-breakdown-tooltip" title="Click to see breakdown">
+            <span>Total Mod: <strong id="mod-total-numerical">+0</strong></span>
+            <span>Dice Num: <strong id="mod-total-dice">+0d6</strong></span>
           </div>
-          <ul class="modifier-sources">
-            ${baseValueHTML}
-            ${modifierSourcesHTML || ''}
-          </ul>
         </div>
+        ${activesHTML}
+        ${conditionalsHTML}
         <div class="roll-modal-section roll-button-section">
           <button class="roll-modal-roll-btn roll-group-btn" data-group-id="${groupId}">Roll Attack</button>
         </div>
         <div class="roll-modal-section results-section">
           <h4>Results</h4>
-          <div class="results-grid ${totalDiceNum !== 0 ? 'three-col' : 'two-col'}">
+          <div class="results-grid ${gridClass}">
             <div class="result-box hope-box">
               <span class="result-label">Hope</span>
               <span class="result-value hope-roll-result">--</span>
@@ -283,31 +424,38 @@ export class RollManager {
       </div>
     `;
   }
+  
+  _createToggleButtonHTML(ability, isConditional = false) {
+    const abilityId = ability.instancedId || ability.definition.id;
+    const toggledClass = this.toggledStates.has(abilityId) ? 'toggled-on' : '';
+    const buttonContent = `
+        <span>${ability.definition.name}</span>
+        <i class="info-btn" data-action="show-info-tooltip" data-ability-id="${abilityId}">i</i>
+    `;
+    const buttonHTML = `<button class="ability-toggle-btn ${toggledClass}" data-action="toggle-ability" data-ability-id="${abilityId}">
+        ${buttonContent}
+    </button>`;
+    if(isConditional) {
+        return `
+            <div class="conditional-toggle-item">
+                <p class="condition-text"><strong>IF:</strong> ${ability.definition.condition}</p>
+                ${buttonHTML}
+            </div>
+        `;
+    } else {
+        return buttonHTML;
+    }
+  }
 
-  /**
-   * Creates the HTML for a damage roll group.
-   * @param {object} groupDef - The definition for this group.
-   * @param {number} groupId - The index of this group.
-   * @returns {string} The HTML for this group.
-   */
   _createDamageGroupHTML(groupDef, groupId) {
-    const damageBoxesHTML = groupDef.rolls.map((rollDef, index) => {
-      const label = rollDef.label.charAt(0).toUpperCase() + rollDef.label.slice(1);
-      return `
+    const damageBoxesHTML = groupDef.rolls.map((rollDef, index) => `
         <div class="result-box">
-          <span class="result-label">${label}</span>
+          <span class="result-label">${rollDef.label.charAt(0).toUpperCase() + rollDef.label.slice(1)}</span>
           <span class="result-value" id="damage-value-${index}">--</span>
           <span class="result-details" id="damage-details-${index}"></span>
-        </div>
-      `;
-    }).join('');
-
+        </div>`).join('');
     const numDamageTypes = groupDef.rolls.length;
-    let gridClass = 'two-col';
-    if (numDamageTypes === 1) gridClass = '';
-    if (numDamageTypes === 3) gridClass = 'three-col';
-    if (numDamageTypes >= 4) gridClass = 'four-col';
-
+    let gridClass = numDamageTypes === 1 ? '' : (numDamageTypes === 3 ? 'three-col' : (numDamageTypes >= 4 ? 'four-col' : 'two-col'));
     return `
       <div class="roll-group" id="roll-group-${groupId}" data-group-id="${groupId}">
         <h2 class="roll-modal-header">${groupDef.label}</h2>
@@ -324,7 +472,6 @@ export class RollManager {
             </div>
           </div>
         </div>
-      </div>
-    `;
+      </div>`;
   }
 }

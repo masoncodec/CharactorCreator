@@ -55,7 +55,13 @@
           "name": "Modifier",
           "attribute": "speed",
           "modifier": 5
-        }
+        },
+        {
+            "type": "die_num",
+            "name": "Dice NUM",
+            "modifier": -1,
+            "attribute": "magic"
+          }
       ]
     },
     "speak-with-animals": {
