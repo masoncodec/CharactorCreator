@@ -14,6 +14,8 @@ export class EffectHandler {
 
     /**
      * Processes a pre-aggregated list of abilities, plus flaws and perks, to compile their effects.
+     * MODIFIED: Corrected the logic to allow processing of abilities even when no character
+     * (and thus no perks/flaws) is present, which is necessary for summons.
      * @param {Array<object>} allAbilities - The master list of abilities from the abilityAggregator.
      * @param {object} character - The character object, needed for flaws and perks.
      * @param {object} flawData - A map of all flaw definitions by ID.
@@ -23,9 +25,12 @@ export class EffectHandler {
      */
     processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, context) {
         this.activeEffects = []; // Reset effects for this processing cycle
-        if (!character) return;
+        
+        // This guard clause was incorrect and has been removed.
+        // if (!character) return;
 
-        // Process the unified list of all abilities
+        // Process the unified list of all abilities provided to the function.
+        // This part does not require a character object and will now run for summons.
         if (allAbilities) {
             allAbilities.forEach(ability => {
                 const abilityDef = ability.definition;
@@ -47,38 +52,41 @@ export class EffectHandler {
             });
         }
 
-        // Process Flaws and Perks (This logic is unchanged)
-        if (character.flaws && flawData) {
-            character.flaws.forEach(flawState => {
-                const flawDef = flawData[flawState.id];
-                if (flawDef && flawDef.effect) {
-                    flawDef.effect.forEach(effect => {
-                        this.activeEffects.push({
-                            ...effect,
-                            itemName: flawDef.name,
-                            itemId: flawState.id,
-                            itemType: "passive",
-                            sourceType: "flaw"
+        // Process Flaws and Perks - this part still requires a character object.
+        // It is now wrapped in a conditional to ensure it only runs when a character is passed in.
+        if (character) {
+            if (character.flaws && flawData) {
+                character.flaws.forEach(flawState => {
+                    const flawDef = flawData[flawState.id];
+                    if (flawDef && flawDef.effect) {
+                        flawDef.effect.forEach(effect => {
+                            this.activeEffects.push({
+                                ...effect,
+                                itemName: flawDef.name,
+                                itemId: flawState.id,
+                                itemType: "passive",
+                                sourceType: "flaw"
+                            });
                         });
-                    });
-                }
-            });
-        }
-        if (character.perks && perkData) {
-            character.perks.forEach(perkState => {
-                const perkDef = perkData[perkState.id];
-                if (perkDef && perkDef.effect) {
-                    perkDef.effect.forEach(effect => {
-                        this.activeEffects.push({
-                            ...effect,
-                            itemName: perkDef.name,
-                            itemId: perkState.id,
-                            itemType: "passive",
-                            sourceType: "perk"
+                    }
+                });
+            }
+            if (character.perks && perkData) {
+                character.perks.forEach(perkState => {
+                    const perkDef = perkData[perkState.id];
+                    if (perkDef && perkDef.effect) {
+                        perkDef.effect.forEach(effect => {
+                            this.activeEffects.push({
+                                ...effect,
+                                itemName: perkDef.name,
+                                itemId: perkState.id,
+                                itemType: "passive",
+                                sourceType: "perk"
+                            });
                         });
-                    });
-                }
-            });
+                    }
+                });
+            }
         }
 
         console.log("EffectHandler: Active Effects Processed for context:", context, this.activeEffects);
