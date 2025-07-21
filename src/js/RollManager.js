@@ -358,16 +358,23 @@ export class RollManager {
   }
 
   _createHopeFearGroupHTML(groupDef, groupId) {
-    // The d6 box is now always included in the HTML. 
-    // Its visibility and the grid layout are handled dynamically by _updateModifierDisplay.
-    const d6BoxHTML = `<div class="result-box d6-box" style="display: none;">
+    const allPotentialAbilities = [
+        ...(groupDef.passiveAbilities || []),
+        ...(groupDef.availableActives || []),
+        ...(groupDef.availableConditionals || [])
+    ];
+    const hasPotentialDiceMods = allPotentialAbilities.some(ab => 
+        ab.definition.effect?.some(eff => eff.type === 'die_num')
+    );
+    let d6BoxHTML = '';
+    if (hasPotentialDiceMods) {
+        d6BoxHTML = `<div class="result-box d6-box" style="display: none;">
           <span class="result-label">Dice Roll</span>
           <span class="result-value d6-roll-result">--</span>
           <span class="result-details d6-roll-details"></span>
         </div>`;
-    
-    // The grid starts as two-column and is updated dynamically.
-    const gridClass = 'two-col';
+    }
+    const gridClass = hasPotentialDiceMods ? 'three-col' : 'two-col';
 
     let activesHTML = '';
     if (groupDef.availableActives && groupDef.availableActives.length > 0) {
@@ -401,7 +408,7 @@ export class RollManager {
         ${activesHTML}
         ${conditionalsHTML}
         <div class="roll-modal-section roll-button-section">
-          <button class="roll-modal-roll-btn roll-group-btn" data-group-id="${groupId}">Roll Attack</button>
+          <button class="roll-modal-roll-btn roll-group-btn" data-group-id="${groupId}">${groupDef.buttonLabel}</button>
         </div>
         <div class="roll-modal-section results-section">
           <h4>Results</h4>
@@ -460,7 +467,7 @@ export class RollManager {
       <div class="roll-group" id="roll-group-${groupId}" data-group-id="${groupId}">
         <h2 class="roll-modal-header">${groupDef.label}</h2>
         <div class="roll-modal-section roll-button-section">
-          <button class="roll-modal-roll-btn roll-group-btn" data-group-id="${groupId}">Roll Damage</button>
+          <button class="roll-modal-roll-btn roll-group-btn" data-group-id="${groupId}">${groupDef.buttonLabel}</button>
         </div>
         <div class="roll-modal-section results-section">
           <h4>Results</h4>

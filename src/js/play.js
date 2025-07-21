@@ -387,6 +387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     rollDefinitions.push({
                         groupType: 'damage',
                         label: 'Damage',
+                        buttonLabel: 'Roll Damage', // MODIFIED: Added button label
                         rolls: damageDef.damage.map(d => ({ label: d.type, dice: d.dice, baseValue: d.value || 0 }))
                     });
                 }
@@ -409,6 +410,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const baseRollDef = {
                     groupType: 'hope_fear',
                     label: `${ability.definition.name} - Attack Roll`,
+                    buttonLabel: 'Roll Attack', // MODIFIED: Added button label
                     attributeName: attackEffect.attribute_bonus,
                     baseValue: activeCharacter.attributes[attackEffect.attribute_bonus] || 0,
                 };
@@ -423,6 +425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const baseRollDef = {
                     groupType: 'hope_fear',
                     label: `${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
+                    buttonLabel: 'Roll Check', // MODIFIED: Added button label
                     attributeName: attributeName,
                     baseValue: activeCharacter.attributes[attributeName] || 0,
                 };
@@ -455,6 +458,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const baseRollDef = {
                     groupType: 'hope_fear',
                     label: `${abilityDef.name} - Attack Roll`,
+                    buttonLabel: 'Roll Attack', // MODIFIED: Added button label
                     attributeName: attackEffect.attribute_bonus,
                     baseValue: summonDef.attributes[attackEffect.attribute_bonus] || 0,
                 };

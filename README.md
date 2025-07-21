@@ -1,5 +1,6 @@
 ### Current TODO
 
+firstly: effecthandler morez
 a. handle "costs" for abilities being used
 b. build ability view generator
 
