@@ -354,6 +354,43 @@
     box-shadow: 0 0 8px rgba(40, 167, 69, 0.7);
 }
 
+/* Main container for the attribute grid (for character or summons) */
+.attributes-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    gap: 1rem;
+    width: 100%;
+    
+    /* --- ADD THESE LINES TO RESTORE THE STYLE --- */
+    background: #222;
+    padding: 1rem;
+    border-radius: 5px;
+}
+
+/* Container for a single attribute block (name, value, button) */
+.attribute-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 80px;
+}
+
+/* The text label for the attribute name (e.g., "Sturdy") */
+.attribute-name-display {
+    font-size: 0.9rem;
+    color: #ccc;
+    text-transform: capitalize;
+}
+
+/* The numerical value of the attribute (e.g., "+2") */
+.attribute-value-display {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #a0c4ff;
+}
+
 @media (max-width: 768px) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);

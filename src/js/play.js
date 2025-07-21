@@ -20,6 +20,45 @@ const RELEVANCE_RULES = {
 };
 
 /**
+ * NEW: Gathers the full set of abilities for a character roll, including global perks and flaws.
+ * @param {Array<object>} baseAbilities - The starting list of abilities (e.g., from equipment).
+ * @returns {Array<object>} A new array containing the base abilities plus perks and flaws.
+ */
+function getCharacterRollAbilities(baseAbilities) {
+    const fullAbilityList = [...baseAbilities];
+
+    // Add perks from the active character
+    (activeCharacter.perks || []).forEach(perkState => {
+        const perkDef = perkData[perkState.id];
+        if (perkDef) {
+            fullAbilityList.push({
+                definition: perkDef,
+                itemType: 'passive',
+                sourceType: 'perk',
+                sourceName: perkDef.name,
+                instancedId: perkState.id
+            });
+        }
+    });
+
+    // Add flaws from the active character
+    (activeCharacter.flaws || []).forEach(flawState => {
+        const flawDef = flawData[flawState.id];
+        if (flawDef) {
+            fullAbilityList.push({
+                definition: flawDef,
+                itemType: 'passive',
+                sourceType: 'flaw',
+                sourceName: flawDef.name,
+                instancedId: flawState.id
+            });
+        }
+    });
+
+    return fullAbilityList;
+}
+
+/**
  * MODIFIED: Helper function to determine if an ability is relevant to a specific roll context.
  * Now handles array-based contexts for damage types.
  * @param {object} ability - The full ability object.
@@ -72,7 +111,7 @@ async function processAndRenderAll(character) {
 
     // --- LOGIC ORDER ---
     
-    // 1. Instantiate handler and process all active effects.
+    // 1. Instantiate handler and process all of the CHARACTER's active effects.
     mainEffectHandler = new EffectHandler();
     allAbilities = aggregateAllAbilities(character, abilityData, equipmentData);
     mainEffectHandler.processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, 'play');
@@ -99,9 +138,38 @@ async function processAndRenderAll(character) {
     }
     reconciledCharacter.lastMaxHealthBonus = newMaxHealthBonus;
     
-    // 6. Apply all other effects.
+    // 6. Apply all other effects to the character.
     const effectedCharacter = mainEffectHandler.applyEffectsToCharacter(reconciledCharacter, 'play', activeAbilityStates, bestiaryData);
     
+    // NEW 6a: Calculate final attributes for the main character and attach them for the UI.
+    effectedCharacter.calculatedAttributes = {};
+    for(const attr in effectedCharacter.attributes) {
+        effectedCharacter.calculatedAttributes[attr] = mainEffectHandler.getCombinedAttributeValue(attr, effectedCharacter.attributes[attr]);
+    }
+    
+    // NEW 6b: Loop through summons to calculate their final attributes.
+    if (effectedCharacter.summonedCreatures) {
+        effectedCharacter.summonedCreatures.forEach(summon => {
+            const summonDef = bestiaryData[summon.creatureId];
+            if (!summonDef || !summonDef.attributes) return;
+            
+            // Create a temporary, isolated handler for this summon.
+            const summonEffectHandler = new EffectHandler();
+            const allSummonAbilities = [
+                ...(summonDef.abilities?.passive || []).map(p => ({ definition: p, itemType: 'passive' })),
+                ...(summonDef.abilities?.active || []).map(a => ({ definition: a, itemType: 'active' }))
+            ];
+            // Note: We're not passing any toggle states to summons yet. This can be a future enhancement.
+            summonEffectHandler.processActiveAbilities(allSummonAbilities, null, null, null, new Set(), 'summon');
+            
+            // Calculate and attach the final attributes to the summon instance.
+            summon.calculatedAttributes = {};
+            for (const attr in summonDef.attributes) {
+                summon.calculatedAttributes[attr] = summonEffectHandler.getCombinedAttributeValue(attr, summonDef.attributes[attr]);
+            }
+        });
+    }
+
     // 7. Store layout globally.
     activeLayout = { layoutConfig, slotMap };
     
@@ -109,10 +177,11 @@ async function processAndRenderAll(character) {
     character.health.current = effectedCharacter.health.current;
     character.lastMaxHealthBonus = effectedCharacter.lastMaxHealthBonus;
     character.calculatedHealth = effectedCharacter.calculatedHealth;
+    character.calculatedAttributes = effectedCharacter.calculatedAttributes; // Persist calculated attributes
     character.languages = effectedCharacter.languages;
     character.activeRollEffects = effectedCharacter.activeRollEffects;
     character.temporaryBuffs = effectedCharacter.temporaryBuffs;
-    character.summonedCreatures = effectedCharacter.summonedCreatures;
+    character.summonedCreatures = effectedCharacter.summonedCreatures; // This now includes calculated summon attributes
     character.statuses = effectedCharacter.statuses;
     character.resources = effectedCharacter.resources;
     character.resistances = effectedCharacter.resistances;
@@ -296,6 +365,29 @@ async function handleUnequip(itemIdToUnequip) {
     } catch (err) { console.error('Failed to unequip item:', err); alerter.show('Failed to unequip item.', 'error'); }
 }
 
+/**
+ * NEW: Helper function to clean up dismissed summon records when their source item is unequipped.
+ * @param {object} character - The active character object.
+ * @param {Array<string>} instanceIdsToPurge - An array of equipment instanceIds that have been unequipped.
+ * @returns {Array<string>} The new, filtered list of dismissed passive sources.
+ */
+function cleanupDismissedOnUnequip(character, instanceIdsToPurge) {
+    if (!character.dismissedPassiveSources || !character.dismissedPassiveSources.length || !instanceIdsToPurge || !instanceIdsToPurge.length) {
+        return character.dismissedPassiveSources || [];
+    }
+    
+    const idsToPurgeSet = new Set(instanceIdsToPurge);
+
+    return character.dismissedPassiveSources.filter(dismissedId => {
+        // We check if any of the instance IDs being unequipped are part of the dismissedId string.
+        for (const instanceId of idsToPurgeSet) {
+            if (dismissedId.includes(instanceId)) {
+                return false; // This dismissed record corresponds to an unequipped item, so we remove it.
+            }
+        }
+        return true; // Keep this dismissed record as its source is still equipped.
+    });
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -311,6 +403,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             equipmentData = moduleSpecificData.equipmentAndLootData || {};
             bestiaryData = moduleSpecificData.bestiaryData || {};
             await processAndRenderAll(activeCharacter);
+
+            // Force-save the fully processed character state to ensure data integrity for exports.
+            activeCharacter = await db.updateCharacter(activeCharacter.id, activeCharacter);
+            console.log('Synchronized character state with database after initial load.');
         } else {
             document.querySelector('.play-content-scrollable').innerHTML = '<p>No character selected. <a href="character-selector.html">Choose one first</a></p>';
         }
@@ -320,48 +416,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!activeCharacter) return;
             const target = event.target;
 
-            // --- Generic Roll Handler Logic ---
-            const setupAndLaunchRoll = (sourceAbilities, baseRollDef, damageDef = null) => {
+            /**
+             * REFACTORED: Now a generic function that launches the RollManager.
+             * It no longer contains logic specific to the character.
+             * @param {object} rollContext - An object containing all necessary data for the roll.
+             * @param {object} rollContext.baseRollDef - The core definition of the roll group.
+             * @param {Array<object>} rollContext.abilities - The pre-aggregated list of abilities relevant to the roll.
+             * @param {object} [rollContext.damageDef] - Optional: A definition for a follow-up damage roll.
+             */
+            const setupAndLaunchRoll = (rollContext) => {
+                const { baseRollDef, abilities, damageDef } = rollContext;
+
                 const attributeName = baseRollDef.attributeName;
                 const attributeContext = { attribute: attributeName };
                 const damageTypes = (damageDef?.damage || []).map(d => d.type);
                 const damageContext = { damage_types: damageTypes };
-
-                // Combine abilities, perks, and flaws into one list for processing.
-                const allPotentialModifiers = [...sourceAbilities];
-
-                (activeCharacter.perks || []).forEach(perkState => {
-                    const perkDef = perkData[perkState.id];
-                    if (perkDef) {
-                        allPotentialModifiers.push({
-                            definition: perkDef,
-                            itemType: 'passive',
-                            sourceType: 'perk',
-                            sourceName: perkDef.name,
-                            instancedId: perkState.id
-                        });
-                    }
-                });
-
-                (activeCharacter.flaws || []).forEach(flawState => {
-                    const flawDef = flawData[flawState.id];
-                    if (flawDef) {
-                        allPotentialModifiers.push({
-                            definition: flawDef,
-                            itemType: 'passive',
-                            sourceType: 'flaw',
-                            sourceName: flawDef.name,
-                            instancedId: flawState.id
-                        });
-                    }
-                });
                 
-                // Filter the combined list for relevance.
+                // Filter the provided abilities list for relevance to this specific roll.
                 const passiveAbilities = [];
                 const availableActives = [];
                 const availableConditionals = [];
 
-                allPotentialModifiers.forEach(ab => {
+                abilities.forEach(ab => {
                     const isRelevantToAttribute = isAbilityRelevant(ab, 'hope_fear', attributeContext);
                     const isRelevantToDamage = damageTypes.length > 0 && isAbilityRelevant(ab, 'damage', damageContext);
                     
@@ -387,7 +463,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     rollDefinitions.push({
                         groupType: 'damage',
                         label: 'Damage',
-                        buttonLabel: 'Roll Damage', // MODIFIED: Added button label
+                        buttonLabel: 'Roll Damage',
                         rolls: damageDef.damage.map(d => ({ label: d.type, dice: d.dice, baseValue: d.value || 0 }))
                     });
                 }
@@ -398,38 +474,114 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // --- EVENT HANDLERS ---
 
+            // Handler for a character's ability attack roll
             const abilityRollButton = target.closest('.btn-ability-roll');
             if (abilityRollButton) {
                 const abilityId = abilityRollButton.dataset.abilityId;
                 const ability = allAbilities.find(a => a.instancedId === abilityId);
-                if (!ability?.definition.effect) return;
-
-                const attackEffect = ability.definition.effect.find(e => e.type === 'attack');
+                const attackEffect = ability?.definition.effect?.find(e => e.type === 'attack');
                 if (!attackEffect) return;
 
-                const baseRollDef = {
-                    groupType: 'hope_fear',
-                    label: `${ability.definition.name} - Attack Roll`,
-                    buttonLabel: 'Roll Attack', // MODIFIED: Added button label
-                    attributeName: attackEffect.attribute_bonus,
-                    baseValue: activeCharacter.attributes[attackEffect.attribute_bonus] || 0,
-                };
+                // REFACTORED: The event handler is now responsible for gathering all relevant effects.
+                const characterAbilities = getCharacterRollAbilities(allAbilities);
 
-                setupAndLaunchRoll(allAbilities, baseRollDef, attackEffect);
+                const rollContext = {
+                    abilities: characterAbilities,
+                    damageDef: attackEffect,
+                    baseRollDef: {
+                        groupType: 'hope_fear',
+                        label: `${ability.definition.name} - Attack Roll`,
+                        buttonLabel: 'Roll Attack',
+                        attributeName: attackEffect.attribute_bonus,
+                        baseValue: activeCharacter.attributes[attackEffect.attribute_bonus] || 0,
+                    }
+                };
+                setupAndLaunchRoll(rollContext);
                 return;
             }
             
+            // Handler for a character's attribute check
             const hopeFearButton = target.closest('.hope-fear-roll-btn');
             if(hopeFearButton) {
                 const attributeName = hopeFearButton.dataset.attribute;
-                const baseRollDef = {
-                    groupType: 'hope_fear',
-                    label: `${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
-                    buttonLabel: 'Roll Check', // MODIFIED: Added button label
-                    attributeName: attributeName,
-                    baseValue: activeCharacter.attributes[attributeName] || 0,
+
+                // REFACTORED: The event handler is now responsible for gathering all relevant effects.
+                const characterAbilities = getCharacterRollAbilities(allAbilities);
+
+                const rollContext = {
+                    abilities: characterAbilities,
+                    baseRollDef: {
+                        groupType: 'hope_fear',
+                        label: `${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
+                        buttonLabel: 'Roll Check',
+                        attributeName: attributeName,
+                        baseValue: activeCharacter.attributes[attributeName] || 0,
+                    }
                 };
-                setupAndLaunchRoll(allAbilities, baseRollDef);
+                setupAndLaunchRoll(rollContext);
+                return;
+            }
+
+            // Handler for a summon's attribute check
+            const summonAttrRollBtn = target.closest('.summon-attribute-roll-btn');
+            if (summonAttrRollBtn) {
+                const instanceId = summonAttrRollBtn.dataset.instanceId;
+                const attributeName = summonAttrRollBtn.dataset.attribute;
+                const summonInstance = activeCharacter.summonedCreatures.find(s => s.instanceId === instanceId);
+                if (!summonInstance) return;
+                const summonDef = bestiaryData[summonInstance.creatureId];
+                if (!summonDef || !summonDef.attributes) return;
+
+                // REFACTORED: Gathers ONLY the summon's abilities.
+                const allSummonAbilities = [
+                    ...(summonDef.abilities?.passive || []).map(p => ({ definition: p, itemType: 'passive' })),
+                    ...(summonDef.abilities?.active || []).map(a => ({ definition: a, itemType: 'active' }))
+                ];
+
+                const rollContext = {
+                    abilities: allSummonAbilities,
+                    baseRollDef: {
+                        groupType: 'hope_fear',
+                        label: `${summonDef.name} - ${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
+                        buttonLabel: 'Roll Check',
+                        attributeName: attributeName,
+                        baseValue: summonDef.attributes[attributeName] || 0,
+                    }
+                };
+                setupAndLaunchRoll(rollContext);
+                return;
+            }
+
+            // Handler for a summon's ability attack roll
+            const actionButton = target.closest('.btn-action');
+            if (actionButton) {
+                const instanceId = actionButton.dataset.instanceId;
+                const abilityId = actionButton.dataset.abilityId;
+                const summonInstance = activeCharacter.summonedCreatures.find(s => s.instanceId === instanceId);
+                if (!summonInstance) return;
+                const summonDef = bestiaryData[summonInstance.creatureId];
+                const abilityDef = summonDef?.abilities?.active?.find(a => a.id === abilityId);
+                const attackEffect = abilityDef?.effect?.find(e => e.type === 'attack');
+                if (!attackEffect) return;
+
+                // REFACTORED: Gathers ONLY the summon's abilities.
+                const allSummonAbilities = [
+                    ...(summonDef.abilities?.passive || []).map(p => ({ definition: p, itemType: 'passive' })),
+                    ...(summonDef.abilities?.active || []).map(a => ({ definition: a, itemType: 'active' }))
+                ];
+
+                const rollContext = {
+                    abilities: allSummonAbilities,
+                    damageDef: attackEffect,
+                    baseRollDef: {
+                        groupType: 'hope_fear',
+                        label: `${abilityDef.name} - Attack Roll`,
+                        buttonLabel: 'Roll Attack',
+                        attributeName: attackEffect.attribute_bonus,
+                        baseValue: summonDef.attributes[attackEffect.attribute_bonus] || 0,
+                    }
+                };
+                setupAndLaunchRoll(rollContext);
                 return;
             }
 
@@ -441,62 +593,39 @@ document.addEventListener('DOMContentLoaded', async () => {
                 processAndRenderAll(activeCharacter);
                 return;
             }
-
-            const actionButton = target.closest('.btn-action');
-            if (actionButton) {
-                const instanceId = actionButton.dataset.instanceId;
-                const abilityId = actionButton.dataset.abilityId;
-                const summonInstance = activeCharacter.summonedCreatures.find(s => s.instanceId === instanceId);
-                if (!summonInstance) return;
-                const summonDef = bestiaryData[summonInstance.creatureId];
-                if (!summonDef || !summonDef.abilities) return;
-                const abilityDef = summonDef.abilities.active?.find(a => a.id === abilityId);
-                if (!abilityDef || !abilityDef.effect) return;
-                const attackEffect = abilityDef.effect.find(e => e.type === 'attack');
-                if (!attackEffect) return;
-                const allSummonAbilities = [...(summonDef.abilities.passive || []).map(p => ({ definition: p, itemType: 'passive' })), ...(summonDef.abilities.active || []).map(a => ({ definition: a, itemType: 'active' }))];
-                const baseRollDef = {
-                    groupType: 'hope_fear',
-                    label: `${abilityDef.name} - Attack Roll`,
-                    buttonLabel: 'Roll Attack', // MODIFIED: Added button label
-                    attributeName: attackEffect.attribute_bonus,
-                    baseValue: summonDef.attributes[attackEffect.attribute_bonus] || 0,
-                };
-                setupAndLaunchRoll(allSummonAbilities, baseRollDef, attackEffect);
-                return;
-            }
             
             const unequipSlot = target.closest('.equipment-slot.filled');
             if (unequipSlot) {
                 const slotId = unequipSlot.dataset.slotId;
                 const slotValue = activeCharacter.equipmentSlots[slotId];
                 if (!slotValue) return;
+
+                let instanceIdsToPurge = [];
+                let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+
                 if (typeof slotValue === 'object' && slotValue.instanceId) {
                     const instanceIdToRemove = slotValue.instanceId;
-                    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+                    instanceIdsToPurge.push(instanceIdToRemove);
+                    // Unequip all slots sharing this instanceId (for combined items)
                     for (const sId in newEquipmentSlots) {
                         if (newEquipmentSlots[sId]?.instanceId === instanceIdToRemove) {
                             newEquipmentSlots[sId] = null;
                         }
                     }
-                    try {
-                        activeCharacter = await db.updateCharacter(activeCharacter.id, { equipmentSlots: newEquipmentSlots });
-                        processAndRenderAll(activeCharacter);
-                    } catch (err) { console.error('Failed to unequip instance:', err); alerter.show('Failed to unequip instance.', 'error'); }
                 } else {
-                    const itemIdToUnequip = slotValue;
-                    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
-                    let newInventory = [...activeCharacter.inventory];
+                    // This case is for simple items without an instanceId, won't affect dismissals.
                     newEquipmentSlots[slotId] = null;
-                    const isStillEquippedElsewhere = Object.values(newEquipmentSlots).includes(itemIdToUnequip);
-                    if (!isStillEquippedElsewhere) {
-                        newInventory = newInventory.map(item => item.id === itemIdToUnequip ? { ...item, equipped: false } : item);
-                    }
-                    try {
-                        activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
-                        processAndRenderAll(activeCharacter);
-                    } catch (err) { console.error('Failed to unequip from slot:', err); alerter.show('Failed to unequip from slot.', 'error'); }
                 }
+
+                const newDismissedSources = cleanupDismissedOnUnequip(activeCharacter, instanceIdsToPurge);
+
+                try {
+                    activeCharacter = await db.updateCharacter(activeCharacter.id, { 
+                        equipmentSlots: newEquipmentSlots,
+                        dismissedPassiveSources: newDismissedSources
+                    });
+                    processAndRenderAll(activeCharacter);
+                } catch (err) { console.error('Failed to unequip instance:', err); alerter.show('Failed to unequip instance.', 'error'); }
                 return;
             }
 
@@ -504,8 +633,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (equipButton) {
                 const itemId = equipButton.dataset.itemId;
                 const itemInstance = activeCharacter.inventory.find(i => i.id === itemId);
-                if (itemInstance && itemInstance.equipped) { await handleUnequip(itemId); } 
-                else { await handleEquip(itemId); }
+                
+                // This is a generic unequip button for single-quantity items.
+                if (itemInstance && itemInstance.equipped) {
+                    let instanceIdsToPurge = [];
+                    let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+                    
+                    // Find all slots this item occupies and collect their instance IDs
+                    for(const slotId in activeCharacter.equipmentSlots) {
+                        const slotValue = activeCharacter.equipmentSlots[slotId];
+                        const idInSlot = slotValue?.itemId || slotValue;
+                        if(idInSlot === itemId) {
+                            if(slotValue.instanceId) instanceIdsToPurge.push(slotValue.instanceId);
+                            newEquipmentSlots[slotId] = null;
+                        }
+                    }
+                    
+                    const newDismissedSources = cleanupDismissedOnUnequip(activeCharacter, instanceIdsToPurge);
+                    const newInventory = activeCharacter.inventory.map(item => item.id === itemId ? { ...item, equipped: false } : item);
+
+                    activeCharacter = await db.updateCharacter(activeCharacter.id, {
+                        inventory: newInventory,
+                        equipmentSlots: newEquipmentSlots,
+                        dismissedPassiveSources: newDismissedSources
+                    });
+                    processAndRenderAll(activeCharacter);
+                } 
+                else { 
+                    await handleEquip(itemId); 
+                }
                 return;
             }
 
@@ -516,45 +672,41 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (unequipStackButton) {
                 const itemId = unequipStackButton.dataset.itemId;
                 const itemDef = equipmentData[itemId];
+                let instanceIdToPurge = null;
+                let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+
                 if (itemDef && activeLayout.layoutConfig.combined_slots[itemDef.equip_slot]) {
-                    const equippedInstances = {};
-                    for (const slotId in activeCharacter.equipmentSlots) {
-                        const slotValue = activeCharacter.equipmentSlots[slotId];
-                        if (slotValue?.itemId === itemId && slotValue.instanceId) {
-                            if (!equippedInstances[slotValue.instanceId]) equippedInstances[slotValue.instanceId] = [];
-                            equippedInstances[slotValue.instanceId].push(slotId);
-                        }
-                    }
-                    const instanceIds = Object.keys(equippedInstances);
+                    const instanceIds = Object.values(activeCharacter.equipmentSlots)
+                        .filter(v => v?.itemId === itemId && v.instanceId)
+                        .map(v => v.instanceId)
+                        .sort();
                     if (instanceIds.length > 0) {
-                        instanceIds.sort();
-                        const instanceIdToRemove = instanceIds[instanceIds.length - 1];
-                        let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+                        instanceIdToPurge = instanceIds[instanceIds.length - 1];
                         for (const slotId in newEquipmentSlots) {
-                            if (newEquipmentSlots[slotId]?.instanceId === instanceIdToRemove) newEquipmentSlots[slotId] = null;
+                            if (newEquipmentSlots[slotId]?.instanceId === instanceIdToPurge) newEquipmentSlots[slotId] = null;
                         }
-                        try {
-                            activeCharacter = await db.updateCharacter(activeCharacter.id, { equipmentSlots: newEquipmentSlots });
-                            processAndRenderAll(activeCharacter);
-                        } catch (err) { console.error('Failed to unequip multi-slot stackable instance:', err); alerter.show('Failed to unequip instance.', 'error'); }
                     }
                 } else {
                     const equipSlotType = itemDef?.equip_slot;
                     const instanceSlots = activeLayout.slotMap[equipSlotType] || [];
-                    const occupiedSlots = instanceSlots.filter(id => activeCharacter.equipmentSlots[id] === itemId);
+                    const occupiedSlots = instanceSlots.filter(id => {
+                        const slotValue = activeCharacter.equipmentSlots[id];
+                        return (slotValue?.itemId || slotValue) === itemId;
+                    });
                     if (occupiedSlots.length > 0) {
                         const slotToUnequip = occupiedSlots[occupiedSlots.length - 1];
-                        let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
-                        let newInventory = [...activeCharacter.inventory];
+                        const slotValue = newEquipmentSlots[slotToUnequip];
+                        if(slotValue.instanceId) instanceIdToPurge = slotValue.instanceId;
                         newEquipmentSlots[slotToUnequip] = null;
-                        if (occupiedSlots.length - 1 === 0) {
-                            newInventory = newInventory.map(item => item.id === itemId ? { ...item, equipped: false } : item);
-                        }
-                        try {
-                            activeCharacter = await db.updateCharacter(activeCharacter.id, { inventory: newInventory, equipmentSlots: newEquipmentSlots });
-                            processAndRenderAll(activeCharacter);
-                        } catch (err) { console.error('Failed to unequip stackable item:', err); alerter.show('Failed to unequip item.', 'error'); }
                     }
+                }
+
+                if(instanceIdToPurge) {
+                    const newDismissedSources = cleanupDismissedOnUnequip(activeCharacter, [instanceIdToPurge]);
+                    try {
+                        activeCharacter = await db.updateCharacter(activeCharacter.id, { equipmentSlots: newEquipmentSlots, dismissedPassiveSources: newDismissedSources });
+                        processAndRenderAll(activeCharacter);
+                    } catch (err) { console.error('Failed to unequip stackable item:', err); alerter.show('Failed to unequip item.', 'error'); }
                 }
                 return;
             }
