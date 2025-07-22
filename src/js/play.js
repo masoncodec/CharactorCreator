@@ -494,6 +494,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         buttonLabel: 'Roll Attack',
                         attributeName: attackEffect.attribute_bonus,
                         baseValue: activeCharacter.attributes[attackEffect.attribute_bonus] || 0,
+                        isAttackRoll: true
                     }
                 };
                 setupAndLaunchRoll(rollContext);
@@ -579,6 +580,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         buttonLabel: 'Roll Attack',
                         attributeName: attackEffect.attribute_bonus,
                         baseValue: summonDef.attributes[attackEffect.attribute_bonus] || 0,
+                        isAttackRoll: true
                     }
                 };
                 setupAndLaunchRoll(rollContext);

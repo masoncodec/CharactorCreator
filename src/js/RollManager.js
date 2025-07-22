@@ -395,12 +395,24 @@ export class RollManager {
             </div>`;
     }
 
+    // Conditionally create the HTML for the base attribute display.
+    let baseAttributeHtml = '';
+    if (groupDef.isAttackRoll && groupDef.attributeName) {
+        const capitalizedAttribute = groupDef.attributeName.charAt(0).toUpperCase() + groupDef.attributeName.slice(1);
+        baseAttributeHtml = `
+            <div class="base-attribute-display">
+                <span>Base Attribute:</span>
+                <strong>${capitalizedAttribute}</strong>
+            </div>
+        `;
+    }
+
     return `
       <div class="roll-group" id="roll-group-${groupId}" data-group-id="${groupId}">
         <h2 class="roll-modal-header">${groupDef.label}</h2>
         <div class="roll-modal-section modifiers-section">
           <h4>Modifiers Breakdown</h4>
-          <div class="modifier-totals" data-action="show-breakdown-tooltip" title="Click to see breakdown">
+          ${baseAttributeHtml} <div class="modifier-totals" data-action="show-breakdown-tooltip" title="Click to see breakdown">
             <span>Total Mod: <strong id="mod-total-numerical">+0</strong></span>
             <span>Dice Num: <strong id="mod-total-dice">+0d6</strong></span>
           </div>
