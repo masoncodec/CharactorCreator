@@ -95,10 +95,11 @@ export class EffectHandler {
     /**
      * Applies all currently active effects to a character object.
      * This method creates a new character object with effects applied.
+     * MODIFIED: Now correctly resets activeRollEffects to prevent duplication on re-renders.
      * @param {object} character - The base character object.
      * @param {string} context - The context for applying effects ('wizard' or 'play').
      * @param {Set<string>} activeAbilityStates - A Set of IDs of currently toggled active abilities.
-     * @param {object} bestiaryData - NEW: The master list of all creature definitions.
+     * @param {object} bestiaryData - The master list of all creature definitions.
      * @returns {object} A new character object with effects applied.
      */
     applyEffectsToCharacter(character, context, activeAbilityStates, bestiaryData = {}) {
@@ -117,12 +118,13 @@ export class EffectHandler {
             modifiedCharacter.calculatedHealth.currentMax = modifiedCharacter.calculatedHealth.baseMax;
         }
 
+        // --- BUG FIX: Reset activeRollEffects to prevent duplication on each processing cycle. ---
+        modifiedCharacter.activeRollEffects = {};
+        
         modifiedCharacter.summonedCreatures = modifiedCharacter.summonedCreatures || [];
         modifiedCharacter.languages = modifiedCharacter.languages || [];
         modifiedCharacter.statuses = modifiedCharacter.statuses || [];
-        // ... other initializations
         modifiedCharacter.tempResources = {};
-        modifiedCharacter.activeRollEffects = modifiedCharacter.activeRollEffects || {};
         modifiedCharacter.temporaryBuffs = modifiedCharacter.temporaryBuffs || [];
         modifiedCharacter.inventory = modifiedCharacter.inventory || [];
         modifiedCharacter.resources = modifiedCharacter.resources || [];
@@ -167,7 +169,6 @@ export class EffectHandler {
                     break;
                 }
                 
-                // NEW: Logic to handle the summoning of creatures.
                 case "summon_creature": {
                     // First, check if this summon's source has been manually dismissed by the user.
                     if (modifiedCharacter.dismissedPassiveSources && modifiedCharacter.dismissedPassiveSources.includes(effect.itemId)) {
@@ -213,8 +214,6 @@ export class EffectHandler {
                     }
                     break;
                 }
-
-                // ... other cases like "temporary_buff", "inventory_item", etc., are unchanged.
                 case "temporary_buff":
                     modifiedCharacter.temporaryBuffs.push(effect);
                     break;
@@ -231,7 +230,6 @@ export class EffectHandler {
                         modifiedCharacter.statuses.push({ name: effect.name, duration: effect.duration, appliedAt: Date.now() });
                     }
                     break;
-
                 default:
                     // console.warn(`EffectHandler: Unknown effect type encountered: ${effect.type}`, effect);
             }
