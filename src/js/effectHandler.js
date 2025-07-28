@@ -214,6 +214,17 @@ export class EffectHandler {
                     }
                     break;
                 }
+                // NEW: Handles effects that modify the max value of a resource.
+                case "max_resource_mod": {
+                    if (!modifiedCharacter.resources) modifiedCharacter.resources = [];
+                    // Find the resource by its 'id' (e.g., "mana")
+                    const resource = modifiedCharacter.resources.find(r => r.id === effect.resource);
+                    if (resource) {
+                        resource.max = (resource.max || resource.value) + effect.value;
+                    }
+                    break;
+                }
+
                 case "temporary_buff":
                     modifiedCharacter.temporaryBuffs.push(effect);
                     break;

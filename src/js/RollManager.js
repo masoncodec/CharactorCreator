@@ -2,19 +2,19 @@
 
 export class RollManager {
   /**
-   * Constructs the RollManager.
-   * @param {Array<object>} rollDefinitions - An array of objects, each defining a "Roll Group".
-   * @param {Set<string>} initialToggledStates - A set of ability IDs that are toggled on globally.
+   * MODIFIED: Now accepts an onCostPaidCallback.
    */
-  constructor(rollDefinitions, initialToggledStates = new Set()) {
+  constructor(rollDefinitions, initialToggledStates = new Set(), onCostPaidCallback = null) {
     this.rollDefinitions = rollDefinitions;
     this.modalElement = null;
     this.tooltipElement = null;
     this.critOccurred = false;
+    this.onCostPaid = onCostPaidCallback; // NEW: Store the callback.
 
     this.hopeFearGroup = this.rollDefinitions.find(def => def.groupType === 'hope_fear');
     if (this.hopeFearGroup) {
         this.toggledStates = new Set(initialToggledStates); 
+        this.characterResources = this.hopeFearGroup.characterResources || [];
         this.allToggleableAbilities = [
             ...(this.hopeFearGroup.availableActives || []),
             ...(this.hopeFearGroup.availableConditionals || [])
@@ -49,7 +49,7 @@ export class RollManager {
     document.addEventListener('keydown', this._boundCloseOnEscape);
   }
 
-  _handleClick(e) {
+  async _handleClick(e) {
     const target = e.target;
 
     if (!target.closest('.roll-manager-tooltip') && !target.closest('[data-action="show-info-tooltip"]') && !target.closest('[data-action="show-breakdown-tooltip"]')) {
@@ -66,6 +66,19 @@ export class RollManager {
     const rollButton = target.closest('.roll-group-btn');
     if (rollButton) {
       const groupId = parseInt(rollButton.dataset.groupId, 10);
+      
+      // MODIFIED: Calculate final total costs and pass the object to the callback.
+      const totalCosts = this._calculateCurrentCosts();
+      if (Object.keys(totalCosts).length > 0 && typeof this.onCostPaid === 'function') {
+        const updatedResources = await this.onCostPaid(totalCosts);
+        if (updatedResources) {
+            this.characterResources = updatedResources;
+        } else {
+            console.error("Cost payment failed, aborting roll.");
+            return;
+        }
+      }
+      
       this._executeRoll(groupId);
       return;
     }
@@ -83,16 +96,21 @@ export class RollManager {
     
     const abilityToggler = target.closest('[data-action="toggle-ability"]');
     if (abilityToggler) {
-        const abilityId = abilityToggler.dataset.abilityId;
-        if (this.toggledStates.has(abilityId)) {
-            this.toggledStates.delete(abilityId);
-            abilityToggler.classList.remove('toggled-on');
-        } else {
-            this.toggledStates.add(abilityId);
-            abilityToggler.classList.add('toggled-on');
-        }
-        this._updateModifierDisplay();
+      // NEW: Prevent toggling an unaffordable ability.
+      if (abilityToggler.classList.contains('unaffordable')) {
+        alerter.show("You cannot afford to toggle this ability.", "warn");
         return;
+      }
+      const abilityId = abilityToggler.dataset.abilityId;
+      if (this.toggledStates.has(abilityId)) {
+          this.toggledStates.delete(abilityId);
+          abilityToggler.classList.remove('toggled-on');
+      } else {
+          this.toggledStates.add(abilityId);
+          abilityToggler.classList.add('toggled-on');
+      }
+      this._updateModifierDisplay();
+      return;
     }
 
     const breakdownDisplayer = target.closest('[data-action="show-breakdown-tooltip"]');
@@ -240,7 +258,116 @@ export class RollManager {
   }
 
   /**
-   * REVISED: Now dynamically shows/hides the dice roll box and adjusts the grid.
+   * NEW: Calculates the total projected cost from the base ability and all toggled abilities.
+   * @returns {object} An object summarizing the total cost per resource (e.g., { mana: 10 }).
+   */
+  _calculateCurrentCosts() {
+    const totalCosts = {};
+    const allAbilitiesWithCosts = [];
+
+    // 1. Add the base ability's cost
+    if (this.hopeFearGroup.cost) {
+        allAbilitiesWithCosts.push({ cost: this.hopeFearGroup.cost });
+    }
+
+    // 2. Add costs from all toggled abilities
+    this.toggledStates.forEach(abilityId => {
+        const ability = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
+        if (ability?.definition.cost) {
+            allAbilitiesWithCosts.push(ability.definition);
+        }
+    });
+
+    // 3. Sum up the costs
+    allAbilitiesWithCosts.forEach(ability => {
+        const resourceId = ability.cost.resource;
+        const costValue = ability.cost.value;
+        if (!totalCosts[resourceId]) {
+            totalCosts[resourceId] = 0;
+        }
+        totalCosts[resourceId] += costValue;
+    });
+    
+    return totalCosts;
+  }
+
+  /**
+   * NEW: A modular function to render the cost calculator UI.
+   * @param {object} totalCosts - The calculated costs from _calculateCurrentCosts.
+   */
+  _renderCostCalculator(totalCosts) {
+    const container = this.modalElement.querySelector('#roll-cost-calculator');
+    if (!container) return;
+
+    if (Object.keys(totalCosts).length === 0) {
+        container.innerHTML = ''; // Hide if there's no cost
+        return;
+    }
+
+    let content = '<h5>Projected Cost</h5><div class="cost-breakdown">';
+    for (const resourceId in totalCosts) {
+        const costValue = totalCosts[resourceId];
+        const resource = this.characterResources.find(r => r.id === resourceId);
+        if (resource) {
+            const newValue = resource.value - costValue;
+            content += `
+                <div class="cost-item">
+                    <span class="cost-resource-name">${resource.displayName}:</span>
+                    <span class="cost-values">${resource.value} → <strong class="${newValue < 0 ? 'unaffordable-text' : ''}">${newValue}</strong> (-${costValue})</span>
+                </div>
+            `;
+        }
+    }
+    content += '</div>';
+    container.innerHTML = content;
+  }
+
+  /**
+   * NEW: A placeholder function to house future logic for ignoring resource costs.
+   * @param {object} abilityDef - The definition of the ability being checked.
+   * @returns {boolean} - True if the cost should be ignored.
+   */
+  _shouldIgnoreCost(abilityDef) {
+    // This is the function where you can add custom logic later.
+    // For example, check if the character has a "free cast" buff.
+    // const hasFreeCast = mainEffectHandler.activeEffects.some(e => e.type === 'ignore_cost');
+    // if (hasFreeCast) return true;
+    return false;
+  }
+
+  /**
+   * MODIFIED: Now performs dynamic affordability checks based on the total projected cost.
+   */
+  _updateAbilityAffordability(totalCosts) {
+    if (!this.allToggleableAbilities) return;
+
+    const remainingResources = { ...this.characterResources.reduce((acc, res) => ({...acc, [res.id]: res.value }), {}) };
+    for (const resourceId in totalCosts) {
+        if (remainingResources[resourceId]) {
+            remainingResources[resourceId] -= totalCosts[resourceId];
+        }
+    }
+
+    this.allToggleableAbilities.forEach(ability => {
+        const button = this.modalElement.querySelector(`[data-ability-id="${ability.instancedId}"]`);
+        if (!button) return;
+
+        let canAfford = true;
+        // Only check abilities that are NOT currently toggled on.
+        if (!this.toggledStates.has(ability.instancedId)) {
+            const cost = ability.definition.cost;
+            if (cost && !this._shouldIgnoreCost(ability.definition)) {
+                if (!remainingResources[cost.resource] || remainingResources[cost.resource] < cost.value) {
+                    canAfford = false;
+                }
+            }
+        }
+        button.classList.toggle('unaffordable', !canAfford);
+    });
+  }
+
+  /**
+   * MODIFIED: Now orchestrates the dynamic cost calculation and UI updates.
    */
   _updateModifierDisplay() {
     const { totalNumerical, totalDiceNum } = this._calculateCurrentModifiers();
@@ -249,14 +376,20 @@ export class RollManager {
     this.modalElement.querySelector('#mod-total-numerical').textContent = `${finalValue >= 0 ? '+' : ''}${finalValue}`;
     this.modalElement.querySelector('#mod-total-dice').textContent = `${totalDiceNum >= 0 ? '+' : ''}${totalDiceNum}d6`;
 
+    // --- NEW ORDER OF OPERATIONS ---
+    // 1. Calculate the total cost based on current toggles.
+    const totalCosts = this._calculateCurrentCosts();
+    // 2. Render the cost calculator UI.
+    this._renderCostCalculator(totalCosts);
+    // 3. Update which abilities are affordable based on the total cost.
+    this._updateAbilityAffordability(totalCosts);
+
+    // This part is for the d6 dice box display and can run independently.
     const d6Box = this.modalElement.querySelector('.d6-box');
     const resultsGrid = this.modalElement.querySelector('.results-grid');
-
     if (d6Box && resultsGrid) {
         const hasDiceMods = totalDiceNum !== 0;
-        // Toggle the visibility of the d6 dice box
         d6Box.style.display = hasDiceMods ? 'flex' : 'none';
-        // Toggle the grid layout between 2 and 3 columns to prevent the empty gap
         resultsGrid.classList.toggle('three-col', hasDiceMods);
         resultsGrid.classList.toggle('two-col', !hasDiceMods);
     }
@@ -417,8 +550,12 @@ export class RollManager {
             <span>Dice Num: <strong id="mod-total-dice">+0d6</strong></span>
           </div>
         </div>
+
         ${activesHTML}
         ${conditionalsHTML}
+
+        <div id="roll-cost-calculator" class="roll-modal-section"></div>
+
         <div class="roll-modal-section roll-button-section">
           <button class="roll-modal-roll-btn roll-group-btn" data-group-id="${groupId}">${groupDef.buttonLabel}</button>
         </div>
@@ -447,13 +584,20 @@ export class RollManager {
   _createToggleButtonHTML(ability, isConditional = false) {
     const abilityId = ability.instancedId || ability.definition.id;
     const toggledClass = this.toggledStates.has(abilityId) ? 'toggled-on' : '';
+    
+    // MODIFIED: Initial affordability check is now handled by the dynamic update,
+    // so we can remove the logic from here for simplicity.
+    // The class will be applied by _updateAbilityAffordability on first load.
+    const unaffordableClass = '';
+    
     const buttonContent = `
         <span>${ability.definition.name}</span>
         <i class="info-btn" data-action="show-info-tooltip" data-ability-id="${abilityId}">i</i>
     `;
-    const buttonHTML = `<button class="ability-toggle-btn ${toggledClass}" data-action="toggle-ability" data-ability-id="${abilityId}">
+    const buttonHTML = `<button class="ability-toggle-btn ${toggledClass} ${unaffordableClass}" data-action="toggle-ability" data-ability-id="${abilityId}">
         ${buttonContent}
     </button>`;
+
     if(isConditional) {
         return `
             <div class="conditional-toggle-item">

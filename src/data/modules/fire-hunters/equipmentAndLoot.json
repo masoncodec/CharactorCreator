@@ -71,7 +71,7 @@
         {
           "id": "act_longsword_slash",
           "name": "Slash",
-          "cost": { "stamina": 5 },
+          "cost": { "resource": "mana", "value": 5 },
           "description": "A standard slashing attack. Versatile (1d10).",
           "effect": [
             {
@@ -104,6 +104,7 @@
           "id": "damage",
           "name": "Damage BOI",
           "description": "does damage mods and stuff",
+          "cost": { "resource": "mana", "value": 5 },
           "effect": [
             {
               "type": "damage_mod",

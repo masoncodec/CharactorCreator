@@ -354,6 +354,19 @@
     box-shadow: 0 0 8px rgba(40, 167, 69, 0.7);
 }
 
+.ability-toggle-btn.unaffordable {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #555;
+    border-color: #666;
+}
+
+.ability-toggle-btn.unaffordable:hover {
+    /* Prevents the button from lighting up on hover when it's disabled */
+    background-color: #555;
+    border-color: #666;
+}
+
 /* Main container for the attribute grid (for character or summons) */
 .attributes-grid {
     display: flex;
@@ -389,6 +402,35 @@
     font-size: 1.2rem;
     font-weight: bold;
     color: #a0c4ff;
+}
+
+.cost-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.cost-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.cost-resource-name {
+  color: #ccc;
+  font-weight: bold;
+}
+
+.cost-values {
+  color: #eee;
+}
+
+.unaffordable-text {
+    color: #ff6b6b; /* A light red to indicate a negative value */
+    font-weight: bold;
 }
 
 @media (max-width: 768px) {

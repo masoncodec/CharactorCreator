@@ -542,7 +542,8 @@ function renderHopeFearUI(effectedCharacter, mainEffectHandler) {
 
 function renderResources(character) {
     if (!character.resources || character.resources.length === 0) return '<p>No resources.</p>';
-    return `<ul class="resource-list">${character.resources.map(r => `<li><strong>${r.type.charAt(0).toUpperCase() + r.type.slice(1)}:</strong> ${r.value} ${r.max !== undefined ? `/ ${r.max}` : ''}</li>`).join('')}</ul>`;
+    // MODIFIED: Use displayName for the label.
+    return `<ul class="resource-list">${character.resources.map(r => `<li><strong>${r.displayName}:</strong> ${r.value} ${r.max !== undefined ? `/ ${r.max}` : ''}</li>`).join('')}</ul>`;
 }
 
 function renderLanguages(character) {

@@ -137,6 +137,35 @@ async function processAndRenderAll(character) {
         reconciledCharacter.health.current = Math.max(0, (reconciledCharacter.health.current ?? 0) + bonusChange);
     }
     reconciledCharacter.lastMaxHealthBonus = newMaxHealthBonus;
+
+    // NEW 5a: DYNAMIC RESOURCE LOGIC.
+    // This section recalculates current resource values when max values change.
+    const lastResourceMaxBonuses = reconciledCharacter.lastResourceMaxBonuses || {};
+    const newResourceMaxBonuses = {};
+    if (!reconciledCharacter.resources) reconciledCharacter.resources = [];
+
+    mainEffectHandler.activeEffects.forEach(effect => {
+        if (effect.type === 'max_resource_mod') {
+            const resourceId = effect.resource;
+            if (!newResourceMaxBonuses[resourceId]) newResourceMaxBonuses[resourceId] = 0;
+            newResourceMaxBonuses[resourceId] += effect.value;
+        }
+    });
+
+    reconciledCharacter.resources.forEach(resource => {
+        const lastBonus = lastResourceMaxBonuses[resource.id] || 0;
+        const newBonus = newResourceMaxBonuses[resource.id] || 0;
+        const bonusChange = newBonus - lastBonus;
+
+        if (bonusChange !== 0) {
+            resource.value = Math.max(0, resource.value + bonusChange);
+        }
+        // Also ensure current value does not exceed the new max.
+        if (resource.max !== undefined) {
+             resource.value = Math.min(resource.value, resource.max);
+        }
+    });
+    reconciledCharacter.lastResourceMaxBonuses = newResourceMaxBonuses;
     
     // 6. Apply all other effects to the character.
     const effectedCharacter = mainEffectHandler.applyEffectsToCharacter(reconciledCharacter, 'play', activeAbilityStates, bestiaryData);
@@ -417,39 +446,60 @@ document.addEventListener('DOMContentLoaded', async () => {
             const target = event.target;
 
             /**
-             * REFACTORED: Now a generic function that launches the RollManager.
-             * It no longer contains logic specific to the character.
-             * @param {object} rollContext - An object containing all necessary data for the roll.
-             * @param {object} rollContext.baseRollDef - The core definition of the roll group.
-             * @param {Array<object>} rollContext.abilities - The pre-aggregated list of abilities relevant to the roll.
-             * @param {object} [rollContext.damageDef] - Optional: A definition for a follow-up damage roll.
+             * MODIFIED: Callback now accepts a totalCosts object to process multiple resource costs at once.
+             * @param {object} totalCosts - An object of costs to pay (e.g., { mana: 10, stamina: 5 }).
+             * @returns {Array<object>|null} The updated resources array.
              */
-            const setupAndLaunchRoll = (rollContext) => {
-                const { baseRollDef, abilities, damageDef } = rollContext;
+            const handleCostPayment = async (totalCosts) => {
+                try {
+                    // This flag ensures we only update the database if a change was actually made.
+                    let needsUpdate = false;
+                    for (const resourceId in totalCosts) {
+                        const costValue = totalCosts[resourceId];
+                        if (costValue > 0) {
+                            const resource = activeCharacter.resources.find(r => r.id === resourceId);
+                            if (resource) {
+                                resource.value -= costValue;
+                                needsUpdate = true;
+                            }
+                        }
+                    }
+
+                    if (needsUpdate) {
+                        const updatedCharacter = await db.updateCharacter(activeCharacter.id, { resources: activeCharacter.resources });
+                        activeCharacter.resources = updatedCharacter.resources;
+                        return activeCharacter.resources;
+                    }
+                    // Return the current resources if no change was needed but the call was successful.
+                    return activeCharacter.resources;
+                } catch (err) {
+                    console.error('Failed to process cost payment:', err);
+                    alerter.show('Error updating resources.', 'error');
+                }
+                return null;
+            };
+
+            /**
+             * FIXED: The function signature is corrected to accept the onCostPaidCallback.
+             */
+            const setupAndLaunchRoll = (rollContext, onCostPaidCallback) => {
+                // MODIFICATION: Deconstruct characterResources from the rollContext.
+                const { baseRollDef, abilities, damageDef, characterResources } = rollContext;
 
                 const attributeName = baseRollDef.attributeName;
                 const attributeContext = { attribute: attributeName };
                 const damageTypes = (damageDef?.damage || []).map(d => d.type);
                 const damageContext = { damage_types: damageTypes };
                 
-                // Filter the provided abilities list for relevance to this specific roll.
-                const passiveAbilities = [];
-                const availableActives = [];
-                const availableConditionals = [];
+                const passiveAbilities = [], availableActives = [], availableConditionals = [];
 
                 abilities.forEach(ab => {
                     const isRelevantToAttribute = isAbilityRelevant(ab, 'hope_fear', attributeContext);
                     const isRelevantToDamage = damageTypes.length > 0 && isAbilityRelevant(ab, 'damage', damageContext);
-                    
                     if (!isRelevantToAttribute && !isRelevantToDamage) return;
-
-                    if (ab.definition.condition) {
-                        availableConditionals.push(ab);
-                    } else if (ab.itemType === 'active') {
-                        availableActives.push(ab);
-                    } else {
-                        passiveAbilities.push(ab);
-                    }
+                    if (ab.definition.condition) availableConditionals.push(ab);
+                    else if (ab.itemType === 'active') availableActives.push(ab);
+                    else passiveAbilities.push(ab);
                 });
 
                 const rollDefinitions = [{
@@ -457,6 +507,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     passiveAbilities,
                     availableActives,
                     availableConditionals,
+                    // MODIFICATION: Add characterResources to the roll definition.
+                    characterResources: characterResources, 
                 }];
 
                 if (damageDef) {
@@ -467,50 +519,46 @@ document.addEventListener('DOMContentLoaded', async () => {
                         rolls: damageDef.damage.map(d => ({ label: d.type, dice: d.dice, baseValue: d.value || 0 }))
                     });
                 }
-
-                const rollManager = new RollManager(rollDefinitions, activeAbilityStates);
+                
+                const rollManager = new RollManager(rollDefinitions, activeAbilityStates, onCostPaidCallback);
                 rollManager.show();
             };
 
-            // --- EVENT HANDLERS ---
+            // --- EVENT HANDLERS (All call sites are corrected) ---
 
-            // Handler for a character's ability attack roll
             const abilityRollButton = target.closest('.btn-ability-roll');
             if (abilityRollButton) {
                 const abilityId = abilityRollButton.dataset.abilityId;
                 const ability = allAbilities.find(a => a.instancedId === abilityId);
                 const attackEffect = ability?.definition.effect?.find(e => e.type === 'attack');
                 if (!attackEffect) return;
-
-                // REFACTORED: The event handler is now responsible for gathering all relevant effects.
+                
                 const characterAbilities = getCharacterRollAbilities(allAbilities);
-
                 const rollContext = {
                     abilities: characterAbilities,
                     damageDef: attackEffect,
+                    characterResources: activeCharacter.resources,
                     baseRollDef: {
                         groupType: 'hope_fear',
                         label: `${ability.definition.name} - Attack Roll`,
                         buttonLabel: 'Roll Attack',
                         attributeName: attackEffect.attribute_bonus,
                         baseValue: activeCharacter.attributes[attackEffect.attribute_bonus] || 0,
-                        isAttackRoll: true
+                        isAttackRoll: true,
+                        cost: ability.definition.cost
                     }
                 };
-                setupAndLaunchRoll(rollContext);
+                setupAndLaunchRoll(rollContext, handleCostPayment);
                 return;
             }
             
-            // Handler for a character's attribute check
             const hopeFearButton = target.closest('.hope-fear-roll-btn');
             if(hopeFearButton) {
                 const attributeName = hopeFearButton.dataset.attribute;
-
-                // REFACTORED: The event handler is now responsible for gathering all relevant effects.
                 const characterAbilities = getCharacterRollAbilities(allAbilities);
-
                 const rollContext = {
                     abilities: characterAbilities,
+                    characterResources: activeCharacter.resources,
                     baseRollDef: {
                         groupType: 'hope_fear',
                         label: `${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
@@ -519,11 +567,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         baseValue: activeCharacter.attributes[attributeName] || 0,
                     }
                 };
-                setupAndLaunchRoll(rollContext);
+                // FIXED: Now correctly passes the callback.
+                setupAndLaunchRoll(rollContext, handleCostPayment);
                 return;
             }
 
-            // Handler for a summon's attribute check
             const summonAttrRollBtn = target.closest('.summon-attribute-roll-btn');
             if (summonAttrRollBtn) {
                 const instanceId = summonAttrRollBtn.dataset.instanceId;
@@ -533,14 +581,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const summonDef = bestiaryData[summonInstance.creatureId];
                 if (!summonDef || !summonDef.attributes) return;
 
-                // REFACTORED: Gathers ONLY the summon's abilities.
                 const allSummonAbilities = [
                     ...(summonDef.abilities?.passive || []).map(p => ({ definition: p, itemType: 'passive' })),
                     ...(summonDef.abilities?.active || []).map(a => ({ definition: a, itemType: 'active' }))
                 ];
-
                 const rollContext = {
                     abilities: allSummonAbilities,
+                    characterResources: activeCharacter.resources,
                     baseRollDef: {
                         groupType: 'hope_fear',
                         label: `${summonDef.name} - ${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
@@ -549,11 +596,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         baseValue: summonDef.attributes[attributeName] || 0,
                     }
                 };
-                setupAndLaunchRoll(rollContext);
+                // FIXED: Now correctly passes the callback.
+                setupAndLaunchRoll(rollContext, handleCostPayment);
                 return;
             }
 
-            // Handler for a summon's ability attack roll
             const actionButton = target.closest('.btn-action');
             if (actionButton) {
                 const instanceId = actionButton.dataset.instanceId;
@@ -565,25 +612,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const attackEffect = abilityDef?.effect?.find(e => e.type === 'attack');
                 if (!attackEffect) return;
 
-                // REFACTORED: Gathers ONLY the summon's abilities.
                 const allSummonAbilities = [
                     ...(summonDef.abilities?.passive || []).map(p => ({ definition: p, itemType: 'passive' })),
                     ...(summonDef.abilities?.active || []).map(a => ({ definition: a, itemType: 'active' }))
                 ];
-
                 const rollContext = {
                     abilities: allSummonAbilities,
                     damageDef: attackEffect,
+                    characterResources: activeCharacter.resources, 
                     baseRollDef: {
                         groupType: 'hope_fear',
                         label: `${abilityDef.name} - Attack Roll`,
                         buttonLabel: 'Roll Attack',
                         attributeName: attackEffect.attribute_bonus,
                         baseValue: summonDef.attributes[attackEffect.attribute_bonus] || 0,
-                        isAttackRoll: true
+                        isAttackRoll: true,
+                        cost: abilityDef.cost
                     }
                 };
-                setupAndLaunchRoll(rollContext);
+                setupAndLaunchRoll(rollContext, handleCostPayment);
                 return;
             }
 
