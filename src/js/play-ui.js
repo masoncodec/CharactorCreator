@@ -260,6 +260,12 @@ export function renderMainTab(character, moduleDefinitions, mainEffectHandler) {
         attributesHtml = renderKOBUI(character, mainEffectHandler);
     }
 
+    // MODIFICATION: Find the health resource from the resources array.
+    const healthResource = character.resources.find(r => r.id === 'health');
+    const currentHealth = healthResource ? healthResource.value : 0;
+    // Use the resource's max value, which already includes effects.
+    const maxHealth = healthResource ? healthResource.max : 0;
+
     panel.innerHTML = `
         <div class="panel">
             <h2>Attributes</h2>
@@ -269,8 +275,8 @@ export function renderMainTab(character, moduleDefinitions, mainEffectHandler) {
             <h2>Health</h2>
             <div class="character-health">
                 ${renderHealthComponent(
-                    character.health.current,
-                    character.calculatedHealth ? character.calculatedHealth.currentMax : character.health.max,
+                    currentHealth,
+                    maxHealth,
                     character.id,
                     'character'
                 )}

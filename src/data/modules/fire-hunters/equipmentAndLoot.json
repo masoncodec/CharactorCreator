@@ -22,7 +22,8 @@
               "modifier": 3
             },
             {
-              "type": "max_health_mod",
+              "type": "max_resource_mod", 
+              "resource": "health",
               "name": "Health",
               "value": 1
             }
@@ -36,20 +37,6 @@
             {
               "type": "summon_creature",
               "creatureId": "lesser-imp"
-            }
-          ]
-        },
-        {
-          "id": "high_ground_bonus_passive",
-          "name": "High Ground Passive",
-          "description": "You have a tactical advantage.",
-          "condition": "If you are physically at a higher elevation than your target.",
-          "effect": [
-            {
-              "type": "modifier",
-              "name": "Modifier",
-              "attribute": "whimsy",
-              "modifier": 2
             }
           ]
         }
@@ -97,6 +84,16 @@
               "name": "Modifier",
               "attribute": "whimsy",
               "modifier": 2
+            },
+            {
+              "type": "cost_mod",
+              "name": "Efficient Casting",
+              "resource": "mana",
+              "value": -5
+            },
+            {
+              "type": "ignore_resource",
+              "resource": "health"
             }
           ]
         },
@@ -104,7 +101,17 @@
           "id": "damage",
           "name": "Damage BOI",
           "description": "does damage mods and stuff",
-          "cost": { "resource": "mana", "value": 5 },
+          "cost": {
+            "or": [
+              [
+                { "resource": "mana", "value": 10 }
+              ],
+              [
+                { "resource": "mana", "value": 5 },
+                { "resource": "health", "value": 5 }
+              ]
+            ]
+          },
           "effect": [
             {
               "type": "damage_mod",

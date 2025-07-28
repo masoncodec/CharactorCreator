@@ -335,3 +335,75 @@
   border-color: rgba(255, 255, 255, 0.5);
   color: #fff;
 }
+
+/* The container for the radio button "chips" */
+.or-cost-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  
+  /* --- Hiding/Showing Logic --- */
+  /* By default, the options are collapsed and invisible */
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-top: 0;
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin-top 0.3s ease-out;
+}
+
+/* When the toggle button has the .toggled-on class, reveal the options */
+.ability-toggle-btn.toggled-on + .or-cost-options {
+  max-height: 100px; /* Animate to a height large enough to show content */
+  opacity: 1;
+  margin-top: 10px; /* Add some space above the options */
+}
+
+/* The clickable label for each cost option (the "chip") */
+.or-cost-label {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid #666;
+  background-color: #3a3a3a;
+  color: #ccc;
+  border-radius: 20px; /* Rounded pill shape */
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+/* The actual radio button is hidden; we style the label instead */
+.or-cost-label input[type="radio"] {
+  display: none;
+}
+
+/* Hover effect for the chips */
+.or-cost-label:hover {
+  background-color: #4a4a4a;
+  border-color: #888;
+  color: #fff;
+}
+
+/* Style for the SELECTED chip */
+.or-cost-label input[type="radio"]:checked + span {
+  color: #a0c4ff; /* Use the light blue from the info icon for selected text */
+}
+
+/* Apply a border to the entire label when its radio is checked */
+.or-cost-label:has(input[type="radio"]:checked) {
+    border-color: #a0c4ff;
+    box-shadow: 0 0 5px rgba(160, 196, 255, 0.5);
+}
+
+/* Style for UNAFFORDABLE/disabled chips */
+.unaffordable-option {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #333;
+  color: #777;
+}
+
+.unaffordable-option:hover {
+    background-color: #333;
+    color: #777;
+    border-color: #666;
+}

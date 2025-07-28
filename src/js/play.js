@@ -128,15 +128,6 @@ async function processAndRenderAll(character) {
     
     // 4. Reconcile equipped items.
     const reconciledCharacter = await reconcileEquipmentSlots(character, slotMap);
-    
-    // 5. DYNAMIC HEALTH LOGIC.
-    const previousMaxHealthBonus = reconciledCharacter.lastMaxHealthBonus ?? 0;
-    const newMaxHealthBonus = mainEffectHandler.activeEffects.filter(e => e.type === 'max_health_mod' && (e.itemType === 'active' || (e.itemType === 'passive' && ['equipment', 'perk', 'flaw'].includes(e.sourceType)))).reduce((sum, e) => sum + e.value, 0);
-    const bonusChange = newMaxHealthBonus - previousMaxHealthBonus;
-    if (bonusChange !== 0) {
-        reconciledCharacter.health.current = Math.max(0, (reconciledCharacter.health.current ?? 0) + bonusChange);
-    }
-    reconciledCharacter.lastMaxHealthBonus = newMaxHealthBonus;
 
     // NEW 5a: DYNAMIC RESOURCE LOGIC.
     // This section recalculates current resource values when max values change.
@@ -203,14 +194,11 @@ async function processAndRenderAll(character) {
     activeLayout = { layoutConfig, slotMap };
     
     // --- FINAL STATE UPDATE ---
-    character.health.current = effectedCharacter.health.current;
-    character.lastMaxHealthBonus = effectedCharacter.lastMaxHealthBonus;
-    character.calculatedHealth = effectedCharacter.calculatedHealth;
-    character.calculatedAttributes = effectedCharacter.calculatedAttributes; // Persist calculated attributes
+    character.calculatedAttributes = effectedCharacter.calculatedAttributes;
     character.languages = effectedCharacter.languages;
     character.activeRollEffects = effectedCharacter.activeRollEffects;
     character.temporaryBuffs = effectedCharacter.temporaryBuffs;
-    character.summonedCreatures = effectedCharacter.summonedCreatures; // This now includes calculated summon attributes
+    character.summonedCreatures = effectedCharacter.summonedCreatures;
     character.statuses = effectedCharacter.statuses;
     character.resources = effectedCharacter.resources;
     character.resistances = effectedCharacter.resistances;
@@ -452,16 +440,24 @@ document.addEventListener('DOMContentLoaded', async () => {
              */
             const handleCostPayment = async (totalCosts) => {
                 try {
-                    // This flag ensures we only update the database if a change was actually made.
                     let needsUpdate = false;
                     for (const resourceId in totalCosts) {
                         const costValue = totalCosts[resourceId];
-                        if (costValue > 0) {
-                            const resource = activeCharacter.resources.find(r => r.id === resourceId);
-                            if (resource) {
-                                resource.value -= costValue;
-                                needsUpdate = true;
+                        // Skip if cost is zero
+                        if (costValue === 0) continue; 
+
+                        const resource = activeCharacter.resources.find(r => r.id === resourceId);
+                        if (resource) {
+                            // This correctly handles losses (e.g., 100 - 10) and gains (e.g., 100 - (-5) = 105)
+                            resource.value -= costValue;
+
+                            // Clamp the value to be between 0 and its max, if a max is defined.
+                            if (resource.max !== undefined) {
+                                resource.value = Math.max(0, Math.min(resource.value, resource.max));
+                            } else {
+                                resource.value = Math.max(0, resource.value); // Ensure it doesn't go below 0 if no max
                             }
+                            needsUpdate = true;
                         }
                     }
 
@@ -470,7 +466,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         activeCharacter.resources = updatedCharacter.resources;
                         return activeCharacter.resources;
                     }
-                    // Return the current resources if no change was needed but the call was successful.
                     return activeCharacter.resources;
                 } catch (err) {
                     console.error('Failed to process cost payment:', err);
@@ -480,11 +475,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             /**
-             * FIXED: The function signature is corrected to accept the onCostPaidCallback.
+             * MODIFIED: Passes a new onRollComplete callback to the RollManager.
              */
             const setupAndLaunchRoll = (rollContext, onCostPaidCallback) => {
-                // MODIFICATION: Deconstruct characterResources from the rollContext.
-                const { baseRollDef, abilities, damageDef, characterResources } = rollContext;
+                const { baseRollDef, abilities, damageDef, characterResources, activeEffects } = rollContext;
 
                 const attributeName = baseRollDef.attributeName;
                 const attributeContext = { attribute: attributeName };
@@ -493,22 +487,39 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 const passiveAbilities = [], availableActives = [], availableConditionals = [];
 
+                // --- REPLACE THIS LOOP ---
                 abilities.forEach(ab => {
+                    // First, determine if the ability is relevant to this specific roll.
                     const isRelevantToAttribute = isAbilityRelevant(ab, 'hope_fear', attributeContext);
-                    const isRelevantToDamage = damageTypes.length > 0 && isAbilityRelevant(ab, 'damage', damageContext);
+                    const isRelevantToDamage = damageDef && isAbilityRelevant(ab, 'damage', damageContext);
                     if (!isRelevantToAttribute && !isRelevantToDamage) return;
-                    if (ab.definition.condition) availableConditionals.push(ab);
-                    else if (ab.itemType === 'active') availableActives.push(ab);
-                    else passiveAbilities.push(ab);
+
+                    // --- NEW, CORRECTED SORTING LOGIC ---
+                    // This now correctly differentiates between passive and active conditional abilities.
+                    if (ab.itemType === 'passive') {
+                        // All passive abilities, conditional or not, go into the passive list.
+                        // Their effects are always on. The condition text is for the player's reference.
+                        passiveAbilities.push(ab);
+                    } else if (ab.itemType === 'active') {
+                        // For active abilities, we check if they are conditional.
+                        if (ab.definition.condition) {
+                            // Active + Conditional -> Becomes a toggle button in the "Conditional" section.
+                            availableConditionals.push(ab);
+                        } else {
+                            // Active + No Condition -> Becomes a toggle button in the "Active" section.
+                            availableActives.push(ab);
+                        }
+                    }
                 });
+                // --- END OF REPLACEMENT ---
 
                 const rollDefinitions = [{
                     ...baseRollDef,
                     passiveAbilities,
                     availableActives,
                     availableConditionals,
-                    // MODIFICATION: Add characterResources to the roll definition.
-                    characterResources: characterResources, 
+                    characterResources: characterResources,
+                    activeEffects: activeEffects
                 }];
 
                 if (damageDef) {
@@ -520,7 +531,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
                 }
                 
-                const rollManager = new RollManager(rollDefinitions, activeAbilityStates, onCostPaidCallback);
+                const onRollComplete = () => {
+                    processAndRenderAll(activeCharacter);
+                };
+                
+                const rollManager = new RollManager(rollDefinitions, activeAbilityStates, onCostPaidCallback, onRollComplete);
                 rollManager.show();
             };
 
@@ -538,6 +553,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     abilities: characterAbilities,
                     damageDef: attackEffect,
                     characterResources: activeCharacter.resources,
+                    activeEffects: mainEffectHandler.activeEffects,
                     baseRollDef: {
                         groupType: 'hope_fear',
                         label: `${ability.definition.name} - Attack Roll`,
@@ -559,6 +575,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const rollContext = {
                     abilities: characterAbilities,
                     characterResources: activeCharacter.resources,
+                    activeEffects: mainEffectHandler.activeEffects,
                     baseRollDef: {
                         groupType: 'hope_fear',
                         label: `${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
@@ -588,6 +605,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const rollContext = {
                     abilities: allSummonAbilities,
                     characterResources: activeCharacter.resources,
+                    activeEffects: mainEffectHandler.activeEffects,
                     baseRollDef: {
                         groupType: 'hope_fear',
                         label: `${summonDef.name} - ${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
@@ -620,6 +638,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     abilities: allSummonAbilities,
                     damageDef: attackEffect,
                     characterResources: activeCharacter.resources, 
+                    activeEffects: mainEffectHandler.activeEffects,
                     baseRollDef: {
                         groupType: 'hope_fear',
                         label: `${abilityDef.name} - Attack Roll`,
@@ -785,47 +804,76 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const applySummonHealthBtn = target.closest('.btn-apply-health');
-            if (applySummonHealthBtn && applySummonHealthBtn.dataset.entityType === 'summon') {
-                const instanceId = applySummonHealthBtn.dataset.entityId;
-                const healthInput = contentArea.querySelector(`#health-adj-${instanceId}`);
-                const summon = activeCharacter.summonedCreatures.find(s => s.instanceId === instanceId);
-                if (!summon || !healthInput) return;
-                const summonDef = bestiaryData[summon.creatureId];
-                if (!summonDef) return;
-                if (healthInput.value.trim() === '') return alerter.show('Please enter a health adjustment value (e.g., -5, 10).', 'info');
-                const adjustment = parseInt(healthInput.value, 10);
-                if (isNaN(adjustment)) return alerter.show('Invalid input. Please use numbers only.', 'error');
-                const newCurrentHealth = Math.max(0, Math.min(summon.currentHealth + adjustment, summonDef.health.max));
-                if (newCurrentHealth === 0) {
-                    alerter.show(`${summonDef.name} was defeated and dismissed.`, 'info');
-                    const isPassiveSource = ['equipment', 'perk', 'flaw'].includes(summon.source.type);
-                    activeCharacter.dismissedPassiveSources = activeCharacter.dismissedPassiveSources || [];
-                    if (isPassiveSource && !activeCharacter.dismissedPassiveSources.includes(summon.source.id)) {
-                        activeCharacter.dismissedPassiveSources.push(summon.source.id);
-                    }
-                    activeCharacter.summonedCreatures = activeCharacter.summonedCreatures.filter(s => s.instanceId !== instanceId);
-                } else {
-                    summon.currentHealth = newCurrentHealth;
-                }
-                try {
-                    activeCharacter = await db.updateCharacter(activeCharacter.id, { summonedCreatures: activeCharacter.summonedCreatures, dismissedPassiveSources: activeCharacter.dismissedPassiveSources });
-                    processAndRenderAll(activeCharacter);
-                } catch(err) { console.error('Error updating summon state:', err); alerter.show('Error updating summon state.', 'error'); }
-                return;
-            }
-
             if (applySummonHealthBtn && applySummonHealthBtn.dataset.entityType === 'character') {
                 const healthInput = contentArea.querySelector(`#health-adj-${applySummonHealthBtn.dataset.entityId}`);
                 if (!healthInput) return;
+
                 const adjustment = parseInt(healthInput.value, 10);
                 if (isNaN(adjustment)) return alerter.show('Invalid input.', 'error');
-                const finalMaxHealth = activeCharacter.calculatedHealth ? activeCharacter.calculatedHealth.currentMax : activeCharacter.health.max;
-                const newCurrentHealth = Math.max(0, Math.min(activeCharacter.health.current + adjustment, finalMaxHealth));
+                
+                // Find health within the resources array
+                const healthResource = activeCharacter.resources.find(r => r.id === 'health');
+                if (!healthResource) return;
+
+                const finalMaxHealth = healthResource.max;
+                healthResource.value = Math.max(0, Math.min(healthResource.value + adjustment, finalMaxHealth));
+                
                 try {
-                    const newHealthObject = { ...activeCharacter.health, current: newCurrentHealth };
-                    activeCharacter = await db.updateCharacter(activeCharacter.id, { health: newHealthObject, lastMaxHealthBonus: activeCharacter.lastMaxHealthBonus });
+                    activeCharacter = await db.updateCharacter(activeCharacter.id, { resources: activeCharacter.resources });
                     processAndRenderAll(activeCharacter);
                 } catch(err) { console.error('Error updating character health:', err); alerter.show('Error updating health.', 'error'); }
+            }
+
+            // NEW: This block handles health adjustments for SUMMONS and dismissal at 0 HP.
+            if (applySummonHealthBtn && applySummonHealthBtn.dataset.entityType === 'summon') {
+                const instanceId = applySummonHealthBtn.dataset.entityId;
+                const summonInstance = activeCharacter.summonedCreatures.find(s => s.instanceId === instanceId);
+                if (!summonInstance) return;
+
+                const healthInput = contentArea.querySelector(`#health-adj-${instanceId}`);
+                if (!healthInput) return;
+
+                const adjustment = parseInt(healthInput.value, 10);
+                if (isNaN(adjustment)) return alerter.show('Invalid input. Please use numbers only.', 'error');
+
+                const summonDef = bestiaryData[summonInstance.creatureId];
+                if (!summonDef) return;
+
+                // Calculate the summon's new health, clamped between 0 and max.
+                const newCurrentHealth = Math.max(0, Math.min(summonInstance.currentHealth + adjustment, summonDef.health.max));
+
+                if (newCurrentHealth === 0) {
+                    // If health is 0, dismiss the summon.
+                    alerter.show(`${summonDef.name} was defeated and dismissed.`, 'info');
+                    
+                    // If the summon came from a passive source (perk, equipment), add its source to a 'dismissed' list
+                    // to prevent it from being re-summoned automatically on the next render.
+                    const isPassiveSource = ['equipment', 'perk', 'flaw'].includes(summonInstance.source.type);
+                    activeCharacter.dismissedPassiveSources = activeCharacter.dismissedPassiveSources || [];
+                    if (isPassiveSource && !activeCharacter.dismissedPassiveSources.includes(summonInstance.source.id)) {
+                        activeCharacter.dismissedPassiveSources.push(summonInstance.source.id);
+                    }
+                    
+                    // Filter the defeated summon out of the active list.
+                    activeCharacter.summonedCreatures = activeCharacter.summonedCreatures.filter(s => s.instanceId !== instanceId);
+
+                } else {
+                    // If health is above 0, just update the value.
+                    summonInstance.currentHealth = newCurrentHealth;
+                }
+
+                try {
+                    // Save the updated character state to the database.
+                    // This will save both the updated health or the filtered summon list.
+                    activeCharacter = await db.updateCharacter(activeCharacter.id, { 
+                        summonedCreatures: activeCharacter.summonedCreatures,
+                        dismissedPassiveSources: activeCharacter.dismissedPassiveSources 
+                    });
+                    processAndRenderAll(activeCharacter);
+                } catch(err) {
+                    console.error('Error updating summon health:', err);
+                    alerter.show('Error updating summon health.', 'error');
+                }
             }
         });
 
