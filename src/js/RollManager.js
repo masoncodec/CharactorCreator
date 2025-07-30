@@ -87,6 +87,7 @@ export class RollManager {
         const updatedResources = await this.onCostPaid(totalCosts);
         if (updatedResources) {
             this.characterResources = updatedResources;
+            this._updateModifierDisplay(); 
         } else {
             console.error("Cost payment failed, aborting roll.");
             return;
@@ -496,6 +497,34 @@ export class RollManager {
   }
 
   /**
+   * NEW: Checks if the total projected cost is affordable and updates the main roll button's state.
+   * @param {object} totalCosts - The calculated costs from _calculateCurrentCosts.
+   */
+  _updateRollButtonState(totalCosts) {
+    // Find the specific roll button for the Hope/Fear group.
+    const hopeFearGroupId = this.rollDefinitions.findIndex(def => def.groupType === 'hope_fear');
+    if (hopeFearGroupId === -1) return;
+    const rollButton = this.modalElement.querySelector(`#roll-group-${hopeFearGroupId} .roll-group-btn`);
+    if (!rollButton) return;
+
+    let isUnaffordable = false;
+    for (const resourceId in totalCosts) {
+        const costValue = totalCosts[resourceId];
+        const resource = this.characterResources.find(r => r.id === resourceId);
+        const availableAmount = resource ? resource.value : 0;
+
+        // The button is disabled only if the cost is strictly greater than what's available.
+        if (costValue > availableAmount) {
+            isUnaffordable = true;
+            break; // Found an unaffordable cost, no need to check further.
+        }
+    }
+    
+    // Set the button's disabled property based on the check.
+    rollButton.disabled = isUnaffordable;
+  }
+
+  /**
    * MODIFIED: Now orchestrates the dynamic cost calculation and UI updates.
    */
   _updateModifierDisplay() {
@@ -505,15 +534,12 @@ export class RollManager {
     this.modalElement.querySelector('#mod-total-numerical').textContent = `${finalValue >= 0 ? '+' : ''}${finalValue}`;
     this.modalElement.querySelector('#mod-total-dice').textContent = `${totalDiceNum >= 0 ? '+' : ''}${totalDiceNum}d6`;
 
-    // --- NEW ORDER OF OPERATIONS ---
-    // 1. Calculate the total cost based on current toggles.
+    // --- ORDER OF OPERATIONS ---
     const totalCosts = this._calculateCurrentCosts();
-    // 2. Render the cost calculator UI.
     this._renderCostCalculator(totalCosts);
-    // 3. Update which abilities are affordable based on the total cost.
     this._updateAbilityAffordability(totalCosts);
+    this._updateRollButtonState(totalCosts); // <-- ADDED THIS LINE
 
-    // This part is for the d6 dice box display and can run independently.
     const d6Box = this.modalElement.querySelector('.d6-box');
     const resultsGrid = this.modalElement.querySelector('.results-grid');
     if (d6Box && resultsGrid) {
