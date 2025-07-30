@@ -406,6 +406,111 @@ function cleanupDismissedOnUnequip(character, instanceIdsToPurge) {
     });
 }
 
+/**
+ * Performs the logic for a given rest type, updating the character's resources.
+ * @param {string} restType - The type of rest ('short', 'medium', or 'long').
+ */
+async function handleRestAction(restType) {
+    if (!activeCharacter) return;
+
+    let alertMessage = '';
+
+    // A small helper to clamp a value between 0 and a max.
+    const clamp = (value, max) => Math.max(0, Math.min(value, max));
+
+    switch (restType) {
+        case 'short': {
+            const mana = activeCharacter.resources.find(r => r.id === 'mana');
+            if (mana) {
+                mana.value = clamp(mana.value + 5, mana.max);
+                alertMessage = 'You feel slightly refreshed. (+5 Mana)';
+            }
+            break;
+        }
+        case 'medium': {
+            const mana = activeCharacter.resources.find(r => r.id === 'mana');
+            if (mana) {
+                mana.value = clamp(mana.value + 30, mana.max);
+                alertMessage = 'You take a moment to recuperate. (+30 Mana)';
+            }
+            break;
+        }
+        case 'long': {
+            // This will iterate through ALL resources and set their value to their max.
+            activeCharacter.resources.forEach(resource => {
+                if (resource.max !== undefined) {
+                    resource.value = resource.max;
+                }
+            });
+            alertMessage = 'You are fully rested. (All resources restored)';
+            break;
+        }
+        default:
+            return; // Exit if the rest type is unknown
+    }
+
+    try {
+        // Save the updated resources to the database.
+        await db.updateCharacter(activeCharacter.id, { resources: activeCharacter.resources });
+        // Show a confirmation message.
+        alerter.show(alertMessage, 'success');
+        // Re-render the entire UI to show the new resource values.
+        processAndRenderAll(activeCharacter);
+    } catch (err) {
+        console.error('Failed to save character state after rest:', err);
+        alerter.show('Error saving character after rest.', 'error');
+    }
+}
+
+/**
+ * Sets up the event listeners for the rest buttons.
+ */
+function initializeRestSystem() {
+    const restBtn = document.getElementById('btn-rest');
+    const restActionsContainer = document.getElementById('rest-actions-container');
+    const restOptionsContainer = document.getElementById('rest-options-container');
+
+    if (!restBtn || !restOptionsContainer || !restActionsContainer) return;
+
+    // A helper function to close the rest menu.
+    const closeRestMenu = () => {
+        restOptionsContainer.classList.add('hidden');
+        restBtn.classList.remove('hidden');
+    };
+
+    // When the main "Rest" button is clicked, show the options.
+    restBtn.addEventListener('click', (event) => {
+        // Stop the click from bubbling up to the document listener we're about to add.
+        event.stopPropagation();
+        restBtn.classList.add('hidden');
+        restOptionsContainer.classList.remove('hidden');
+    });
+
+    // When any of the rest option buttons are clicked...
+    restOptionsContainer.addEventListener('click', async (event) => {
+        const target = event.target;
+        if (target.classList.contains('btn-rest-option')) {
+            const restType = target.dataset.restType;
+            // Perform the rest action.
+            await handleRestAction(restType);
+            // Reset the UI back to its initial state.
+            closeRestMenu();
+        }
+    });
+
+    // NEW: Add a global click listener to the entire document.
+    document.addEventListener('click', (event) => {
+        // Check if the rest options are currently visible.
+        const isVisible = !restOptionsContainer.classList.contains('hidden');
+
+        // If the menu is visible AND the click was not inside the rest container...
+        if (isVisible && !restActionsContainer.contains(event.target)) {
+            // ...close the menu.
+            closeRestMenu();
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const { moduleSystemData } = await loadGameModules();
@@ -420,6 +525,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             equipmentData = moduleSpecificData.equipmentAndLootData || {};
             bestiaryData = moduleSpecificData.bestiaryData || {};
             await processAndRenderAll(activeCharacter);
+            initializeRestSystem();
 
             // Force-save the fully processed character state to ensure data integrity for exports.
             activeCharacter = await db.updateCharacter(activeCharacter.id, activeCharacter);

@@ -38,6 +38,15 @@
 
         <nav class="play-nav-bottom">
             <div class="character-actions">
+                <div id="rest-actions-container">
+                    <button id="btn-rest" class="btn btn-secondary">Rest</button>
+                    <div id="rest-options-container" class="hidden">
+                        <button class="btn btn-rest-option" data-rest-type="short">Short</button>
+                        <button class="btn btn-rest-option" data-rest-type="medium">Medium</button>
+                        <button class="btn btn-rest-option" data-rest-type="long">Long</button>
+                    </div>
+                </div>
+
                 <button id="levelUpBtn" class="btn btn-primary">Level Up</button>
                 <button id="exportSingleCharacterBtn" class="btn btn-secondary">Export Character</button>
                 <a href="character-selector.html" class="btn btn-secondary">Change Character</a>

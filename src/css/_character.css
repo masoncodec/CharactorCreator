@@ -433,6 +433,53 @@
     font-weight: bold;
 }
 
+/* Make the parent container a positioning reference for the drop-up. */
+#rest-actions-container {
+  position: relative;
+}
+
+/* Style the options container as a floating panel. */
+#rest-options-container {
+  position: absolute;
+  /* Position it directly above the "Rest" button. */
+  bottom: calc(100% + 8px);
+  left: 50%;
+
+  /* Add styling to make it look like a panel. */
+  display: flex;
+  gap: 0.5rem;
+  background-color: #1A1A1A;
+  padding: 0.75rem;
+  border: 1px solid #444;
+  border-radius: 8px;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+
+  /* Animation setup */
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out, visibility 0.2s;
+}
+
+/* When the container has the .hidden class (set by JS)... */
+#rest-options-container.hidden {
+  /* ...make it invisible and move it down slightly. */
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 10px);
+}
+
+/* When the .hidden class is removed... */
+#rest-options-container:not(.hidden) {
+  /* ...make it visible and move it to its final position. */
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+#rest-actions-container {
+  position: relative;
+  /* By making the wrapper a flex container, the button inside will stretch to fill its height by default. */
+  display: flex;
+}
+
 @media (max-width: 768px) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
