@@ -609,23 +609,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // The close handler was moved into the show/close functions and is no longer needed here.
 
+            // FIX: Renamed function from handleCostPayment to handleResourceUpdate to reflect its new purpose.
             /**
-             * MODIFIED: Callback now accepts a totalCosts object to process multiple resource costs at once.
-             * @param {object} totalCosts - An object of costs to pay (e.g., { mana: 10, stamina: 5 }).
-             * @returns {Array<object>|null} The updated resources array.
+             * Callback that processes a consolidated object of resource changes from a roll.
+             * @param {object} deltas - An object of net resource changes (e.g., { mana: -10, stamina: 5 }).
+             * @returns {Array<object>|null} The updated resources array on success, or null on failure.
              */
-            const handleCostPayment = async (totalCosts) => {
+            const handleResourceUpdate = async (deltas) => {
                 try {
                     let needsUpdate = false;
-                    for (const resourceId in totalCosts) {
-                        const costValue = totalCosts[resourceId];
-                        // Skip if cost is zero
-                        if (costValue === 0) continue; 
+                    for (const resourceId in deltas) {
+                        const deltaValue = deltas[resourceId];
+                        if (deltaValue === 0) continue;
 
                         const resource = activeCharacter.resources.find(r => r.id === resourceId);
                         if (resource) {
-                            // This correctly handles losses (e.g., 100 - 10) and gains (e.g., 100 - (-5) = 105)
-                            resource.value -= costValue;
+                            // FIX: The logic is now a simple addition. The delta value is positive for gains
+                            // and negative for costs, so adding it to the current value works correctly.
+                            // e.g., value = 100, delta = -10 (cost) => 100 + (-10) = 90
+                            // e.g., value = 50, delta = 12 (gain) => 50 + 12 = 62
+                            resource.value += deltaValue;
 
                             // Clamp the value to be between 0 and its max, if a max is defined.
                             if (resource.max !== undefined) {
@@ -642,18 +645,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         activeCharacter.resources = updatedCharacter.resources;
                         return activeCharacter.resources;
                     }
-                    return activeCharacter.resources;
+                    return activeCharacter.resources; // Return resources even if no update was needed
                 } catch (err) {
-                    console.error('Failed to process cost payment:', err);
+                    console.error('Failed to process resource update:', err);
                     alerter.show('Error updating resources.', 'error');
+                    return null; // Explicitly return null on failure
                 }
-                return null;
             };
 
-            /**
-             * MODIFIED: Passes a new onRollComplete callback to the RollManager.
-             */
-            const setupAndLaunchRoll = (rollContext, onCostPaidCallback) => {
+            // FIX: Renamed the parameter to onResourceUpdateCallback for clarity.
+            const setupAndLaunchRoll = (rollContext, onResourceUpdateCallback) => {
                 const { baseRollDef, abilities, damageDef, characterResources, activeEffects } = rollContext;
 
                 const attributeName = baseRollDef.attributeName;
@@ -663,31 +664,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 const passiveAbilities = [], availableActives = [], availableConditionals = [];
 
-                // --- REPLACE THIS LOOP ---
                 abilities.forEach(ab => {
-                    // First, determine if the ability is relevant to this specific roll.
                     const isRelevantToAttribute = isAbilityRelevant(ab, 'hope_fear', attributeContext);
                     const isRelevantToDamage = damageDef && isAbilityRelevant(ab, 'damage', damageContext);
                     if (!isRelevantToAttribute && !isRelevantToDamage) return;
 
-                    // --- NEW, CORRECTED SORTING LOGIC ---
-                    // This now correctly differentiates between passive and active conditional abilities.
                     if (ab.itemType === 'passive') {
-                        // All passive abilities, conditional or not, go into the passive list.
-                        // Their effects are always on. The condition text is for the player's reference.
                         passiveAbilities.push(ab);
                     } else if (ab.itemType === 'active') {
-                        // For active abilities, we check if they are conditional.
                         if (ab.definition.condition) {
-                            // Active + Conditional -> Becomes a toggle button in the "Conditional" section.
                             availableConditionals.push(ab);
                         } else {
-                            // Active + No Condition -> Becomes a toggle button in the "Active" section.
                             availableActives.push(ab);
                         }
                     }
                 });
-                // --- END OF REPLACEMENT ---
 
                 const rollDefinitions = [{
                     ...baseRollDef,
@@ -711,7 +702,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     processAndRenderAll(activeCharacter);
                 };
                 
-                const rollManager = new RollManager(rollDefinitions, activeAbilityStates, onCostPaidCallback, onRollComplete);
+                // FIX: Pass the correctly named callback to the RollManager.
+                const rollManager = new RollManager(rollDefinitions, activeAbilityStates, onResourceUpdateCallback, onRollComplete);
                 rollManager.show();
             };
 
@@ -737,10 +729,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                         attributeName: attackEffect.attribute_bonus,
                         baseValue: activeCharacter.attributes[attackEffect.attribute_bonus] || 0,
                         isAttackRoll: true,
-                        cost: ability.definition.cost
+                        cost: ability.definition.cost,
+                        // CHANGE: Added hopeBonus configuration
+                        hopeBonus: { resourceId: 'mana', maxProperty: 'max', percentage: 10 }
                     }
                 };
-                setupAndLaunchRoll(rollContext, handleCostPayment);
+                // FIX: Pass the new handleResourceUpdate function.
+                setupAndLaunchRoll(rollContext, handleResourceUpdate);
                 return;
             }
             
@@ -758,10 +753,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         buttonLabel: 'Roll Check',
                         attributeName: attributeName,
                         baseValue: activeCharacter.attributes[attributeName] || 0,
+                        // CHANGE: Added hopeBonus configuration
+                        hopeBonus: { resourceId: 'mana', maxProperty: 'max', percentage: 10 }
                     }
                 };
-                // FIXED: Now correctly passes the callback.
-                setupAndLaunchRoll(rollContext, handleCostPayment);
+                // FIX: Pass the new handleResourceUpdate function.
+                setupAndLaunchRoll(rollContext, handleResourceUpdate);
                 return;
             }
 
@@ -788,10 +785,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         buttonLabel: 'Roll Check',
                         attributeName: attributeName,
                         baseValue: summonDef.attributes[attributeName] || 0,
+                        // CHANGE: Added hopeBonus configuration for summon rolls as well.
+                        hopeBonus: { resourceId: 'mana', maxProperty: 'max', percentage: 10 }
                     }
                 };
-                // FIXED: Now correctly passes the callback.
-                setupAndLaunchRoll(rollContext, handleCostPayment);
+                // FIX: Pass the new handleResourceUpdate function.
+                setupAndLaunchRoll(rollContext, handleResourceUpdate);
                 return;
             }
 
@@ -822,10 +821,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                         attributeName: attackEffect.attribute_bonus,
                         baseValue: summonDef.attributes[attackEffect.attribute_bonus] || 0,
                         isAttackRoll: true,
-                        cost: abilityDef.cost
+                        cost: abilityDef.cost,
+                        // CHANGE: Added hopeBonus configuration
+                        hopeBonus: { resourceId: 'mana', maxProperty: 'max', percentage: 10 }
                     }
                 };
-                setupAndLaunchRoll(rollContext, handleCostPayment);
+                // FIX: Pass the new handleResourceUpdate function.
+                setupAndLaunchRoll(rollContext, handleResourceUpdate);
                 return;
             }
 

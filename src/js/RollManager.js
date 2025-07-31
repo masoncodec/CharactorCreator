@@ -5,13 +5,16 @@ export class RollManager {
    * FINAL FIX: The constructor now sanitizes the incoming effects list once
    * using the correct 'itemId' property. This creates a clean baseline of
    * true passive effects and prevents all double-counting bugs with pre-toggled abilities.
+   * * // CHANGE: The constructor now accepts a single `onResourceUpdateCallback` instead of `onCostPaidCallback`.
+   * // This new callback handles a single, consolidated object of all resource changes (costs and gains).
    */
-  constructor(rollDefinitions, initialToggledStates = new Set(), onCostPaidCallback = null, onRollCompleteCallback = null) {
+  constructor(rollDefinitions, initialToggledStates = new Set(), onResourceUpdateCallback = null, onRollCompleteCallback = null) {
     this.rollDefinitions = rollDefinitions;
     this.modalElement = null;
     this.tooltipElement = null;
     this.critOccurred = false;
-    this.onCostPaid = onCostPaidCallback;
+    // CHANGE: Renamed callback for clarity and new functionality.
+    this.onResourceUpdate = onResourceUpdateCallback; 
     this.onRollComplete = onRollCompleteCallback;
     this.selectedCosts = {};
 
@@ -99,25 +102,51 @@ export class RollManager {
     if (rollButton) {
       const groupId = parseInt(rollButton.dataset.groupId, 10);
       
-      const totalCosts = this._calculateCurrentCosts();
-      if (Object.keys(totalCosts).length > 0 && typeof this.onCostPaid === 'function') {
-        const updatedResources = await this.onCostPaid(totalCosts);
+      // CHANGE: This is the core of the new consolidated update logic.
+      // 1. Calculate costs first.
+      const costs = this._calculateCurrentCosts();
+      const groupDef = this.rollDefinitions[groupId];
+      let gains = {};
+      let rollData = {};
+
+      // 2. Calculate the roll outcome and any resulting gains *before* updating state.
+      if (groupDef.groupType === 'hope_fear') {
+          rollData = this._calculateHopeFearRoll(groupDef);
+          gains = rollData.gains;
+          this.critOccurred = rollData.crit; // Store crit status for damage roll
+      }
+
+      // 3. Combine costs and gains into a single delta object.
+      const finalDeltas = {};
+      // Apply costs as negative values
+      for (const resourceId in costs) {
+          finalDeltas[resourceId] = (finalDeltas[resourceId] || 0) - costs[resourceId];
+      }
+      // Apply gains as positive values
+      for (const resourceId in gains) {
+          finalDeltas[resourceId] = (finalDeltas[resourceId] || 0) + gains[resourceId];
+      }
+
+      // 4. Make a single call to the resource update callback if there are any changes.
+      if (Object.keys(finalDeltas).length > 0 && typeof this.onResourceUpdate === 'function') {
+        const updatedResources = await this.onResourceUpdate(finalDeltas);
         if (updatedResources) {
             this.characterResources = updatedResources;
-            // UPDATE: Refresh the UI to show new costs and affordability after payment.
-            this._updateModifierDisplay(); 
         } else {
-            console.error("Cost payment failed, aborting roll.");
-            return;
+            console.error("Resource update failed, aborting roll.");
+            return; // Abort if the update fails.
         }
       }
       
-      this._executeRoll(groupId);
+      // 5. Now that state is updated, render the results to the UI.
+      this._executeRoll(groupId, rollData);
+
+      // 6. Refresh the UI to show new costs and affordability after all changes.
+      this._updateModifierDisplay();
 
       if (this.onRollComplete) {
         this.onRollComplete();
       }
-
       return;
     }
     
@@ -156,37 +185,74 @@ export class RollManager {
     }
   }
   
-  _executeRoll(groupId) {
+  // CHANGE: `_executeRoll` now takes pre-calculated rollData to render.
+  _executeRoll(groupId, rollData = {}) {
     const groupDef = this.rollDefinitions[groupId];
     const groupEl = this.modalElement.querySelector(`.roll-group[data-group-id="${groupId}"]`);
     if (!groupDef || !groupEl) return;
 
     switch (groupDef.groupType) {
       case 'hope_fear':
-        this._executeHopeFearRoll(groupDef, groupEl);
+        // Renders the results from the data calculated earlier.
+        this._renderHopeFearRoll(groupDef, groupEl, rollData);
         break;
       case 'damage':
+        // A damage roll depends on the hope/fear crit status, so it's executed after.
         this._executeDamageRoll(groupDef, groupEl);
         break;
     }
   }
-  
-  _executeHopeFearRoll(groupDef, groupEl) {
+
+  // CHANGE: New function to calculate Hope/Fear roll results without rendering.
+  _calculateHopeFearRoll(groupDef) {
     const { totalNumerical, totalDiceNum } = this._calculateCurrentModifiers();
     const finalValue = groupDef.baseValue + totalNumerical;
     
     const highestHope = Math.floor(Math.random() * 12) + 1;
     const highestFear = Math.floor(Math.random() * 12) + 1;
     let d6Modifier = 0;
+    let d6Rolls = [];
 
     if (totalDiceNum !== 0) {
       const numD6ToRoll = Math.abs(totalDiceNum);
-      const d6Rolls = [];
       for (let i = 0; i < numD6ToRoll; i++) {
         d6Rolls.push(Math.floor(Math.random() * 6) + 1);
       }
       const d6Sum = d6Rolls.reduce((sum, roll) => sum + roll, 0);
       d6Modifier = totalDiceNum > 0 ? d6Sum : -d6Sum;
+    }
+
+    const crit = highestHope === highestFear;
+    const hopeWin = highestHope > highestFear;
+    let gains = {};
+
+    // CHANGE: Calculate gains based on the `hopeBonus` configuration.
+    if (hopeWin && groupDef.hopeBonus) {
+        const { resourceId, maxProperty, percentage } = groupDef.hopeBonus;
+        const resource = this.characterResources.find(r => r.id === resourceId);
+        if (resource && resource[maxProperty] !== undefined) {
+            const amountToRestore = Math.ceil(resource[maxProperty] * (percentage / 100));
+            gains[resourceId] = amountToRestore;
+        }
+    }
+
+    return {
+        highestHope,
+        highestFear,
+        d6Modifier,
+        d6Rolls,
+        finalValue,
+        crit,
+        hopeWin,
+        gains
+    };
+  }
+  
+  // CHANGE: This function now only handles rendering, using pre-calculated data.
+  _renderHopeFearRoll(groupDef, groupEl, rollData) {
+    const { highestHope, highestFear, d6Modifier, d6Rolls, finalValue, crit, hopeWin } = rollData;
+
+    if (d6Rolls.length > 0) {
       groupEl.querySelector('.d6-roll-result').textContent = `${d6Modifier >= 0 ? '+' : ''}${d6Modifier}`;
       groupEl.querySelector('.d6-roll-details').textContent = `(Rolled: ${d6Rolls.join(', ')})`;
     }
@@ -201,15 +267,14 @@ export class RollManager {
     totalResultEl.classList.remove('critical-text');
     totalResultEl.parentElement.classList.remove('critical-success');
 
-    if (highestHope === highestFear) {
-      this.critOccurred = true;
+    if (crit) {
       totalResultEl.textContent = "CRITICAL SUCCESS!!";
       totalResultEl.classList.add('critical-text');
       totalResultEl.parentElement.classList.add('critical-success');
     } else {
       const finalTotal = highestHope + highestFear + finalValue + d6Modifier;
       totalResultEl.textContent = finalTotal;
-      if (highestHope > highestFear) {
+      if (hopeWin) {
         hopeBoxEl.classList.add('hope-win');
       } else {
         fearBoxEl.classList.add('fear-win');
