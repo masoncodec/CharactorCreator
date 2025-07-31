@@ -104,7 +104,8 @@ export class RollManager {
         const updatedResources = await this.onCostPaid(totalCosts);
         if (updatedResources) {
             this.characterResources = updatedResources;
-            // No need to call updateModifierDisplay again, just close after the roll.
+            // UPDATE: Refresh the UI to show new costs and affordability after payment.
+            this._updateModifierDisplay(); 
         } else {
             console.error("Cost payment failed, aborting roll.");
             return;
