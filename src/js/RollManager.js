@@ -1,8 +1,10 @@
-// RollManager.js (Corrected and Final)
+// RollManager.js
 
 export class RollManager {
   /**
-   * MODIFIED: Now accepts an onCostPaidCallback.
+   * FINAL FIX: The constructor now sanitizes the incoming effects list once
+   * using the correct 'itemId' property. This creates a clean baseline of
+   * true passive effects and prevents all double-counting bugs with pre-toggled abilities.
    */
   constructor(rollDefinitions, initialToggledStates = new Set(), onCostPaidCallback = null, onRollCompleteCallback = null) {
     this.rollDefinitions = rollDefinitions;
@@ -10,20 +12,36 @@ export class RollManager {
     this.tooltipElement = null;
     this.critOccurred = false;
     this.onCostPaid = onCostPaidCallback;
-    this.onRollComplete = onRollCompleteCallback; // NEW: Callback for after a roll is executed.
-    this.selectedCosts = {}; 
+    this.onRollComplete = onRollCompleteCallback;
+    this.selectedCosts = {};
 
     this.hopeFearGroup = this.rollDefinitions.find(def => def.groupType === 'hope_fear');
     if (this.hopeFearGroup) {
-        this.toggledStates = new Set(initialToggledStates); 
+        this.toggledStates = new Set(initialToggledStates);
         this.characterResources = this.hopeFearGroup.characterResources || [];
-        this.activeEffects = this.hopeFearGroup.activeEffects || [];
         this.allToggleableAbilities = [
             ...(this.hopeFearGroup.availableActives || []),
             ...(this.hopeFearGroup.availableConditionals || [])
         ];
+        
+        const allIncomingEffects = this.hopeFearGroup.activeEffects || [];
+        const toggleableAbilityIds = new Set(this.allToggleableAbilities.map(a => a.instancedId));
+
+        this.activeEffects = allIncomingEffects.filter(effect => !toggleableAbilityIds.has(effect.itemId));
+
+        // FIX #1: This block now pre-selects the *first* cost option for any pre-toggled 
+        // abilities. The _updateModifierDisplay method will handle reconciling any 
+        // affordability issues, ensuring the first affordable option is chosen on load.
+        this.toggledStates.forEach(abilityId => {
+            const ability = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
+            const costDef = ability?.definition.cost;
+
+            if (costDef?.or && costDef.or.length > 0) {
+                this.selectedCosts[abilityId] = costDef.or[0];
+            }
+        });
     }
-    
+
     this._boundClose = this.close.bind(this);
     this._boundHandleClick = this._handleClick.bind(this);
     this._boundCloseOnEscape = (e) => { if (e.key === "Escape") this.close(); };
@@ -66,14 +84,13 @@ export class RollManager {
         return;
     }
 
-    // NEW: Handle selection of an OR cost from a radio button
     if (target.matches('[data-action="select-or-cost"]')) {
       const abilityId = target.dataset.abilityId;
       const costIndex = parseInt(target.value, 10);
       const ability = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
       if (ability && ability.definition.cost.or) {
           this.selectedCosts[abilityId] = ability.definition.cost.or[costIndex];
-          this._updateModifierDisplay(); // Recalculate costs and update UI
+          this._updateModifierDisplay();
       }
       return;
     }
@@ -87,7 +104,7 @@ export class RollManager {
         const updatedResources = await this.onCostPaid(totalCosts);
         if (updatedResources) {
             this.characterResources = updatedResources;
-            this._updateModifierDisplay(); 
+            // No need to call updateModifierDisplay again, just close after the roll.
         } else {
             console.error("Cost payment failed, aborting roll.");
             return;
@@ -96,7 +113,6 @@ export class RollManager {
       
       this._executeRoll(groupId);
 
-      // Refreshes page on roll
       if (this.onRollComplete) {
         this.onRollComplete();
       }
@@ -118,17 +134,14 @@ export class RollManager {
     const abilityToggler = target.closest('[data-action="toggle-ability"]');
     if (abilityToggler) {
       if (abilityToggler.classList.contains('unaffordable')) {
-        // alerter is not defined here, using console.warn as a fallback.
         console.warn("You cannot afford to toggle this ability.");
         return;
       }
       const abilityId = abilityToggler.dataset.abilityId;
       if (this.toggledStates.has(abilityId)) {
           this.toggledStates.delete(abilityId);
-          abilityToggler.classList.remove('toggled-on');
       } else {
           this.toggledStates.add(abilityId);
-          abilityToggler.classList.add('toggled-on');
       }
       this._updateModifierDisplay();
       return;
@@ -205,15 +218,11 @@ export class RollManager {
 
   _executeDamageRoll(groupDef, groupEl) {
     let totalDamage = 0;
-    const appliedEffects = [];
-
-    (this.hopeFearGroup.passiveAbilities || []).forEach(ab => {
-        if(ab.definition.effect) appliedEffects.push(...ab.definition.effect);
-    });
+    const allActiveEffects = [...this.activeEffects];
     this.toggledStates.forEach(abilityId => {
-        const ability = this.allToggleableAbilities.find(a => a.instancedId === abilityId || a.definition.id === abilityId);
-        if (ability?.definition.effect) {
-            appliedEffects.push(...ability.definition.effect);
+        const toggledAbility = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
+        if (toggledAbility?.definition.effect) {
+            allActiveEffects.push(...toggledAbility.definition.effect);
         }
     });
 
@@ -225,7 +234,7 @@ export class RollManager {
         baseDice = baseDice.flatMap(d => [d, d]);
       }
 
-      appliedEffects.forEach(eff => {
+      allActiveEffects.forEach(eff => {
           if (eff.type === 'damage_mod' && (eff.damage_type === 'all' || eff.damage_type === rollDef.label)) baseValue += eff.value;
           if (eff.type === 'damage_dice_mod' && (eff.damage_type === 'all' || eff.damage_type === rollDef.label)) baseDice.push(eff.dice);
       });
@@ -259,35 +268,28 @@ export class RollManager {
     let totalDiceNum = 0;
     const relevantAttribute = this.hopeFearGroup.attributeName;
 
-    const processAbilityEffects = (ability) => {
-        if (!ability?.definition.effect) return;
-        ability.definition.effect.forEach(eff => {
-            if (eff.attribute === relevantAttribute) {
-                if (eff.type === 'modifier') totalNumerical += eff.modifier;
-                if (eff.type === 'die_num') totalDiceNum += eff.modifier;
-            }
-        });
-    };
-
-    (this.hopeFearGroup.passiveAbilities || []).forEach(processAbilityEffects);
+    const allActiveEffects = [...this.activeEffects];
     this.toggledStates.forEach(abilityId => {
-        const ability = this.allToggleableAbilities.find(a => a.instancedId === abilityId || a.definition.id === abilityId);
-        processAbilityEffects(ability);
+        const toggledAbility = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
+        if (toggledAbility?.definition.effect) {
+            allActiveEffects.push(...toggledAbility.definition.effect);
+        }
+    });
+
+    allActiveEffects.forEach(eff => {
+      if (eff.attribute === relevantAttribute) {
+          if (eff.type === 'modifier') totalNumerical += eff.modifier;
+          if (eff.type === 'die_num') totalDiceNum += eff.modifier;
+      }
     });
     
     return { totalNumerical, totalDiceNum };
   }
 
-  /**
-   * MODIFIED: Completely refactored to handle AND/OR costs, cost modifiers, and cost ignores.
-   * @returns {object} An object summarizing the total cost per resource (e.g., { mana: -5 }).
-   */
   _calculateCurrentCosts() {
-    // 1. Start with a completely empty object for the final totals.
     const totalCosts = {};
-
-    // 2. Create a list of all abilities/actions that currently have a cost.
     const activeCostSources = [];
+
     if (this.hopeFearGroup.cost) {
         activeCostSources.push({
             costDef: this.hopeFearGroup.cost,
@@ -304,7 +306,6 @@ export class RollManager {
         }
     });
 
-    // 3. Process each source to determine its base cost package (handling AND/OR).
     activeCostSources.forEach(source => {
         let costPackage = [];
         if (source.costDef.or) {
@@ -313,7 +314,6 @@ export class RollManager {
             costPackage = this._normalizeCost(source.costDef);
         }
 
-        // Add the base costs from this ability's package to the main total.
         costPackage.forEach(costItem => {
             if (this._shouldIgnoreCost(costItem)) return;
             const resource = costItem.resource;
@@ -325,18 +325,14 @@ export class RollManager {
         });
     });
 
-    // --- FIX: This section is now corrected ---
-    // 4. Create a complete list of ALL active effects from both passives AND toggled abilities.
-    const allActiveEffects = [...this.activeEffects]; // Start with passive effects from perks/equipment.
+    const allActiveEffects = [...this.activeEffects];
     this.toggledStates.forEach(abilityId => {
         const toggledAbility = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
         if (toggledAbility?.definition.effect) {
-            // Add the effects from the toggled ability itself to the list.
             allActiveEffects.push(...toggledAbility.definition.effect);
         }
     });
 
-    // 5. Apply all cost_mod effects from the complete list to the summed totals.
     allActiveEffects.forEach(eff => {
         if (eff.type === 'cost_mod' && totalCosts[eff.resource] !== undefined) {
             totalCosts[eff.resource] += eff.value;
@@ -346,16 +342,12 @@ export class RollManager {
     return totalCosts;
   }
 
-  /**
-   * NEW: A modular function to render the cost calculator UI.
-   * @param {object} totalCosts - The calculated costs from _calculateCurrentCosts.
-   */
   _renderCostCalculator(totalCosts) {
     const container = this.modalElement.querySelector('#roll-cost-calculator');
     if (!container) return;
 
     if (Object.keys(totalCosts).length === 0) {
-        container.innerHTML = ''; // Hide if there's no cost
+        container.innerHTML = '';
         return;
     }
 
@@ -377,131 +369,105 @@ export class RollManager {
     container.innerHTML = content;
   }
 
-  /**
-   * NEW: Helper to ensure an ability's cost is always an array for consistent processing.
-   * Handles old single-object costs and new array-based AND costs.
-   * @param {object|Array} cost - The cost property from an ability definition.
-   * @returns {Array<object>}
-   */
   _normalizeCost(cost) {
     if (!cost) return [];
     if (Array.isArray(cost)) return cost;
-    if (cost.resource) return [cost]; // Handles the old format { resource: 'x', value: y }
+    if (cost.resource) return [cost];
     return [];
   }
 
-  /**
-   * FINAL CORRECTED VERSION
-   * Fixes a bug where ignore_resource effects from toggled abilities were not being applied.
-   * @param {object} cost - A single cost object, e.g., { resource: 'mana', value: 10 }.
-   * @returns {boolean} - True if the cost should be ignored.
-   */
   _shouldIgnoreCost(cost) {
     if (!cost) return false;
 
-    // 1. Check for passive ignore effects (from perks, items, etc.)
-    // This looks at the effects that are always on.
     if (this.activeEffects.some(eff => eff.type === 'ignore_resource' && eff.resource === cost.resource)) {
         return true;
     }
 
-    // 2. Check for ignore effects from currently toggled abilities.
-    // This loops through your toggled abilities to see if THEY provide an ignore effect.
     for (const abilityId of this.toggledStates) {
         const toggledAbility = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
         if (toggledAbility?.definition.effect) {
-            // Check if this specific toggled ability has the ignore_resource effect.
             if (toggledAbility.definition.effect.some(eff => eff.type === 'ignore_resource' && eff.resource === cost.resource)) {
                 return true;
             }
         }
     }
 
-    // 3. If no ignore effect was found from any source, return false.
     return false;
   }
 
-  /**
-   * MODIFIED: Now performs dynamic affordability checks for AND/OR costs
-   * and updates the disabled state of OR cost radio buttons.
-   */
   _updateAbilityAffordability(totalCosts) {
     if (!this.allToggleableAbilities) return;
-
-    const remainingResources = this.characterResources.reduce((acc, res) => ({...acc, [res.id]: res.value }), {});
-    for (const resourceId in totalCosts) {
-        if (remainingResources[resourceId] !== undefined) {
-            remainingResources[resourceId] -= totalCosts[resourceId];
-        }
-    }
     
     this.allToggleableAbilities.forEach(ability => {
         const buttonWrapper = this.modalElement.querySelector(`[data-ability-id="${ability.instancedId}"]`)?.closest('.ability-toggle-wrapper');
         if (!buttonWrapper) return;
         
         const button = buttonWrapper.querySelector('.ability-toggle-btn');
-        let canAffordAbility = true;
+        button.classList.toggle('toggled-on', this.toggledStates.has(ability.instancedId));
+
         const costDef = ability.definition.cost;
+        
+        // Affordability of the main toggle button
+        const remainingResources = this.characterResources.reduce((acc, res) => ({...acc, [res.id]: res.value }), {});
+        for (const resourceId in totalCosts) {
+            if (remainingResources[resourceId] !== undefined) remainingResources[resourceId] -= totalCosts[resourceId];
+        }
 
         if (!this.toggledStates.has(ability.instancedId) && costDef) {
+            let canAffordAbility = true;
             if (costDef.or) {
-                // MODIFICATION: Check if SOME package in the OR list is affordable.
-                canAffordAbility = costDef.or.some(costPackage => 
-                    // A package is affordable if EVERY cost item inside it is affordable.
-                    costPackage.every(costItem => 
-                        this._shouldIgnoreCost(costItem) || (remainingResources[costItem.resource] || 0) >= costItem.value
-                    )
-                );
+                canAffordAbility = costDef.or.some(pkg => pkg.every(item => this._shouldIgnoreCost(item) || (remainingResources[item.resource] || 0) >= item.value));
             } else {
-                canAffordAbility = this._normalizeCost(costDef).every(costItem => 
-                    this._shouldIgnoreCost(costItem) || (remainingResources[costItem.resource] || 0) >= costItem.value
-                );
+                canAffordAbility = this._normalizeCost(costDef).every(item => this._shouldIgnoreCost(item) || (remainingResources[item.resource] || 0) >= item.value);
             }
+            button.classList.toggle('unaffordable', !canAffordAbility);
+        } else {
+            button.classList.remove('unaffordable');
         }
-        button.classList.toggle('unaffordable', !canAffordAbility);
         
+        // Disabling for OR cost radio buttons
         if (costDef && costDef.or) {
             const radioContainer = buttonWrapper.querySelector('.or-cost-options');
             if(!radioContainer) return;
 
-            let firstAffordableIndex = -1;
+            const currentSelectedPackage = this.selectedCosts[ability.instancedId];
+            
+            const costOfOtherThings = { ...totalCosts };
+            if (this.toggledStates.has(ability.instancedId) && currentSelectedPackage) {
+                currentSelectedPackage.forEach(costItem => {
+                    if (costOfOtherThings[costItem.resource] !== undefined) {
+                        costOfOtherThings[costItem.resource] -= costItem.value;
+                    }
+                });
+            }
+
+            const resourcesLeftForThisAbility = this.characterResources.reduce((acc, res) => ({...acc, [res.id]: res.value }), {});
+            for (const resourceId in costOfOtherThings) {
+                if (resourcesLeftForThisAbility[resourceId] !== undefined) {
+                    resourcesLeftForThisAbility[resourceId] -= costOfOtherThings[resourceId];
+                }
+            }
+
             costDef.or.forEach((costPackage, index) => {
                 const radio = radioContainer.querySelector(`input[value="${index}"]`);
                 if (!radio) return;
                 
-                // MODIFICATION: Check affordability of the entire package for the radio button.
-                const isOptionAffordable = costPackage.every(costItem => 
-                    this._shouldIgnoreCost(costItem) || (this.characterResources.find(r => r.id === costItem.resource)?.value || 0) >= costItem.value
-                );
+                const isOptionAffordable = costPackage.every(item => this._shouldIgnoreCost(item) || (resourcesLeftForThisAbility[item.resource] || 0) >= item.value);
                 
                 radio.disabled = !isOptionAffordable;
                 radio.parentElement.classList.toggle('unaffordable-option', !isOptionAffordable);
-                if(isOptionAffordable && firstAffordableIndex === -1) {
-                    firstAffordableIndex = index;
+                
+                // Set checked state based on current selection
+                const isThisPackageSelected = JSON.stringify(this.selectedCosts[ability.instancedId]) === JSON.stringify(costPackage);
+                if (isThisPackageSelected) {
+                    radio.checked = true;
                 }
             });
-            
-            const currentlySelectedCost = this.selectedCosts[ability.instancedId];
-            const selectedRadio = buttonWrapper.querySelector('input[type="radio"]:checked');
-            if (!currentlySelectedCost || (selectedRadio && selectedRadio.disabled)) {
-                if (firstAffordableIndex !== -1) {
-                    const newDefaultRadio = buttonWrapper.querySelector(`input[value="${firstAffordableIndex}"]`);
-                    newDefaultRadio.checked = true;
-                    this.selectedCosts[ability.instancedId] = costDef.or[firstAffordableIndex];
-                } else {
-                    delete this.selectedCosts[ability.instancedId];
-                }
-            }
         }
     });
   }
 
-  /**
-   * NEW: Checks if the total projected cost is affordable and updates the main roll button's state.
-   * @param {object} totalCosts - The calculated costs from _calculateCurrentCosts.
-   */
   _updateRollButtonState(totalCosts) {
-    // Find the specific roll button for the Hope/Fear group.
     const hopeFearGroupId = this.rollDefinitions.findIndex(def => def.groupType === 'hope_fear');
     if (hopeFearGroupId === -1) return;
     const rollButton = this.modalElement.querySelector(`#roll-group-${hopeFearGroupId} .roll-group-btn`);
@@ -513,32 +479,119 @@ export class RollManager {
         const resource = this.characterResources.find(r => r.id === resourceId);
         const availableAmount = resource ? resource.value : 0;
 
-        // The button is disabled only if the cost is strictly greater than what's available.
         if (costValue > availableAmount) {
             isUnaffordable = true;
-            break; // Found an unaffordable cost, no need to check further.
+            break;
         }
     }
     
-    // Set the button's disabled property based on the check.
     rollButton.disabled = isUnaffordable;
   }
 
-  /**
-   * MODIFIED: Now orchestrates the dynamic cost calculation and UI updates.
-   */
   _updateModifierDisplay() {
+    // This loop reconciles the current state. It will first try to switch OR costs to
+    // resolve a deficit, and only deselect an ability as a last resort.
+    while (true) {
+        const totalCosts = this._calculateCurrentCosts();
+        const deficientResources = new Set();
+
+        for (const resourceId in totalCosts) {
+            const resource = this.characterResources.find(r => r.id === resourceId);
+            if (!resource || resource.value < totalCosts[resourceId]) {
+                deficientResources.add(resourceId);
+            }
+        }
+
+        if (deficientResources.size === 0) {
+            break; // All costs are affordable, exit the reconciliation loop.
+        }
+
+        // FIX #2: Prioritize switching OR costs over deselecting abilities.
+        let switchedCost = false;
+        const abilitiesToRecheck = this.allToggleableAbilities.filter(
+            ab => this.toggledStates.has(ab.instancedId) && ab.definition.cost?.or
+        );
+
+        for (const ability of abilitiesToRecheck) {
+            const currentCostPackage = this.selectedCosts[ability.instancedId] || [];
+            const isProblematic = currentCostPackage.some(item => deficientResources.has(item.resource));
+
+            if (isProblematic) {
+                // This ability's selected cost contributes to the deficit. See if we can switch it.
+                const costOfOtherThings = { ...totalCosts };
+                currentCostPackage.forEach(costItem => {
+                    if (costOfOtherThings[costItem.resource] !== undefined) {
+                        costOfOtherThings[costItem.resource] -= costItem.value; // Approximate subtraction
+                    }
+                });
+
+                const resourcesLeftForThisAbility = this.characterResources.reduce((acc, res) => ({...acc, [res.id]: res.value }), {});
+                for (const resourceId in costOfOtherThings) {
+                    if (resourcesLeftForThisAbility[resourceId] !== undefined) {
+                        resourcesLeftForThisAbility[resourceId] -= costOfOtherThings[resourceId];
+                    }
+                }
+                
+                let bestAlternative = null;
+                for (const alternativePackage of ability.definition.cost.or) {
+                    if (alternativePackage === currentCostPackage) continue;
+
+                    const isAlternativeAffordable = alternativePackage.every(item => 
+                        this._shouldIgnoreCost(item) || (resourcesLeftForThisAbility[item.resource] || 0) >= item.value
+                    );
+
+                    if (isAlternativeAffordable) {
+                        bestAlternative = alternativePackage;
+                        break; 
+                    }
+                }
+                
+                if (bestAlternative) {
+                    this.selectedCosts[ability.instancedId] = bestAlternative;
+                    switchedCost = true;
+                    break; // Exit the for-loop to restart the while-loop
+                }
+            }
+        }
+
+        if (switchedCost) {
+            continue; // An OR cost was switched, restart the main loop to recalculate everything.
+        }
+        
+        // If no cost-switch could be made, proceed with deselecting a victim as a last resort.
+        let victimFoundAndDisabled = false;
+        const toggledAbilityIds = Array.from(this.toggledStates);
+
+        for (let i = toggledAbilityIds.length - 1; i >= 0; i--) {
+            const potentialVictimId = toggledAbilityIds[i];
+            const ability = this.allToggleableAbilities.find(a => a.instancedId === potentialVictimId);
+            if (!ability?.definition.cost) continue;
+
+            const costDef = ability.definition.cost;
+            const costPackage = costDef.or ? (this.selectedCosts[potentialVictimId] || []) : this._normalizeCost(costDef);
+            const contributesToDeficit = costPackage.some(item => deficientResources.has(item.resource));
+            
+            if (contributesToDeficit) {
+                this.toggledStates.delete(potentialVictimId);
+                victimFoundAndDisabled = true;
+                break;
+            }
+        }
+
+        if (!victimFoundAndDisabled) {
+            break; // Safeguard against infinite loops.
+        }
+    }
+
     const { totalNumerical, totalDiceNum } = this._calculateCurrentModifiers();
     const finalValue = this.hopeFearGroup.baseValue + totalNumerical;
-
     this.modalElement.querySelector('#mod-total-numerical').textContent = `${finalValue >= 0 ? '+' : ''}${finalValue}`;
     this.modalElement.querySelector('#mod-total-dice').textContent = `${totalDiceNum >= 0 ? '+' : ''}${totalDiceNum}d6`;
 
-    // --- ORDER OF OPERATIONS ---
-    const totalCosts = this._calculateCurrentCosts();
-    this._renderCostCalculator(totalCosts);
-    this._updateAbilityAffordability(totalCosts);
-    this._updateRollButtonState(totalCosts); // <-- ADDED THIS LINE
+    const finalCosts = this._calculateCurrentCosts();
+    this._renderCostCalculator(finalCosts);
+    this._updateAbilityAffordability(finalCosts);
+    this._updateRollButtonState(finalCosts);
 
     const d6Box = this.modalElement.querySelector('.d6-box');
     const resultsGrid = this.modalElement.querySelector('.results-grid');
@@ -550,29 +603,25 @@ export class RollManager {
     }
   }
 
-  /**
-   * REVISED: Now displays the ability's definition name.
-   */
   _showBreakdownTooltip(targetElement) {
     const relevantAttribute = this.hopeFearGroup.attributeName;
     let content = '<h5>Applied Effects</h5><ul>';
     content += `<li><strong>Base Value:</strong> ${this.hopeFearGroup.baseValue}</li>`;
 
-    const processAbilityEffectsForTooltip = (ability, isToggled = false) => {
-        if (!ability?.definition.effect) return;
-        ability.definition.effect.forEach(eff => {
-            if (eff.attribute === relevantAttribute && (eff.type === 'modifier' || eff.type === 'die_num')) {
-                // FIX 2: Use the ability's own name from its definition.
-                const displayName = ability.definition.name;
-                content += `<li><strong>${displayName}${isToggled ? ' (Toggled)' : ''}:</strong> ${eff.modifier > 0 ? '+' : ''}${eff.modifier} ${eff.type === 'die_num' ? 'dice' : ''}</li>`;
-            }
-        });
-    };
-
-    (this.hopeFearGroup.passiveAbilities || []).forEach(ab => processAbilityEffectsForTooltip(ab, false));
+    const allActiveEffects = [...this.activeEffects];
     this.toggledStates.forEach(abilityId => {
-        const ability = this.allToggleableAbilities.find(a => a.instancedId === abilityId || a.definition.id === abilityId);
-        processAbilityEffectsForTooltip(ability, true);
+        const toggledAbility = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
+        if (toggledAbility?.definition.effect) {
+            allActiveEffects.push(...toggledAbility.definition.effect);
+        }
+    });
+
+    allActiveEffects.forEach(eff => {
+        if (eff.attribute === relevantAttribute && (eff.type === 'modifier' || eff.type === 'die_num')) {
+            const displayName = eff.itemName || eff.name || 'Effect';
+            const sourceInfo = this.toggledStates.has(eff.itemId) ? ' (Toggled)' : '';
+            content += `<li><strong>${displayName}${sourceInfo}:</strong> ${eff.modifier > 0 ? '+' : ''}${eff.modifier} ${eff.type === 'die_num' ? 'dice' : ''}</li>`;
+        }
     });
 
     content += '</ul>';
@@ -683,7 +732,6 @@ export class RollManager {
             </div>`;
     }
 
-    // Conditionally create the HTML for the base attribute display.
     let baseAttributeHtml = '';
     if (groupDef.isAttackRoll && groupDef.attributeName) {
         const capitalizedAttribute = groupDef.attributeName.charAt(0).toUpperCase() + groupDef.attributeName.slice(1);
@@ -744,16 +792,17 @@ export class RollManager {
 
     if (costDef && costDef.or) {
       const optionsHtml = costDef.or.map((costPackage, index) => {
-        // MODIFICATION: Generate a display string for the entire cost package.
         const packageDisplayString = costPackage.map(costItem => {
             const resource = this.characterResources.find(r => r.id === costItem.resource);
             const displayName = resource ? resource.displayName.substring(0, 4) : '???';
             return `${costItem.value} ${displayName}`;
         }).join(' + ');
 
+        const isSelected = JSON.stringify(this.selectedCosts[abilityId]) === JSON.stringify(costPackage);
+        
         return `
           <label class="or-cost-label" title="${packageDisplayString}">
-            <input type="radio" name="or-cost-${abilityId}" value="${index}" data-action="select-or-cost" data-ability-id="${abilityId}">
+            <input type="radio" name="or-cost-${abilityId}" value="${index}" data-action="select-or-cost" data-ability-id="${abilityId}" ${isSelected ? 'checked' : ''}>
             <span>${packageDisplayString}</span>
           </label>
         `;
@@ -806,6 +855,7 @@ export class RollManager {
             </div>
           </div>
         </div>
-      </div>`;
+      </div>
+    `;
   }
 }

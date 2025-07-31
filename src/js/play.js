@@ -3,7 +3,7 @@ import { EffectHandler } from './effectHandler.js';
 import { loadGameModules, loadDataForModule } from './dataLoader.js';
 import { alerter } from './alerter.js';
 import { RollManager } from './RollManager.js';
-import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, renderSummonsPanel, EQUIPMENT_SLOT_CONFIG, getEquippedCount, findTargetSlots } from './play-ui.js';
+import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, renderSummonsPanel, EQUIPMENT_SLOT_CONFIG, getEquippedCount, findTargetSlots, renderAbilityInfoModal } from './play-ui.js';
 import { aggregateAllAbilities } from './abilityAggregator.js';
 
 // --- NEW: Central Configuration for Roll Relevance ---
@@ -18,6 +18,62 @@ const RELEVANCE_RULES = {
     contextKey: 'damage_types' // Note: plural, as we'll check against an array of types
   }
 };
+
+
+// --- NEW: Functions to manage the Ability Info Modal ---
+let boundCloseAbilityModalOnEscape;
+
+/**
+ * Removes the ability info modal from the DOM and cleans up its event listeners.
+ */
+function closeAbilityInfoModal() {
+    const modal = document.getElementById('ability-info-modal');
+    if (modal) {
+        modal.remove();
+    }
+    // IMPORTANT: Clean up the global event listener to prevent memory leaks.
+    if (boundCloseAbilityModalOnEscape) {
+        document.removeEventListener('keydown', boundCloseAbilityModalOnEscape);
+    }
+}
+
+/**
+ * Creates and displays the ability info modal.
+ * @param {object} ability - The full ability object to display.
+ */
+function showAbilityInfoModal(ability) {
+    // First, ensure no other modal is open.
+    closeAbilityInfoModal();
+
+    const modalContentHTML = renderAbilityInfoModal(ability, activeCharacter);
+    const modalContainerHTML = `
+        <div id="ability-info-modal">
+            <div class="ability-modal-backdrop" data-action="close-ability-info"></div>
+            <div class="ability-modal-content">
+                <button class="ability-modal-close" data-action="close-ability-info">&times;</button>
+                ${modalContentHTML}
+            </div>
+        </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalContainerHTML);
+    const modalElement = document.getElementById('ability-info-modal');
+
+    // Add a click listener to the modal container for closing.
+    modalElement.addEventListener('click', (event) => {
+        if (event.target.hasAttribute('data-action') && event.target.getAttribute('data-action') === 'close-ability-info') {
+            closeAbilityInfoModal();
+        }
+    });
+
+    // Add a keydown listener to the document for the Escape key.
+    boundCloseAbilityModalOnEscape = (event) => {
+        if (event.key === "Escape") {
+            closeAbilityInfoModal();
+        }
+    };
+    document.addEventListener('keydown', boundCloseAbilityModalOnEscape);
+}
+
 
 /**
  * NEW: Gathers the full set of abilities for a character roll, including global perks and flaws.
@@ -538,6 +594,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         contentArea.addEventListener('click', async (event) => {
             if (!activeCharacter) return;
             const target = event.target;
+            
+            // --- MODIFIED: ABILITY INFO MODAL HANDLER ---
+            // This now calls the dedicated showAbilityInfoModal function.
+            const infoButton = target.closest('[data-action="show-ability-info"]');
+            if (infoButton) {
+                const abilityId = infoButton.dataset.abilityId;
+                const ability = allAbilities.find(a => a.instancedId === abilityId);
+                if (ability) {
+                    showAbilityInfoModal(ability);
+                }
+                return; // Stop further processing
+            }
+
+            // The close handler was moved into the show/close functions and is no longer needed here.
 
             /**
              * MODIFIED: Callback now accepts a totalCosts object to process multiple resource costs at once.

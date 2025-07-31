@@ -46,21 +46,159 @@ export const EQUIPMENT_SLOT_CONFIG = {
     }
 };
 
-// --- NEW REUSABLE COMPONENTS ---
+// --- NEW/MODIFIED FUNCTIONS ---
 
 /**
- * NEW: A reusable helper to render the health display for any entity (character or summon).
- * @param {number} current - The current health value.
- * @param {number} max - The maximum health value.
- * @param {string} entityId - The unique ID for the entity (character ID or summon instance ID).
- * @param {string} entityType - A string to differentiate ('character' or 'summon').
- * @returns {string} The HTML for the health display.
+ * NEW: Renders the complete HTML for the ability information modal.
+ * @param {object} ability - The full, aggregated ability object.
+ * @param {object} character - The active character object (for selections).
+ * @returns {string} The inner HTML for the modal's content area.
  */
+export function renderAbilityInfoModal(ability, character) {
+    if (!ability || !ability.definition) return '';
+
+    const def = ability.definition;
+    let description = def.description.replace(/\${([^}]+)}/g, (match, p1) => def[p1] || p1);
+
+    // --- Source Section ---
+    const sourceHtml = ability.sourceType === 'equipment'
+        ? `<p class="ability-source-text">Source: ${ability.sourceName}</p>`
+        : `<p class="ability-source-text">Source: ${ability.sourceType.charAt(0).toUpperCase() + ability.sourceType.slice(1)}</p>`;
+
+    // --- Cost Section ---
+    let costHtml = '';
+    if (def.cost) {
+        const costValue = Array.isArray(def.cost) ? def.cost.map(c => `${c.value} ${c.resource}`).join(' and ') : `${def.cost.value} ${def.resource}`;
+        costHtml = `<div class="ability-modal-section">
+                        <h5>Cost</h5>
+                        <p>${costValue}</p>
+                    </div>`;
+    }
+
+    // --- Effects Section ---
+    let effectsHtml = '';
+    if (def.effect && def.effect.length > 0) {
+        const effectItems = def.effect.map(eff => {
+            let effectText = `<strong>${eff.name || eff.type}:</strong> `;
+            switch (eff.type) {
+                case 'modifier':
+                    effectText += `Grants ${eff.modifier > 0 ? '+' : ''}${eff.modifier} to ${eff.attribute}.`;
+                    break;
+                case 'die_num':
+                    effectText += `Grants ${eff.modifier > 0 ? '+' : ''}${eff.modifier} dice to ${eff.attribute} rolls.`;
+                    break;
+                case 'language':
+                    effectText += `Learn the "${eff.name}" language.`;
+                    break;
+                case 'attack':
+                    effectText += `Attack roll using ${eff.attribute_bonus}.`;
+                    break;
+                // Add more cases here for other effect types as needed
+                default:
+                    effectText += `Unknown effect type.`;
+            }
+            if (eff.cost) {
+                effectText += ` (Cost: ${eff.cost.value} ${eff.cost.resource})`;
+            }
+            return `<li>${effectText}</li>`;
+        }).join('');
+        effectsHtml = `<div class="ability-modal-section"><h5>Effects</h5><ul>${effectItems}</ul></div>`;
+    }
+    
+    // --- Options/Selections Section ---
+    let optionsHtml = '';
+    if (def.options && def.options.length > 0) {
+        // Find the character's selections for this ability
+        const abilityState = character.abilities.find(a => a.id === def.id);
+        const selections = new Set(abilityState?.selections || []);
+        
+        const optionItems = def.options.map(opt => {
+            const isSelected = selections.has(opt.id) ? '<strong>(Selected)</strong> ' : '';
+            return `<li><strong>${opt.name}:</strong> ${isSelected}${opt.description}</li>`;
+        }).join('');
+        optionsHtml = `<div class="ability-modal-section"><h5>Options</h5><ul>${optionItems}</ul></div>`;
+    }
+
+    return `
+        <h3 class="ability-modal-header">${def.name}</h3>
+        <div class="ability-modal-section">
+            <p>${description}</p>
+            ${sourceHtml}
+        </div>
+        ${costHtml}
+        ${effectsHtml}
+        ${optionsHtml}
+    `;
+}
+
+
+/**
+ * Renders the content for the 'Abilities' tab.
+ * REWORKED: Now renders a minimalist card with a name and buttons, including the new info button.
+ * @param {Array<object>} allAbilities - The aggregated list of all character abilities.
+ * @param {object} character - The character object.
+ */
+export function renderAbilitiesTab(allAbilities, character) {
+    const panel = document.getElementById('abilities-panel');
+    if (!panel) return;
+    
+    if (!allAbilities || allAbilities.length === 0) {
+        panel.innerHTML = '<div class="panel"><p>No abilities available.</p></div>';
+        return;
+    }
+    
+    const activeAbilitiesHtml = [];
+    const passiveAbilitiesHtml = [];
+
+    allAbilities.forEach(ability => {
+        const abilityDef = ability.definition;
+        if (!abilityDef) return;
+
+        // The info button is always present
+        const infoButtonHtml = `<i class="info-btn" data-action="show-ability-info" data-ability-id="${ability.instancedId}" title="View Details">i</i>`;
+
+        let actionButtonHTML = '';
+        if (ability.itemType === "active") {
+            const hasAttackEffect = abilityDef.effect?.some(e => e.type === 'attack');
+            if (hasAttackEffect) {
+                actionButtonHTML = `<button class="btn btn-primary btn-ability-roll" data-ability-id="${ability.instancedId}">Roll</button>`;
+            } else {
+                const isOn = character.activeAbilityIds && character.activeAbilityIds.has(ability.instancedId) ? 'selected' : '';
+                actionButtonHTML = `<button class="ability-toggle ${isOn}" data-ability-id="${ability.instancedId}">Toggle</button>`;
+            }
+        }
+
+        const cardContent = `
+            <li class="ability-card">
+                <div class="ability-card-main">
+                    <span class="ability-name">${abilityDef.name}</span>
+                    ${infoButtonHtml}
+                </div>
+                <div class="ability-card-actions">
+                    ${actionButtonHTML}
+                </div>
+            </li>`;
+
+        if (ability.itemType === "active") {
+            activeAbilitiesHtml.push(cardContent);
+        } else {
+            passiveAbilitiesHtml.push(cardContent);
+        }
+    });
+
+    const activeSection = activeAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Active Abilities</h2><ul id="activeAbilitiesList" class="ability-list">${activeAbilitiesHtml.join('')}</ul></div>` : '';
+    const passiveSection = passiveAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Passive Abilities</h2><ul id="passiveAbilitiesList" class="ability-list">${passiveAbilitiesHtml.join('')}</ul></div>` : '';
+
+    panel.innerHTML = activeSection + passiveSection;
+}
+
+
+// --- UNCHANGED FUNCTIONS (Included for context) ---
+
 function renderHealthComponent(current, max, entityId, entityType) {
     const healthPercentage = max > 0 ? (current / max) * 100 : 0;
     let healthClass = healthPercentage > 60 ? 'health-full' : healthPercentage > 30 ? 'health-medium' : 'health-low';
     
-    // Use the entityId and entityType to create unique IDs for the input and button.
     return `
         <div class="health-controls">
             <input type="number" id="health-adj-${entityId}" class="form-control health-adj-input" placeholder="e.g. -5, +10" />
@@ -73,21 +211,11 @@ function renderHealthComponent(current, max, entityId, entityType) {
     `;
 }
 
-/**
- * NEW UNIFIED FUNCTION: Renders an attribute grid for any entity (character or summon).
- * MODIFIED: Now uses CSS classes instead of inline styles for a cleaner separation.
- * @param {object} config - Configuration object.
- * @param {object} config.attributes - The final, calculated attributes to display.
- * @param {string} config.entityType - 'character' or 'summon'.
- * @param {string} [config.entityId] - The summon's instanceId (only for entityType 'summon').
- * @returns {string} The HTML for the attribute grid.
- */
 function renderAttributeGridComponent({ attributes, entityType, entityId }) {
     if (!attributes) return '';
 
     const attributeItems = Object.entries(attributes).map(([attr, finalValue]) => {
         const isSummon = entityType === 'summon';
-        // This logic remains to ensure the correct event handler is triggered in play.js
         const buttonClass = isSummon ? 'summon-attribute-roll-btn' : 'hope-fear-roll-btn';
         const dataAttributes = isSummon 
             ? `data-instance-id="${entityId}" data-attribute="${attr}"`
@@ -102,16 +230,9 @@ function renderAttributeGridComponent({ attributes, entityType, entityId }) {
         `;
     }).join('');
 
-    // The main container now simply gets the 'attributes-grid' class.
     return `<div class="attributes-grid">${attributeItems}</div>`;
 }
 
-/**
- * NEW: A reusable helper to render an entity's abilities.
- * @param {object} abilitiesDef - The abilities object from the definition (e.g., bestiaryData[id].abilities).
- * @param {string} instanceId - The unique instance ID of the summon, for data attributes.
- * @returns {string} The HTML for the abilities list.
- */
 function renderAbilitiesComponent(abilitiesDef, instanceId) {
     if (!abilitiesDef) return '';
 
@@ -140,15 +261,6 @@ function renderAbilitiesComponent(abilitiesDef, instanceId) {
     return finalHtml || '<p>No special abilities.</p>';
 }
 
-
-// --- NEW MAIN RENDERING FUNCTION ---
-
-/**
- * NEW: A reusable helper to render a summon's attribute grid.
- * @param {object} attributes - The summon's attributes object from its definition.
- * @param {string} instanceId - The unique instance ID of the summon.
- * @returns {string} The HTML for the attributes grid.
- */
 function renderSummonAttributesComponent(attributes, instanceId) {
     if (!attributes) return '';
 
@@ -168,12 +280,6 @@ function renderSummonAttributesComponent(attributes, instanceId) {
     `;
 }
 
-/**
- * NEW: Renders the entire panel for summoned creatures.
- * MODIFIED: Now includes the new attributes component.
- * @param {Array<object>} summonInstances - The character's array of active summon instances.
- * @param {object} bestiaryData - The master data for all creatures.
- */
 export function renderSummonsPanel(summonInstances, bestiaryData) {
     const container = document.getElementById('summons-panel-container');
     if (!container) return;
@@ -187,7 +293,6 @@ export function renderSummonsPanel(summonInstances, bestiaryData) {
         const def = bestiaryData[instance.creatureId];
         if (!def) return '';
 
-        // The attribute grid HTML is now generated by the unified component.
         const attributesGridHtml = instance.calculatedAttributes 
             ? `<div class="summon-attributes-section"><h4>Attributes</h4>${renderAttributeGridComponent({
                     attributes: instance.calculatedAttributes,
@@ -223,8 +328,6 @@ export function renderSummonsPanel(summonInstances, bestiaryData) {
     `;
 }
 
-// --- UPDATED AND EXISTING FUNCTIONS ---
-
 export function renderTopNav(character, moduleDefinitions) {
     const headerInfo = document.getElementById('character-header-info');
     if (!headerInfo || !character) return;
@@ -237,18 +340,10 @@ export function renderTopNav(character, moduleDefinitions) {
     `;
 }
 
-/**
- * Renders the content for the 'Main' tab.
- * UPDATED: Signature now accepts the mainEffectHandler instance and a placeholder for summons is added.
- * @param {object} character - The character object.
- * @param {object} moduleDefinitions - The definitions of all loaded modules.
- * @param {EffectHandler} mainEffectHandler - The instantiated handler for the character.
- */
 export function renderMainTab(character, moduleDefinitions, mainEffectHandler) {
     const panel = document.getElementById('main-panel');
     if (!panel) return;
 
-    // The KOB UI remains unchanged, so we only need to modify the Hope/Fear path.
     let systemType = moduleDefinitions[character.module]?.type || 'KOB';
     let attributesHtml = '';
     if (systemType === 'Hope/Fear') {
@@ -260,10 +355,8 @@ export function renderMainTab(character, moduleDefinitions, mainEffectHandler) {
         attributesHtml = renderKOBUI(character, mainEffectHandler);
     }
 
-    // MODIFICATION: Find the health resource from the resources array.
     const healthResource = character.resources.find(r => r.id === 'health');
     const currentHealth = healthResource ? healthResource.value : 0;
-    // Use the resource's max value, which already includes effects.
     const maxHealth = healthResource ? healthResource.max : 0;
 
     panel.innerHTML = `
@@ -288,83 +381,6 @@ export function renderMainTab(character, moduleDefinitions, mainEffectHandler) {
         </div>
         <div id="summons-panel-container"></div>
     `;
-}
-
-/**
- * Renders the content for the 'Abilities' tab.
- * UPDATED: Corrected the class name for the toggle button for consistency.
- * @param {Array<object>} allAbilities - The aggregated list of all character abilities.
- * @param {object} character - The character object.
- */
-export function renderAbilitiesTab(allAbilities, character) {
-    const panel = document.getElementById('abilities-panel');
-    if (!panel) return;
-    
-    if (!allAbilities || allAbilities.length === 0) {
-        panel.innerHTML = '<div class="panel"><p>No abilities available.</p></div>';
-        return;
-    }
-    
-    const activeAbilitiesHtml = [];
-    const passiveAbilitiesHtml = [];
-
-    allAbilities.forEach(ability => {
-        const abilityDef = ability.definition;
-        if (!abilityDef) return;
-
-        const sourceLabel = ability.sourceType === 'equipment'
-            ? `<p class="ability-source">Source: ${ability.sourceName}</p>`
-            : '';
-
-        let description = abilityDef.description.replace(/\${([^}]+)}/g, (match, p1) => {
-             return abilityDef[p1] || p1; 
-        });
-
-        if (ability.itemType === "active") {
-            const hasAttackEffect = abilityDef.effect?.some(e => e.type === 'attack');
-            let actionButtonHTML = '';
-
-            if (hasAttackEffect) {
-                actionButtonHTML = `<button class="btn btn-primary btn-ability-roll" data-ability-id="${ability.instancedId}">Roll</button>`;
-            } else {
-                const isOn = character.activeAbilityIds && character.activeAbilityIds.has(ability.instancedId) ? 'selected' : '';
-                // CORRECTED: Removed the extra '.ability-button' class for consistency.
-                actionButtonHTML = `<button class="ability-toggle ${isOn}" data-ability-id="${ability.instancedId}">Toggle</button>`;
-            }
-
-            activeAbilitiesHtml.push(
-                `<li class="ability-card active-ability-item">
-                    <div class="ability-card-header">
-                        <strong>${abilityDef.name}</strong> 
-                        <span class="ability-type-tag active">ACTIVE</span>
-                    </div>
-                    <p class="ability-card-description">${description}</p>
-                    <div class="ability-card-footer">
-                        ${sourceLabel}
-                        <div class="ability-card-actions">${actionButtonHTML}</div>
-                    </div>
-                </li>`
-            );
-        } else {
-            passiveAbilitiesHtml.push(
-                `<li class="ability-card passive-ability-item">
-                    <div class="ability-card-header">
-                        <strong>${abilityDef.name}</strong> 
-                        <span class="ability-type-tag passive">PASSIVE</span>
-                    </div>
-                    <p class="ability-card-description">${description}</p>
-                     <div class="ability-card-footer">
-                        ${sourceLabel}
-                    </div>
-                </li>`
-            );
-        }
-    });
-
-    const activeSection = activeAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Active Abilities</h2><ul id="activeAbilitiesList" class="ability-list">${activeAbilitiesHtml.join('')}</ul></div>` : '';
-    const passiveSection = passiveAbilitiesHtml.length > 0 ? `<div class="panel"><h2>Passive Abilities</h2><ul id="passiveAbilitiesList" class="ability-list">${passiveAbilitiesHtml.join('')}</ul></div>` : '';
-
-    panel.innerHTML = activeSection + passiveSection;
 }
 
 export function renderProfileTab(character, flawData, perkData) {
@@ -450,19 +466,10 @@ export function renderInventoryTab(character, equipmentData, layoutConfig, slotM
 }
 
 
-// --- HELPER RENDERING FUNCTIONS ---
-
-/**
- * Renders the UI for the KOB attribute system.
- * UPDATED: Signature now accepts the mainEffectHandler instance.
- * @param {object} effectedCharacter - The character object after effects have been processed.
- * @param {EffectHandler} mainEffectHandler - The instantiated handler for the character.
- */
 function renderKOBUI(effectedCharacter, mainEffectHandler) {
     let attributesHtml = '';
     if (effectedCharacter.attributes) {
         attributesHtml = Object.entries(effectedCharacter.attributes).map(([attr, die]) => {
-            // UPDATED: Use the passed-in instance to get effects.
             const initialModifiers = mainEffectHandler.getEffectsForAttribute(attr, "modifier");
             let modifierSpans = '';
             for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
@@ -488,7 +495,6 @@ function renderKOBUI(effectedCharacter, mainEffectHandler) {
             `;
         }).join('');
 
-        // UPDATED: Use the passed-in instance for Luck as well.
         const initialLuckModifiers = mainEffectHandler.getEffectsForAttribute('luck', "modifier");
         let luckModifierSpans = '';
         for (let i = 0; i < MAX_MODIFIER_COLUMNS; i++) {
@@ -516,12 +522,6 @@ function renderKOBUI(effectedCharacter, mainEffectHandler) {
     return attributesHtml;
 }
 
-/**
- * Renders the UI for the Hope/Fear attribute system.
- * UPDATED: Signature now accepts the mainEffectHandler instance.
- * @param {object} effectedCharacter - The character object after effects have been processed.
- * @param {EffectHandler} mainEffectHandler - The instantiated handler for the character.
- */
 function renderHopeFearUI(effectedCharacter, mainEffectHandler) {
     if (!effectedCharacter.attributes) return '';
     
@@ -531,7 +531,6 @@ function renderHopeFearUI(effectedCharacter, mainEffectHandler) {
 
     const attributeButtons = Object.keys(effectedCharacter.attributes).map(attr => {
         const baseValue = effectedCharacter.attributes[attr];
-        // UPDATED: Use the passed-in instance to get the final value.
         const finalValue = mainEffectHandler.getCombinedAttributeValue(attr, baseValue);
 
         return `
@@ -548,7 +547,6 @@ function renderHopeFearUI(effectedCharacter, mainEffectHandler) {
 
 function renderResources(character) {
     if (!character.resources || character.resources.length === 0) return '<p>No resources.</p>';
-    // MODIFIED: Use displayName for the label.
     return `<ul class="resource-list">${character.resources.map(r => `<li><strong>${r.displayName}:</strong> ${r.value} ${r.max !== undefined ? `/ ${r.max}` : ''}</li>`).join('')}</ul>`;
 }
 
@@ -579,9 +577,6 @@ function renderPerks(character, perkData) {
         return `<li class="item"><strong>${perkDef.name}</strong><p>${perkDef.description}</p></li>`;
     }).join('')}</ul>`;
 }
-
-// All remaining functions below are part of the original file and are included for completeness,
-// but they do not require changes for this phase of the implementation.
 
 function renderEquipmentTableComponent(equipmentItems, character, equipmentData, layoutConfig, slotMap) {
     if (equipmentItems.length === 0) {

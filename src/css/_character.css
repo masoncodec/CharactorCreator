@@ -1,5 +1,162 @@
 /* _character.css */
 
+/* --- ADDED: Styles for the new Ability Info Modal --- */
+#ability-info-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1050; /* Ensure it's above other content but potentially below other modals */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ability-modal-backdrop {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+.ability-modal-content {
+  position: relative;
+  background: #2c2c2e;
+  color: #fff;
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px; /* Slightly smaller than roll manager for text content */
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+  z-index: 1051;
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid #555;
+}
+
+.ability-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 2rem;
+  color: #fff;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.ability-modal-header {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.8rem;
+  color: #a0c4ff;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.75rem;
+}
+
+.ability-modal-section {
+  margin-bottom: 1.25rem;
+}
+
+.ability-modal-section h5 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #FFD700;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ability-modal-section p,
+.ability-modal-section li {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #ddd;
+}
+
+.ability-modal-section ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.ability-modal-section li {
+  background: rgba(0,0,0,0.15);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  border-left: 3px solid #007bff;
+}
+
+.ability-modal-section li strong {
+    color: #a0c4ff;
+}
+
+.ability-source-text {
+    font-style: italic;
+    font-size: 0.85rem;
+    color: #999;
+}
+
+/* --- NEW: Grid layout for the ability lists --- */
+.ability-list {
+    display: grid;
+    /* This creates a responsive grid. Each column will be at least 180px wide.
+       It will auto-fill the row with as many columns as fit, up to the max width.
+       On a typical wide screen, this will result in about 5 columns. */
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem; /* This adds space between the ability cards, replacing margin */
+    padding-left: 0; /* remove default ul padding */
+    list-style: none; /* remove default ul bullets */
+}
+
+
+/* --- REVISED: Ability Card Styles for Minimalist View --- */
+.ability-card {
+    display: flex;
+    flex-direction: column; /* Stack main content and actions vertically */
+    justify-content: space-between; /* Pushes actions to the bottom */
+    padding: 0.75rem 1rem;
+    background: #252525;
+    border: 1px solid #444;
+    border-radius: 5px;
+    /* margin-bottom is no longer needed as the grid 'gap' handles spacing */
+    min-height: 80px; /* Ensure cards have a consistent height */
+}
+
+.ability-card-main {
+    display: flex;
+    align-items: center;
+    gap: 12px; /* Space between name and info button */
+    flex-grow: 1; /* Allows this section to take up available space */
+    margin-bottom: 0.5rem; /* Add some space between name and action buttons */
+}
+
+.ability-card-main .ability-name {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #E0E0E0;
+}
+
+.ability-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space between action buttons if there are multiple */
+    flex-shrink: 0; /* Prevent this container from shrinking */
+    width: 100%; /* Make action area take full width */
+}
+
+/* Make buttons in the card take up equal space */
+.ability-card-actions .btn, .ability-card-actions .ability-toggle {
+    flex: 1;
+    padding: 6px; /* Slightly smaller padding for card buttons */
+    font-size: 0.9rem;
+}
+
+
+/* --- EXISTING STYLES (for context, no changes needed below this line) --- */
+
 /* --- Revised CSS Grid Structure for Attributes --- */
 
 /* Container for the grid of attributes */
