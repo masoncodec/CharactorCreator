@@ -30,6 +30,8 @@
   max-width: 550px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   z-index: 1001;
+  max-height: 97vh;
+  overflow-y: auto;
 }
 
 .roll-modal-close {
@@ -48,22 +50,47 @@
   margin-top: 0;
   margin-bottom: 1.5rem;
   font-size: 2.2rem;
+  padding-top: 1rem; 
+}
+
+.roll-modal-nav {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #444;
+}
+
+.roll-modal-nav-link {
+  display: inline-block;
+  padding: 8px 16px;
+  background-color: #4a4a4a;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+}
+
+.roll-modal-nav-link:hover {
+  background-color: #007bff;
 }
 
 .roll-modal-section {
   margin-bottom: 1.5rem;
 }
 
+.roll-group + .roll-group {
+    border-top: 2px solid #444;
+    padding-top: 1.5rem;
+    margin-top: 1.5rem;
+}
+
 .roll-modal-section h4 {
   border-bottom: 1px solid #444;
   padding-bottom: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.modifier-totals {
-  display: flex;
-  justify-content: space-around;
-  font-size: 1.1rem;
   margin-bottom: 1rem;
 }
 
@@ -103,13 +130,10 @@
   gap: 1rem;
 }
 
-.results-grid.two-col {
-  grid-template-columns: 1fr 1fr;
-}
+.results-grid.two-col { grid-template-columns: 1fr 1fr; }
+.results-grid.three-col { grid-template-columns: 1fr 1fr 1fr; }
+.results-grid.four-col { grid-template-columns: 1fr 1fr 1fr 1fr; } 
 
-.results-grid.three-col {
-  grid-template-columns: 1fr 1fr 1fr;
-}
 
 .result-box {
   display: flex;
@@ -121,22 +145,12 @@
   border-radius: 5px;
   text-align: center;
   border: 2px solid transparent;
-  /* Base border for smooth transition */
   transition: border-color 0.3s ease-in-out;
 }
 
-/* Highlighting styles */
-.result-box.hope-win {
-  border-color: #28a745;
-}
-
-.result-box.fear-win {
-  border-color: #dc3545;
-}
-
-.result-box.d6-box {
-  background: #33415c;
-}
+.result-box.hope-win { border-color: #28a745; }
+.result-box.fear-win { border-color: #dc3545; }
+.result-box.d6-box { background: #33415c; }
 
 .result-box.total-box {
   grid-column: 1 / -1;
@@ -144,9 +158,7 @@
   margin-top: 1rem;
 }
 
-.total-box.critical-success {
-  border-color: #ffc107;
-}
+.total-box.critical-success { border-color: #ffc107; }
 
 .result-label {
   font-size: 1rem;
@@ -168,4 +180,230 @@
   font-size: 0.8rem;
   color: #ccc;
   min-height: 1.2em;
+}
+
+.damage-total-value {
+    /* Inherits size from .result-value */
+}
+
+/* --- MERGED: Styles for Reworked Interactive RollManager --- */
+
+/* Modifier Totals & Tooltips (Unchanged) */
+.modifier-totals {
+  cursor: pointer;
+  border: 1px dashed #555;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  justify-content: space-around;
+  background-color: #333;
+  margin-bottom: 1rem;
+}
+.modifier-totals:hover {
+  background-color: #444;
+}
+
+.roll-manager-tooltip {
+  position: absolute;
+  background-color: #1a1a1a;
+  border: 1px solid #777;
+  border-radius: 5px;
+  padding: 15px;
+  z-index: 1060;
+  width: 250px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+  visibility: hidden; /* Start hidden for measurement */
+}
+.roll-manager-tooltip h5 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #a0c4ff;
+  border-bottom: 1px solid #444;
+  padding-bottom: 5px;
+}
+.roll-manager-tooltip p, .roll-manager-tooltip li {
+  font-size: 0.9rem;
+  color: #ddd;
+  margin-bottom: 5px;
+}
+.roll-manager-tooltip ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+/* Sections for Interactive Abilities (Unchanged) */
+.interactive-modifiers {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #444;
+}
+.interactive-modifiers h5 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #ccc;
+  text-align: left;
+}
+
+/* Grid for Active Ability Buttons */
+.ability-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+/* List for Conditional Ability Buttons */
+.conditional-toggle-item {
+  background: rgba(0,0,0,0.2);
+  padding: 8px;
+  border-radius: 4px;
+  border-left: 3px solid #666;
+}
+.conditional-toggle-item .condition-text {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #aaa;
+  margin: 0 0 8px 0;
+}
+.conditional-toggle-item .condition-text strong {
+  color: #ffc107;
+}
+.conditional-toggle-item .ability-toggle-btn {
+  width: 100%; /* Ensure button fills the container */
+}
+
+
+/* Styling for the Toggle Button itself with nested icon */
+.ability-toggle-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background-color: #4a4a4a;
+  border: 1px solid #666;
+  color: #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s, border-color 0.2s;
+  font-size: 0.9rem;
+}
+.ability-toggle-btn:hover {
+  background-color: #5a5a5a;
+  border-color: #888;
+}
+.ability-toggle-btn.toggled-on {
+  background-color: #0d6efd;
+  border-color: #0a58ca;
+  color: white;
+}
+.ability-toggle-btn.toggled-on:hover {
+  background-color: #0b5ed7;
+}
+
+.ability-toggle-btn span {
+  flex-grow: 1;
+  padding-right: 8px;
+}
+
+/* REVISED: Styling for the Info Icon to look like a button */
+.info-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-style: normal;
+  font-weight: bold;
+  color: #a0c4ff;
+  background-color: #333;
+  border: 1px solid #666;
+  border-radius: 50%;
+  cursor: help;
+  flex-shrink: 0;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.info-btn:hover {
+  background-color: #a0c4ff;
+  color: #111;
+}
+
+.ability-toggle-btn.toggled-on .info-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+/* The container for the radio button "chips" */
+.or-cost-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  
+  /* --- Hiding/Showing Logic --- */
+  /* By default, the options are collapsed and invisible */
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-top: 0;
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin-top 0.3s ease-out;
+}
+
+/* When the toggle button has the .toggled-on class, reveal the options */
+.ability-toggle-btn.toggled-on + .or-cost-options {
+  max-height: 100px; /* Animate to a height large enough to show content */
+  opacity: 1;
+  margin-top: 10px; /* Add some space above the options */
+}
+
+/* The clickable label for each cost option (the "chip") */
+.or-cost-label {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid #666;
+  background-color: #3a3a3a;
+  color: #ccc;
+  border-radius: 20px; /* Rounded pill shape */
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+/* The actual radio button is hidden; we style the label instead */
+.or-cost-label input[type="radio"] {
+  display: none;
+}
+
+/* Hover effect for the chips */
+.or-cost-label:hover {
+  background-color: #4a4a4a;
+  border-color: #888;
+  color: #fff;
+}
+
+/* Style for the SELECTED chip */
+.or-cost-label input[type="radio"]:checked + span {
+  color: #a0c4ff; /* Use the light blue from the info icon for selected text */
+}
+
+/* Apply a border to the entire label when its radio is checked */
+.or-cost-label:has(input[type="radio"]:checked) {
+    border-color: #a0c4ff;
+    box-shadow: 0 0 5px rgba(160, 196, 255, 0.5);
+}
+
+/* Style for UNAFFORDABLE/disabled chips */
+.unaffordable-option {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #333;
+  color: #777;
+}
+
+.unaffordable-option:hover {
+    background-color: #333;
+    color: #777;
+    border-color: #666;
 }

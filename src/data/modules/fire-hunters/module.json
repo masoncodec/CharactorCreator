@@ -34,6 +34,7 @@
         "flawsAndPerksDef": "flaws-and-perks.json",
         "equipmentAndLootDef": "equipment-and-loot.json",
         "relationships": "relationships.json",
-        "communities": "communities.json"
+        "communities": "communities.json",
+        "bestiary": "bestiary.json"
     }
 }

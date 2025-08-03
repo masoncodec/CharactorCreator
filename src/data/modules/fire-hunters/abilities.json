@@ -49,13 +49,20 @@
       "type": "active",
       "name": "Forest Feet",
       "description": "You are able to move much quicker in the forest.",
+      "cost": { "resource": "mana", "value": 5 },
       "effect": [
         {
           "type": "modifier",
           "name": "Modifier",
           "attribute": "speed",
           "modifier": 5
-        }
+        },
+        {
+            "type": "die_num",
+            "name": "Dice NUM",
+            "modifier": -1,
+            "attribute": "magic"
+          }
       ]
     },
     "speak-with-animals": {

@@ -1,12 +1,21 @@
 // effectHandler.js (Updated)
 // This module centralizes the logic for processing and applying character effects.
 
-export const EffectHandler = {
-    activeEffects: [],
+// REFACTORED: The EffectHandler is now an instantiable class to support independent
+// effect processing for the character and, in the future, for individual summons.
+export class EffectHandler {
+    /**
+     * The constructor for the EffectHandler class.
+     */
+    constructor() {
+        // activeEffects is now an instance property, keeping each handler's list separate.
+        this.activeEffects = [];
+    }
 
     /**
      * Processes a pre-aggregated list of abilities, plus flaws and perks, to compile their effects.
-     * UPDATED: Now uses the new top-level itemType property from the aggregated ability objects.
+     * MODIFIED: Corrected the logic to allow processing of abilities even when no character
+     * (and thus no perks/flaws) is present, which is necessary for summons.
      * @param {Array<object>} allAbilities - The master list of abilities from the abilityAggregator.
      * @param {object} character - The character object, needed for flaws and perks.
      * @param {object} flawData - A map of all flaw definitions by ID.
@@ -14,25 +23,26 @@ export const EffectHandler = {
      * @param {Set<string>} activeAbilityStates - A Set of IDs of currently toggled active abilities.
      * @param {string} context - The context in which effects are being processed.
      */
-    processActiveAbilities: function(allAbilities, character, flawData, perkData, activeAbilityStates, context) {
-        this.activeEffects = [];
-        if (!character) return;
+    processActiveAbilities(allAbilities, character, flawData, perkData, activeAbilityStates, context) {
+        this.activeEffects = []; // Reset effects for this processing cycle
+        
+        // This guard clause was incorrect and has been removed.
+        // if (!character) return;
 
-        // Process the unified list of all abilities
+        // Process the unified list of all abilities provided to the function.
+        // This part does not require a character object and will now run for summons.
         if (allAbilities) {
             allAbilities.forEach(ability => {
                 const abilityDef = ability.definition;
                 if (!abilityDef || !abilityDef.effect) return;
 
-                // UPDATED: Check the top-level `ability.itemType` property now, not ability.definition.type
                 const isEffectivelyActive = (ability.itemType === "passive") || (ability.itemType === "active" && activeAbilityStates.has(ability.instancedId));
 
                 if (isEffectivelyActive) {
                     abilityDef.effect.forEach(effect => {
-                        // UPDATED: Add the itemType to the effect object for later use.
                         this.activeEffects.push({
                             ...effect,
-                            itemType: ability.itemType, // Pass the type ('active' or 'passive') along
+                            itemType: ability.itemType,
                             itemName: abilityDef.name,
                             itemId: ability.instancedId,
                             sourceType: ability.sourceType
@@ -42,81 +52,239 @@ export const EffectHandler = {
             });
         }
 
-        // Process Flaws and Perks (This logic is unchanged)
-        if (character.flaws && flawData) {
-            character.flaws.forEach(flawState => {
-                const flawDef = flawData[flawState.id];
-                if (flawDef && flawDef.effect) {
-                    flawDef.effect.forEach(effect => {
-                        this.activeEffects.push({
-                            ...effect,
-                            itemName: flawDef.name,
-                            itemId: flawState.id,
-                            itemType: "passive", // Treat functionally as passive
-                            sourceType: "flaw"
+        // Process Flaws and Perks - this part still requires a character object.
+        // It is now wrapped in a conditional to ensure it only runs when a character is passed in.
+        if (character) {
+            if (character.flaws && flawData) {
+                character.flaws.forEach(flawState => {
+                    const flawDef = flawData[flawState.id];
+                    if (flawDef && flawDef.effect) {
+                        flawDef.effect.forEach(effect => {
+                            this.activeEffects.push({
+                                ...effect,
+                                itemName: flawDef.name,
+                                itemId: flawState.id,
+                                itemType: "passive",
+                                sourceType: "flaw"
+                            });
                         });
-                    });
-                }
-            });
-        }
-        if (character.perks && perkData) {
-            character.perks.forEach(perkState => {
-                const perkDef = perkData[perkState.id];
-                if (perkDef && perkDef.effect) {
-                    perkDef.effect.forEach(effect => {
-                        this.activeEffects.push({
-                            ...effect,
-                            itemName: perkDef.name,
-                            itemId: perkState.id,
-                            itemType: "passive", // Treat functionally as passive
-                            sourceType: "perk"
+                    }
+                });
+            }
+            if (character.perks && perkData) {
+                character.perks.forEach(perkState => {
+                    const perkDef = perkData[perkState.id];
+                    if (perkDef && perkDef.effect) {
+                        perkDef.effect.forEach(effect => {
+                            this.activeEffects.push({
+                                ...effect,
+                                itemName: perkDef.name,
+                                itemId: perkState.id,
+                                itemType: "passive",
+                                sourceType: "perk"
+                            });
                         });
-                    });
-                }
-            });
+                    }
+                });
+            }
         }
 
         console.log("EffectHandler: Active Effects Processed for context:", context, this.activeEffects);
-    },
+    }
+
+    /**
+     * Applies all currently active effects to a character object.
+     * This method creates a new character object with effects applied.
+     * MODIFIED: Now correctly resets activeRollEffects to prevent duplication on re-renders.
+     * @param {object} character - The base character object.
+     * @param {string} context - The context for applying effects ('wizard' or 'play').
+     * @param {Set<string>} activeAbilityStates - A Set of IDs of currently toggled active abilities.
+     * @param {object} bestiaryData - The master list of all creature definitions.
+     * @returns {object} A new character object with effects applied.
+     */
+    applyEffectsToCharacter(character, context, activeAbilityStates, bestiaryData = {}) {
+        let modifiedCharacter = JSON.parse(JSON.stringify(character)); // Deep clone
+
+        // This makes the returned object a complete package for the renderer.
+        modifiedCharacter.activeAbilityIds = activeAbilityStates;
+
+        // Initialize or reset dynamic values that will be recalculated by effects
+        if (!modifiedCharacter.calculatedHealth) {
+            modifiedCharacter.calculatedHealth = {
+                baseMax: modifiedCharacter.health.max,
+                currentMax: modifiedCharacter.health.max
+            };
+        } else {
+            modifiedCharacter.calculatedHealth.currentMax = modifiedCharacter.calculatedHealth.baseMax;
+        }
+
+        // --- BUG FIX: Reset activeRollEffects to prevent duplication on each processing cycle. ---
+        modifiedCharacter.activeRollEffects = {};
+        
+        modifiedCharacter.summonedCreatures = modifiedCharacter.summonedCreatures || [];
+        modifiedCharacter.languages = modifiedCharacter.languages || [];
+        modifiedCharacter.statuses = modifiedCharacter.statuses || [];
+        modifiedCharacter.tempResources = {};
+        modifiedCharacter.temporaryBuffs = modifiedCharacter.temporaryBuffs || [];
+        modifiedCharacter.inventory = modifiedCharacter.inventory || [];
+        modifiedCharacter.resources = modifiedCharacter.resources || [];
+        modifiedCharacter.resistances = modifiedCharacter.resistances || {};
+        if (!modifiedCharacter.movement) {
+            modifiedCharacter.movement = { base: 0, current: 0 };
+        } else {
+            modifiedCharacter.movement.current = modifiedCharacter.movement.base;
+        }
+
+
+        this.activeEffects.forEach(effect => {
+            switch (effect.type) {
+                case "modifier":
+                    // Modifiers are handled by getEffectsForAttribute during attribute rolls.
+                    break;
+                case "language":
+                    if (!modifiedCharacter.languages.includes(effect.name)) {
+                        modifiedCharacter.languages.push(effect.name);
+                    }
+                    break;
+                case "die_num":
+                    if (!modifiedCharacter.activeRollEffects[effect.attribute]) {
+                        modifiedCharacter.activeRollEffects[effect.attribute] = [];
+                    }
+                    modifiedCharacter.activeRollEffects[effect.attribute].push(effect);
+                    break;
+                case "max_health_mod": {
+                    const isPassiveEffect = effect.itemType === 'passive';
+
+                    if (context === 'wizard' && isPassiveEffect) {
+                        if (modifiedCharacter.calculatedHealth) {
+                            modifiedCharacter.calculatedHealth.currentMax += effect.value;
+                        }
+                    } else if (context === 'play') {
+                        if (effect.itemType === 'active' || (isPassiveEffect && (effect.sourceType === 'equipment' || effect.sourceType === 'perk' || effect.sourceType === 'flaw'))) {
+                            if (modifiedCharacter.calculatedHealth) {
+                                modifiedCharacter.calculatedHealth.currentMax += effect.value;
+                            }
+                        }
+                    }
+                    break;
+                }
+                
+                case "summon_creature": {
+                    // First, check if this summon's source has been manually dismissed by the user.
+                    if (modifiedCharacter.dismissedPassiveSources && modifiedCharacter.dismissedPassiveSources.includes(effect.itemId)) {
+                        break; // If so, do not process this effect.
+                    }
+
+                    const creatureDef = bestiaryData[effect.creatureId];
+                    if (!creatureDef) {
+                        console.warn(`Summon effect failed: Creature ID "${effect.creatureId}" not found in bestiary.`);
+                        break;
+                    }
+
+                    // For passive effects, we only want to add the summon once.
+                    // This check prevents re-adding a summon from the same source on every processing pass.
+                    const alreadySummoned = modifiedCharacter.summonedCreatures.some(s => s.source.id === effect.itemId);
+                    if (alreadySummoned) {
+                        break;
+                    }
+
+                    const isPassiveSummon = effect.itemType === 'passive';
+                    let shouldSummon = false;
+
+                    // This conditional logic mirrors the `max_health_mod` rules for when an effect should apply.
+                    if (context === 'wizard' && isPassiveSummon) {
+                        shouldSummon = true;
+                    } else if (context === 'play') {
+                        if (effect.itemType === 'active' || (isPassiveSummon && (effect.sourceType === 'equipment' || effect.sourceType === 'perk' || effect.sourceType === 'flaw'))) {
+                            shouldSummon = true;
+                        }
+                    }
+
+                    if (shouldSummon) {
+                        const newSummon = {
+                            instanceId: `${effect.creatureId}_${Date.now()}`,
+                            creatureId: effect.creatureId,
+                            currentHealth: creatureDef.health.max,
+                            source: {
+                                type: effect.sourceType,
+                                id: effect.itemId
+                            }
+                        };
+                        modifiedCharacter.summonedCreatures.push(newSummon);
+                    }
+                    break;
+                }
+                // NEW: Handles effects that modify the max value of a resource.
+                case "max_resource_mod": {
+                    if (!modifiedCharacter.resources) modifiedCharacter.resources = [];
+                    // Find the resource by its 'id' (e.g., "mana")
+                    const resource = modifiedCharacter.resources.find(r => r.id === effect.resource);
+                    if (resource) {
+                        resource.max = (resource.max || resource.value) + effect.value;
+                    }
+                    break;
+                }
+
+                case "temporary_buff":
+                    modifiedCharacter.temporaryBuffs.push(effect);
+                    break;
+                case "inventory_item":
+                    const existingItem = modifiedCharacter.inventory.find(item => item.name === effect.name);
+                    if (existingItem) {
+                        existingItem.quantity = (existingItem.quantity || 1) + (effect.quantity || 1);
+                    } else {
+                        modifiedCharacter.inventory.push({ name: effect.name, quantity: effect.quantity || 1 });
+                    }
+                    break;
+                case "status":
+                    if (!modifiedCharacter.statuses.some(s => s.name === effect.name)) {
+                        modifiedCharacter.statuses.push({ name: effect.name, duration: effect.duration, appliedAt: Date.now() });
+                    }
+                    break;
+                default:
+                    // console.warn(`EffectHandler: Unknown effect type encountered: ${effect.type}`, effect);
+            }
+        });
+        return modifiedCharacter; // Return the character with applied effects
+    }
 
     /**
      * Filters active effects for a specific attribute and/or effect type.
      * @param {string} attributeName - The name of the attribute (e.g., 'strength', 'luck').
-     * @param {string} [effectType=null] - Optional: The type of effect to filter by (e.g., 'modifier', 'language').
+     * @param {string} [effectType=null] - Optional: The type of effect to filter by.
      * @returns {Array<object>} An array of filtered effect objects.
      */
-    getEffectsForAttribute: function(attributeName, effectType = null) {
+    getEffectsForAttribute(attributeName, effectType = null) {
         return this.activeEffects.filter(effect => {
             const targetsAttribute = effect.attribute && effect.attribute.toLowerCase() === attributeName;
             const matchesType = effectType ? effect.type === effectType : true;
             return targetsAttribute && matchesType;
         });
-    },
+    }
 
     /**
-     * NEW: Calculates the final value of an attribute by adding all active numerical modifiers.
+     * Calculates the final value of an attribute by adding all active numerical modifiers.
      * @param {string} attributeName - The name of the attribute to calculate.
      * @param {number} baseValue - The character's base value for that attribute.
      * @returns {number} The final, combined value of the attribute.
      */
-    getCombinedAttributeValue: function(attributeName, baseValue) {
+    getCombinedAttributeValue(attributeName, baseValue) {
         const numericalModifiers = this.getEffectsForAttribute(attributeName, 'modifier');
         const totalModifier = numericalModifiers.reduce((sum, effect) => sum + (effect.modifier || 0), 0);
         return baseValue + totalModifier;
-    },
+    }
 
     /**
      * Processes all active effects to find and aggregate equipment slot modifications.
      * @param {Array<object>} allActiveEffects - The full list of currently active effects.
      * @returns {object} A summary object with the net changes to the equipment layout.
      */
-    processLayoutEffects: function(allActiveEffects) {
+    processLayoutEffects(allActiveEffects) {
         const summary = {
-            slotMods: {}, // e.g., { "weapons_main_hand": 1, "accessories_ring": -1 }
-            categoriesToAdd: {}, // e.g., { "implants": { name: "Implants", slots: ["neuro_link"] } }
-            categoriesToRemove: [] // e.g., ["armor"]
+            slotMods: {},
+            categoriesToAdd: {},
+            categoriesToRemove: []
         };
-
         const slugify = (str) => str.toLowerCase().replace(/\s+/g, '_');
 
         // --- Process Additions First ---
@@ -125,11 +293,10 @@ export const EffectHandler = {
                 const key = slugify(effect.name);
                 if (!summary.categoriesToAdd[key]) {
                     summary.categoriesToAdd[key] = {
-                        name: effect.name, // Keep the original "pretty" name
+                        name: effect.name,
                         slots: []
                     };
                 }
-                // Merge slots from multiple effects for the same category
                 summary.categoriesToAdd[key].slots.push(...effect.slots.map(slugify));
             }
             if (effect.type === 'equip_slot' && effect.value > 0) {
@@ -152,153 +319,5 @@ export const EffectHandler = {
         console.log('Summary of equipment slots: ', summary);
 
         return summary;
-    },
-
-    /**
-     * Applies all currently active effects to a character object.
-     * This function creates a new character object with effects applied,
-     * it does NOT modify the original character object.
-     * @param {object} character - The base character object.
-     * @param {string} context - The context for applying effects ('wizard' or 'play').
-     * @returns {object} A new character object with effects applied.
-     */
-    applyEffectsToCharacter: function(character, context, activeAbilityStates) {
-        let modifiedCharacter = JSON.parse(JSON.stringify(character)); // Deep clone to avoid direct mutation
-
-        // This makes the returned object a complete package for the renderer.
-        modifiedCharacter.activeAbilityIds = activeAbilityStates;
-
-        // Initialize or reset dynamic values that will be recalculated by effects
-        // Store base max health if not already present, to allow modifications
-        if (!modifiedCharacter.calculatedHealth) {
-            modifiedCharacter.calculatedHealth = {
-                baseMax: modifiedCharacter.health.max,
-                currentMax: modifiedCharacter.health.max
-            };
-        } else {
-            // Reset currentMax to baseMax for recalculation
-            modifiedCharacter.calculatedHealth.currentMax = modifiedCharacter.calculatedHealth.baseMax;
-        }
-
-        modifiedCharacter.tempResources = {}; // Clear temporary resources for recalculation
-        modifiedCharacter.languages = modifiedCharacter.languages || []; // Ensure languages array exists
-        modifiedCharacter.activeRollEffects = modifiedCharacter.activeRollEffects || {}; // Ensure object exists
-        modifiedCharacter.temporaryBuffs = modifiedCharacter.temporaryBuffs || []; // Ensure array exists
-        modifiedCharacter.inventory = modifiedCharacter.inventory || []; // Ensure inventory array exists
-        modifiedCharacter.summonedCreatures = modifiedCharacter.summonedCreatures || []; // Ensure array exists
-        modifiedCharacter.statuses = modifiedCharacter.statuses || []; // Ensure array exists
-        modifiedCharacter.resources = modifiedCharacter.resources || []; // Ensure array exists
-        modifiedCharacter.resistances = modifiedCharacter.resistances || {}; // Ensure object exists
-        if (!modifiedCharacter.movement) {
-            modifiedCharacter.movement = { base: 0, current: 0 };
-        } else {
-            modifiedCharacter.movement.current = modifiedCharacter.movement.base; // Reset for recalculation
-        }
-
-
-        this.activeEffects.forEach(effect => {
-            switch (effect.type) {
-                case "modifier":
-                    // Modifiers are handled by getEffectsForAttribute during attribute rolls,
-                    // so no direct change to modifiedCharacter is needed here for this type.
-                    break;
-                case "language":
-                    if (!modifiedCharacter.languages.includes(effect.name)) {
-                        modifiedCharacter.languages.push(effect.name);
-                    }
-                    break;
-                case "die_num":
-                    // Logic to adjust character's rolling capabilities (e.g., add advantage/disadvantage dice)
-                    if (!modifiedCharacter.activeRollEffects[effect.attribute]) {
-                        modifiedCharacter.activeRollEffects[effect.attribute] = [];
-                    }
-                    modifiedCharacter.activeRollEffects[effect.attribute].push(effect);
-                    break;
-                case "max_health_mod":
-                    // Apply max_health_mod based on itemType and context
-                    // If source is a flaw or perk, it's always considered 'passive' for this effect,
-                    // applying in 'wizard' context as per your requirement.
-                    // Existing abilities still use their specific type (active/passive).
-                    const isPassiveEffect = effect.itemType === 'passive'; // Simplified check
-
-                    if (context === 'wizard' && isPassiveEffect) {
-                        if (modifiedCharacter.calculatedHealth) {
-                            modifiedCharacter.calculatedHealth.currentMax += effect.value;
-                        }
-                    } else if (context === 'play') {
-                        // Apply effect if ability is active OR if it's a passive effect from equipment
-                        if (effect.itemType === 'active' || (isPassiveEffect && effect.sourceType === 'equipment')) {
-                            if (modifiedCharacter.calculatedHealth) {
-                                modifiedCharacter.calculatedHealth.currentMax += effect.value;
-                            }
-                        }
-                    }
-                    break;
-                case "temporary_buff":
-                    // Adds a temporary buff that might affect stats for a duration
-                    modifiedCharacter.temporaryBuffs.push(effect);
-                    break;
-                case "inventory_item":
-                    // Adds items to the character's inventory
-                    const existingItem = modifiedCharacter.inventory.find(item => item.name === effect.name);
-                    if (existingItem) {
-                        existingItem.quantity = (existingItem.quantity || 1) + (effect.quantity || 1);
-                    } else {
-                        modifiedCharacter.inventory.push({ name: effect.name, quantity: effect.quantity || 1 });
-                    }
-                    break;
-                case "trigger_event":
-                    // Represents an event to be triggered in game logic (e.g., 'gain_xp', 'cast_spell')
-                    console.log(`EffectHandler: Triggering event: ${effect.eventName}`);
-                    // Actual event dispatching would happen in game loop/manager
-                    break;
-                case "summon_creature":
-                    // Adds a summoned creature to the character's active summons
-                    modifiedCharacter.summonedCreatures.push({ name: effect.creatureName, stats: effect.stats });
-                    break;
-                case "deal_damage":
-                    // Applies damage to the character (requires a target context in a full game)
-                    // For simplicity, if applied to self, deduct from current health
-                    modifiedCharacter.health.current = Math.max(0, modifiedCharacter.health.current - effect.value);
-                    break;
-                case "healing":
-                    // Applies healing to the character
-                    modifiedCharacter.health.current = Math.min(modifiedCharacter.health.current + effect.value, modifiedCharacter.calculatedHealth.currentMax);
-                    break;
-                case "status":
-                    // Applies a status effect (e.g., 'poisoned', 'blessed')
-                    if (!modifiedCharacter.statuses.some(s => s.name === effect.name)) { // Prevent duplicates
-                        modifiedCharacter.statuses.push({ name: effect.name, duration: effect.duration, appliedAt: Date.now() });
-                    }
-                    break;
-                case "resource_mod":
-                    // Modifies resource pools (e.g., 'mana', 'stamina')
-                    let resource = modifiedCharacter.resources.find(r => r.type === effect.resource);
-                    if (resource) {
-                        resource.value += effect.value;
-                        if (resource.max !== undefined && resource.value > resource.max) {
-                            resource.value = resource.max;
-                        }
-                        if (resource.value < 0) resource.value = 0;
-                    } else {
-                        modifiedCharacter.resources.push({ type: effect.resource, value: effect.value, max: effect.max });
-                    }
-                    break;
-                case "resistance_mod":
-                    // Adds or modifies damage resistances
-                    if (!modifiedCharacter.resistances[effect.damageType]) {
-                        modifiedCharacter.resistances[effect.damageType] = 0;
-                    }
-                    modifiedCharacter.resistances[effect.damageType] += effect.value; // Additive resistances
-                    break;
-                case "movement_mod":
-                    // Modifies character's movement speed
-                    modifiedCharacter.movement.current += effect.value;
-                    break;
-                default:
-                    console.warn(`EffectHandler: Unknown effect type encountered: ${effect.type}`, effect);
-            }
-        });
-        return modifiedCharacter; // Return the character with applied effects
     }
 };

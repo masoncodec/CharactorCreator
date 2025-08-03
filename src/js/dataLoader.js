@@ -31,9 +31,10 @@ export async function loadDataForModule(moduleDef) {
   try {
     const dataFileMap = moduleDef.dataFiles;
     const moduleId = moduleDef.id;
+    // ADDED "bestiary" to the list of data types to be loaded.
     const dataTypes = [
         "abilities", "flaws", "perks", "equipmentAndLoot", "communities", "relationships",
-        "flawsAndPerksDef", "equipmentAndLootDef" // ADDED
+        "flawsAndPerksDef", "equipmentAndLootDef", "bestiary"
     ];
     const fetchPromises = {};
 
@@ -42,10 +43,12 @@ export async function loadDataForModule(moduleDef) {
         const path = `data/modules/${moduleId}/${dataFileMap[type]}`;
         fetchPromises[type] = fetch(path).then(res => res.json());
       } else {
+        // If a data file isn't defined for a type, resolve with an empty object.
         fetchPromises[type] = Promise.resolve({});
       }
     });
 
+    // These promises for destiny, purpose, and nurture are unchanged.
     const destinyPromises = (moduleDef.destinies || []).map(destinyId =>
       fetch(`data/modules/${moduleId}/destinies/${destinyId}.json`).then(r => r.json())
     );
@@ -56,19 +59,22 @@ export async function loadDataForModule(moduleDef) {
       fetch(`data/modules/${moduleId}/nurtures/${nurtureId}.json`).then(r => r.json())
     );
 
+    // DESTRUCTURED the results from the promises, adding bestiaryData.
     const [
       abilityData, flawData, perkData, equipmentAndLootData, communityData, relationshipData,
-      flawsAndPerksDef, equipmentAndLootDef, // ADDED
+      flawsAndPerksDef, equipmentAndLootDef, bestiaryData, // ADDED bestiaryData
       destinyResults, purposeResults, nurtureResults
     ] = await Promise.all([
       fetchPromises.abilities, fetchPromises.flaws, fetchPromises.perks, fetchPromises.equipmentAndLoot,
       fetchPromises.communities, fetchPromises.relationships,
-      fetchPromises.flawsAndPerksDef, fetchPromises.equipmentAndLootDef, // ADDED
+      fetchPromises.flawsAndPerksDef, fetchPromises.equipmentAndLootDef,
+      fetchPromises.bestiary, // ADDED the promise for the bestiary data.
       Promise.all(destinyPromises),
       Promise.all(purposePromises),
       Promise.all(nurturePromises)
     ]);
 
+    // This logic for organizing destiny, purpose, and nurture data is unchanged.
     const destinyData = destinyResults.reduce((acc, destiny) => {
       if (destiny && destiny.id) acc[destiny.id] = destiny;
       return acc;
@@ -84,9 +90,10 @@ export async function loadDataForModule(moduleDef) {
 
     console.log(`dataLoader: All data for module '${moduleId}' loaded successfully.`);
 
+    // RETURN the newly loaded bestiaryData alongside the other data objects.
     return {
       abilityData, flawData, perkData, equipmentAndLootData, communityData, relationshipData,
-      flawsAndPerksDef, equipmentAndLootDef, // ADDED
+      flawsAndPerksDef, equipmentAndLootDef, bestiaryData, // ADDED bestiaryData
       destinyData, purposeData, nurtureData
     };
 
