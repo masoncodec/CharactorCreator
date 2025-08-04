@@ -1,19 +1,11 @@
-<div class="page-module">
-    <h2>Choose Your Module</h2>
-    <div class="module-options">
-        <button class="module-option" data-value="crescendo">
-            Crescendo
-        </button>
-        <button class="module-option" data-value="high-fantasy">
-            High Fantasy
-        </button>
-        <button class="module-option" data-value="fire-hunters">
-            Fire Hunters
-        </button>
-    </div>
+<div class="selector-content">
+    <h2>Select a Module</h2>
+    <p class="selector-description">Choose the world and rule system for your character. This choice cannot be changed after this step.</p>
+    
+    <div id="module-options-container" class="module-options-grid"></div>
 
-    <div id="levelConfigContainer" class="level-selection-container is-hidden">
-        <label id="levelConfigLabel" for="levelConfigInput">Starting Level:</label>
-        <input type="number" id="levelConfigInput" class="level-selector" min="1" max="20" value="1" disabled>
+    <div id="levelConfigContainer" class="level-config-container is-hidden">
+        <label for="levelConfigInput" id="levelConfigLabel">Starting Level:</label>
+        <input type="number" id="levelConfigInput" class="level-input" value="1" min="1" disabled>
     </div>
 </div>

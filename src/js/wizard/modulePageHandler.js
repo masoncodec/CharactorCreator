@@ -1,5 +1,5 @@
 // modulePageHandler.js
-// UPDATED: Manages a single, dynamic UI element for level configuration.
+// FINAL VERSION: Dynamically renders module selection buttons.
 
 class ModulePageHandler {
   constructor(stateManager, selectModuleCallback) {
@@ -12,24 +12,56 @@ class ModulePageHandler {
   setupPage(selectorPanel) {
     this.selectorPanel = selectorPanel;
 
-    // --- UPDATED: Find the single, merged UI elements ---
+    // --- NEW: Render the module buttons dynamically ---
+    this._renderModuleOptions();
+
+    // --- Find the single, merged UI elements ---
     this.levelConfigContainer = this.selectorPanel.querySelector('#levelConfigContainer');
     this.levelConfigLabel = this.selectorPanel.querySelector('#levelConfigLabel');
     this.levelConfigInput = this.selectorPanel.querySelector('#levelConfigInput');
-    // --- END UPDATED ---
 
     this._attachEventListeners();
     this._restoreState();
+  }
+
+  /**
+   * --- NEW: Creates the module buttons from the centrally loaded data. ---
+   */
+  _renderModuleOptions() {
+    const modules = this.stateManager.data.modules || {};
+    const container = this.selectorPanel.querySelector('#module-options-container');
+
+    if (!container) {
+      console.error('ModulePageHandler: The container #module-options-container was not found in the HTML partial.');
+      return;
+    }
+
+    // Clear any placeholder content
+    container.innerHTML = '';
+
+    // Create a button for each loaded module
+    for (const moduleId in modules) {
+      const moduleData = modules[moduleId];
+      const button = document.createElement('button');
+      button.className = 'module-option';
+      button.dataset.value = moduleData.id;
+      
+      // Use module data to create the button's content
+      button.innerHTML = `
+          <span class="module-title">${moduleData.name}</span>
+      `;
+      
+      container.appendChild(button);
+    }
   }
 
   _attachEventListeners() {
     this._boundModuleOptionClickHandler = this._handleModuleOptionClick.bind(this);
     this.selectorPanel.addEventListener('click', this._boundModuleOptionClickHandler);
 
-    // --- UPDATED: Use a single event handler for the merged input ---
+    // Use a single event handler for the merged input
     this._boundLevelConfigChangeHandler = this._handleLevelConfigChange.bind(this);
     this.levelConfigInput.addEventListener('change', this._boundLevelConfigChangeHandler);
-    // --- END UPDATED ---
   }
   
   /**
@@ -78,7 +110,7 @@ class ModulePageHandler {
   }
 
   /**
-   * --- REPLACED: Now dynamically configures the single UI element based on mode. ---
+   * Now dynamically configures the single UI element based on mode.
    */
   _restoreState() {
     const isLevelUpMode = this.stateManager.get('isLevelUpMode');
@@ -114,6 +146,20 @@ class ModulePageHandler {
   }
   
   getInformerContent() {
+    const selectedModuleId = this.stateManager.get('module');
+    
+    if (selectedModuleId) {
+      const moduleData = this.stateManager.getModule(selectedModuleId);
+      if (moduleData) {
+        // Return detailed HTML for the selected module
+        return `
+          <h3>${moduleData.name}</h3>
+          <p>${moduleData.descriptions.module}</p>
+        `;
+      }
+    }
+    
+    // Return the default message if no module is selected yet
     return '<p>Select a module to see its description and begin your journey.</p>';
   }
 

@@ -68,6 +68,9 @@ class CharacterWizard {
       if (key === 'creationLevel' || key === 'module') {
         this._updateVisiblePages();
       }
+      // Make module informer update dynamically
+      this.informerUpdater.update(this.activePageHandler);
+
       this.pageNavigator.updateNav();
     });
     
