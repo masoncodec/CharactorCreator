@@ -77,9 +77,16 @@ class PageContentRenderer {
     const rewardEl = document.createElement('div');
     rewardEl.className = 'reward-unlock-container';
     let content = `<h5 class="group-header">${unlock.name || 'Automatic Reward'}</h5>`;
-    if (unlock.rewards?.health) {
-      content += `<p class="reward-text">+${unlock.rewards.health} Max Health</p>`;
+
+    // Check for the new 'resources' object first.
+    if (unlock.rewards?.resources) {
+      for (const [resource, value] of Object.entries(unlock.rewards.resources)) {
+        // Capitalize resource name for display (e.g., "mana" -> "Mana")
+        const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
+        content += `<p class="reward-text">+${value} Max ${resourceName}</p>`;
+      }
     }
+
     if (unlock.rewards?.attributes) {
       for (const [attr, value] of Object.entries(unlock.rewards.attributes)) {
         content += `<p class="reward-text">+${value} ${attr.charAt(0).toUpperCase() + attr.slice(1)}</p>`;

@@ -138,16 +138,23 @@ class CharacterFinisher {
               if (!levelData.unlocks) continue;
 
               for (const unlock of levelData.unlocks) {
-                  if (unlock.type === 'reward' && unlock.rewards?.health) {
-                      const healthEffect = {
-                          type: 'max_health_mod',
-                          value: unlock.rewards.health,
-                          itemName: unlock.id || `Level ${levelData.level} Health Bonus`,
-                          itemId: unlock.id || `${sourceId}-lvl-${levelData.level}-health`,
+                  // Check for the new 'resources' object.
+                  if (unlock.type === 'reward' && unlock.rewards?.resources) {
+                    
+                    // Loop through each resource in the object (e.g., health, mana).
+                    for (const [resourceId, resourceValue] of Object.entries(unlock.rewards.resources)) {
+                      const resourceEffect = {
+                          type: 'max_resource_mod', // Use the generic effect type
+                          resource: resourceId,        // The resource to modify (e.g., "mana")
+                          value: resourceValue,      // The amount to add
+                          itemName: unlock.id || `Level ${levelData.level} ${resourceId} Bonus`,
+                          itemId: unlock.id || `${sourceId}-lvl-${levelData.level}-${resourceId}`,
                           itemType: 'passive',
                           sourceType: sourceType
                       };
-                      this.EffectHandler.activeEffects.push(healthEffect);
+                      // The EffectHandler is already an instance on 'this'
+                      this.EffectHandler.activeEffects.push(resourceEffect);
+                    }
                   }
               }
           }

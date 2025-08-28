@@ -218,9 +218,26 @@ export class EffectHandler {
                 case "max_resource_mod": {
                     if (!modifiedCharacter.resources) modifiedCharacter.resources = [];
                     // Find the resource by its 'id' (e.g., "mana")
-                    const resource = modifiedCharacter.resources.find(r => r.id === effect.resource);
-                    if (resource) {
-                        resource.max = (resource.max || resource.value) + effect.value;
+                    let resource = modifiedCharacter.resources.find(r => r.id === effect.resource);
+            
+                    // If the resource doesn't exist on the character, create it.
+                    if (!resource) {
+                        const resourceName = effect.resource.charAt(0).toUpperCase() + effect.resource.slice(1);
+                        resource = {
+                            id: effect.resource,
+                            displayName: resourceName,
+                            value: 0, // Start with a base value
+                            max: 0
+                        };
+                        modifiedCharacter.resources.push(resource);
+                    }
+                    
+                    // Apply the bonus from the effect.
+                    resource.max += effect.value;
+
+                    // During character creation, also set the current value to the new max.
+                    if (context === 'wizard') {
+                        resource.value = resource.max;
                     }
                     break;
                 }
