@@ -68,6 +68,30 @@ export class RollManager {
     document.removeEventListener('keydown', this._boundCloseOnEscape);
   }
 
+  // --- NEW REFACTORED HELPER FUNCTION ---
+  /**
+   * Consolidates the logic for gathering all active effects from passive sources
+   * and currently toggled abilities. It enriches the toggled effects with their
+   * source name and ID for consistent use in tooltips and calculations.
+   * @returns {Array<object>} A comprehensive list of all currently active effects.
+   */
+  _getAllActiveEffects() {
+    const allEffects = [...this.activeEffects]; // Start with passive effects
+    this.toggledStates.forEach(abilityId => {
+        const toggledAbility = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
+        if (toggledAbility?.definition.effect) {
+            // Map over the effects to add the source ability's name and ID.
+            const effectsWithName = toggledAbility.definition.effect.map(eff => ({
+                ...eff,
+                itemName: toggledAbility.definition.name,
+                itemId: toggledAbility.instancedId
+            }));
+            allEffects.push(...effectsWithName);
+        }
+    });
+    return allEffects;
+  }
+
   _attachEventListeners() {
     this.modalElement.addEventListener('click', this._boundHandleClick);
     document.addEventListener('keydown', this._boundCloseOnEscape);
@@ -284,13 +308,8 @@ export class RollManager {
 
   _executeDamageRoll(groupDef, groupEl) {
     let totalDamage = 0;
-    const allActiveEffects = [...this.activeEffects];
-    this.toggledStates.forEach(abilityId => {
-        const toggledAbility = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
-        if (toggledAbility?.definition.effect) {
-            allActiveEffects.push(...toggledAbility.definition.effect);
-        }
-    });
+    // REFACTOR: Use the new helper function.
+    const allActiveEffects = this._getAllActiveEffects();
 
     groupDef.rolls.forEach((rollDef, index) => {
       let baseDice = [rollDef.dice];
@@ -334,13 +353,8 @@ export class RollManager {
     let totalDiceNum = 0;
     const relevantAttribute = this.hopeFearGroup.attributeName;
 
-    const allActiveEffects = [...this.activeEffects];
-    this.toggledStates.forEach(abilityId => {
-        const toggledAbility = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
-        if (toggledAbility?.definition.effect) {
-            allActiveEffects.push(...toggledAbility.definition.effect);
-        }
-    });
+    // REFACTOR: Use the new helper function.
+    const allActiveEffects = this._getAllActiveEffects();
 
     allActiveEffects.forEach(eff => {
       if (eff.attribute === relevantAttribute) {
@@ -391,13 +405,8 @@ export class RollManager {
         });
     });
 
-    const allActiveEffects = [...this.activeEffects];
-    this.toggledStates.forEach(abilityId => {
-        const toggledAbility = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
-        if (toggledAbility?.definition.effect) {
-            allActiveEffects.push(...toggledAbility.definition.effect);
-        }
-    });
+    // REFACTOR: Use the new helper function.
+    const allActiveEffects = this._getAllActiveEffects();
 
     allActiveEffects.forEach(eff => {
         if (eff.type === 'cost_mod' && totalCosts[eff.resource] !== undefined) {
@@ -674,13 +683,8 @@ export class RollManager {
     let content = '<h5>Applied Effects</h5><ul>';
     content += `<li><strong>Base Value:</strong> ${this.hopeFearGroup.baseValue}</li>`;
 
-    const allActiveEffects = [...this.activeEffects];
-    this.toggledStates.forEach(abilityId => {
-        const toggledAbility = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
-        if (toggledAbility?.definition.effect) {
-            allActiveEffects.push(...toggledAbility.definition.effect);
-        }
-    });
+    // REFACTOR: Use the new helper function.
+    const allActiveEffects = this._getAllActiveEffects();
 
     allActiveEffects.forEach(eff => {
         if (eff.attribute === relevantAttribute && (eff.type === 'modifier' || eff.type === 'die_num')) {

@@ -657,6 +657,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const setupAndLaunchRoll = (rollContext, onResourceUpdateCallback) => {
                 const { baseRollDef, abilities, damageDef, characterResources, activeEffects } = rollContext;
 
+                // FIX: Enrich the activeEffects with their source names before passing them to the RollManager.
+                // This ensures passive effects from perks, flaws, and equipment have the correct display name.
+                const enrichedActiveEffects = activeEffects.map(effect => {
+                    const sourceAbility = abilities.find(a => a.instancedId === effect.itemId);
+                    if (sourceAbility) {
+                        return { ...effect, itemName: sourceAbility.definition.name };
+                    }
+                    return effect;
+                });
+
                 const attributeName = baseRollDef.attributeName;
                 const attributeContext = { attribute: attributeName };
                 const damageTypes = (damageDef?.damage || []).map(d => d.type);
@@ -686,7 +696,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     availableActives,
                     availableConditionals,
                     characterResources: characterResources,
-                    activeEffects: activeEffects
+                    activeEffects: enrichedActiveEffects
                 }];
 
                 if (damageDef) {
@@ -840,35 +850,47 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             
+            // --- BUG FIX #2: UNEQUIP SLOT HANDLER ---
             const unequipSlot = target.closest('.equipment-slot.filled');
             if (unequipSlot) {
                 const slotId = unequipSlot.dataset.slotId;
                 const slotValue = activeCharacter.equipmentSlots[slotId];
                 if (!slotValue) return;
 
+                // FIX: Get the item ID *before* changing the slots.
+                const itemIdToUnequip = slotValue.itemId || slotValue;
+                
                 let instanceIdsToPurge = [];
                 let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
 
                 if (typeof slotValue === 'object' && slotValue.instanceId) {
                     const instanceIdToRemove = slotValue.instanceId;
                     instanceIdsToPurge.push(instanceIdToRemove);
-                    // Unequip all slots sharing this instanceId (for combined items)
                     for (const sId in newEquipmentSlots) {
                         if (newEquipmentSlots[sId]?.instanceId === instanceIdToRemove) {
                             newEquipmentSlots[sId] = null;
                         }
                     }
                 } else {
-                    // This case is for simple items without an instanceId, won't affect dismissals.
                     newEquipmentSlots[slotId] = null;
+                }
+                
+                // FIX: Check if the item is still equipped elsewhere. If not, update the inventory.
+                const isStillEquipped = Object.values(newEquipmentSlots).some(val => (val?.itemId || val) === itemIdToUnequip);
+                let newInventory = activeCharacter.inventory;
+                if (!isStillEquipped) {
+                    newInventory = activeCharacter.inventory.map(item =>
+                        item.id === itemIdToUnequip ? { ...item, equipped: false } : item
+                    );
                 }
 
                 const newDismissedSources = cleanupDismissedOnUnequip(activeCharacter, instanceIdsToPurge);
 
                 try {
-                    activeCharacter = await db.updateCharacter(activeCharacter.id, { 
+                    activeCharacter = await db.updateCharacter(activeCharacter.id, {
                         equipmentSlots: newEquipmentSlots,
-                        dismissedPassiveSources: newDismissedSources
+                        dismissedPassiveSources: newDismissedSources,
+                        inventory: newInventory // Pass the updated inventory to the database.
                     });
                     processAndRenderAll(activeCharacter);
                 } catch (err) { console.error('Failed to unequip instance:', err); alerter.show('Failed to unequip instance.', 'error'); }
@@ -880,17 +902,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const itemId = equipButton.dataset.itemId;
                 const itemInstance = activeCharacter.inventory.find(i => i.id === itemId);
                 
-                // This is a generic unequip button for single-quantity items.
                 if (itemInstance && itemInstance.equipped) {
                     let instanceIdsToPurge = [];
                     let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
                     
-                    // Find all slots this item occupies and collect their instance IDs
                     for(const slotId in activeCharacter.equipmentSlots) {
                         const slotValue = activeCharacter.equipmentSlots[slotId];
                         const idInSlot = slotValue?.itemId || slotValue;
                         if(idInSlot === itemId) {
-                            if(slotValue.instanceId) instanceIdsToPurge.push(slotValue.instanceId);
+                            if(slotValue?.instanceId) instanceIdsToPurge.push(slotValue.instanceId);
                             newEquipmentSlots[slotId] = null;
                         }
                     }
@@ -914,16 +934,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const equipStackButton = target.closest('.btn-equip-stack');
             if (equipStackButton) { await handleEquip(equipStackButton.dataset.itemId); return; }
 
+            // --- BUG FIX #2: UNEQUIP STACK HANDLER ---
             const unequipStackButton = target.closest('.btn-unequip-stack');
             if (unequipStackButton) {
-                const itemId = unequipStackButton.dataset.itemId;
-                const itemDef = equipmentData[itemId];
+                const itemIdToUnequip = unequipStackButton.dataset.itemId;
+                const itemDef = equipmentData[itemIdToUnequip];
                 let instanceIdToPurge = null;
                 let newEquipmentSlots = { ...activeCharacter.equipmentSlots };
+                let unequippedSuccessfully = false;
 
                 if (itemDef && activeLayout.layoutConfig.combined_slots[itemDef.equip_slot]) {
                     const instanceIds = Object.values(activeCharacter.equipmentSlots)
-                        .filter(v => v?.itemId === itemId && v.instanceId)
+                        .filter(v => v?.itemId === itemIdToUnequip && v.instanceId)
                         .map(v => v.instanceId)
                         .sort();
                     if (instanceIds.length > 0) {
@@ -931,26 +953,40 @@ document.addEventListener('DOMContentLoaded', async () => {
                         for (const slotId in newEquipmentSlots) {
                             if (newEquipmentSlots[slotId]?.instanceId === instanceIdToPurge) newEquipmentSlots[slotId] = null;
                         }
+                        unequippedSuccessfully = true;
                     }
                 } else {
                     const equipSlotType = itemDef?.equip_slot;
                     const instanceSlots = activeLayout.slotMap[equipSlotType] || [];
-                    const occupiedSlots = instanceSlots.filter(id => {
-                        const slotValue = activeCharacter.equipmentSlots[id];
-                        return (slotValue?.itemId || slotValue) === itemId;
-                    });
+                    const occupiedSlots = instanceSlots.filter(id => (activeCharacter.equipmentSlots[id]?.itemId || activeCharacter.equipmentSlots[id]) === itemIdToUnequip);
+                    
                     if (occupiedSlots.length > 0) {
                         const slotToUnequip = occupiedSlots[occupiedSlots.length - 1];
                         const slotValue = newEquipmentSlots[slotToUnequip];
-                        if(slotValue.instanceId) instanceIdToPurge = slotValue.instanceId;
+                        if(slotValue?.instanceId) instanceIdToPurge = slotValue.instanceId;
                         newEquipmentSlots[slotToUnequip] = null;
+                        unequippedSuccessfully = true;
                     }
                 }
+                
+                if (unequippedSuccessfully) {
+                    // FIX: Add the same inventory update logic here.
+                    const isStillEquipped = Object.values(newEquipmentSlots).some(val => (val?.itemId || val) === itemIdToUnequip);
+                    let newInventory = activeCharacter.inventory;
+                    if (!isStillEquipped) {
+                        newInventory = activeCharacter.inventory.map(item =>
+                            item.id === itemIdToUnequip ? { ...item, equipped: false } : item
+                        );
+                    }
 
-                if(instanceIdToPurge) {
-                    const newDismissedSources = cleanupDismissedOnUnequip(activeCharacter, [instanceIdToPurge]);
+                    const newDismissedSources = cleanupDismissedOnUnequip(activeCharacter, instanceIdToPurge ? [instanceIdToPurge] : []);
+                    
                     try {
-                        activeCharacter = await db.updateCharacter(activeCharacter.id, { equipmentSlots: newEquipmentSlots, dismissedPassiveSources: newDismissedSources });
+                        activeCharacter = await db.updateCharacter(activeCharacter.id, { 
+                            equipmentSlots: newEquipmentSlots, 
+                            dismissedPassiveSources: newDismissedSources,
+                            inventory: newInventory // Pass updated inventory
+                        });
                         processAndRenderAll(activeCharacter);
                     } catch (err) { console.error('Failed to unequip stackable item:', err); alerter.show('Failed to unequip item.', 'error'); }
                 }
