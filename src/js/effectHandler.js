@@ -108,16 +108,6 @@ export class EffectHandler {
         // This makes the returned object a complete package for the renderer.
         modifiedCharacter.activeAbilityIds = activeAbilityStates;
 
-        // Initialize or reset dynamic values that will be recalculated by effects
-        if (!modifiedCharacter.calculatedHealth) {
-            modifiedCharacter.calculatedHealth = {
-                baseMax: modifiedCharacter.health.max,
-                currentMax: modifiedCharacter.health.max
-            };
-        } else {
-            modifiedCharacter.calculatedHealth.currentMax = modifiedCharacter.calculatedHealth.baseMax;
-        }
-
         // --- BUG FIX: Reset activeRollEffects to prevent duplication on each processing cycle. ---
         modifiedCharacter.activeRollEffects = {};
         
@@ -152,22 +142,6 @@ export class EffectHandler {
                     }
                     modifiedCharacter.activeRollEffects[effect.attribute].push(effect);
                     break;
-                case "max_health_mod": {
-                    const isPassiveEffect = effect.itemType === 'passive';
-
-                    if (context === 'wizard' && isPassiveEffect) {
-                        if (modifiedCharacter.calculatedHealth) {
-                            modifiedCharacter.calculatedHealth.currentMax += effect.value;
-                        }
-                    } else if (context === 'play') {
-                        if (effect.itemType === 'active' || (isPassiveEffect && (effect.sourceType === 'equipment' || effect.sourceType === 'perk' || effect.sourceType === 'flaw'))) {
-                            if (modifiedCharacter.calculatedHealth) {
-                                modifiedCharacter.calculatedHealth.currentMax += effect.value;
-                            }
-                        }
-                    }
-                    break;
-                }
                 
                 case "summon_creature": {
                     // First, check if this summon's source has been manually dismissed by the user.

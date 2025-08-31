@@ -1,0 +1,22 @@
+{
+    "id": "bard",
+    "displayName": "Bard",
+    "description": "",
+    "levels": [
+        {
+            "level": 1,
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "bard_base_stats",
+                    "rewards": {
+                        "resources": {
+                            "health": 8,
+                            "mana": 12
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

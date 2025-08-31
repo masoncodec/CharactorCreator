@@ -1,0 +1,22 @@
+{
+    "id": "assassin",
+    "displayName": "Assassin",
+    "description": "",
+    "levels": [
+        {
+            "level": 1,
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "assassin_base_stats",
+                    "rewards": {
+                        "resources": {
+                            "health": 10,
+                            "mana": 10
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

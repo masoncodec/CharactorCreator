@@ -1,0 +1,23 @@
+{
+    "id": "ruler",
+    "displayName": "Ruler",
+    "description": "A born leader",
+    "tags": [
+        { "id": "elemental", "display": "Elemental", "color": "#ff6347", "icon": "🔥" },
+        { "id": "magic", "display": "Magic", "color": "#8A2BE2", "icon": "✨" }
+    ],
+    "levels": [
+        {
+            "level": 1,
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "ruler_base_stats",
+                    "rewards": {
+                        "attributes": { "charm": 2 }
+                    }
+                }
+            ]
+        }
+    ]
+}

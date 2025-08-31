@@ -1,0 +1,30 @@
+{
+    "id": "cleric",
+    "displayName": "Cleric",
+    "description": "You are a divine symbol and a healer for all",
+    "levels": [
+        {
+            "level": 1,
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "cleric_base_stats",
+                    "rewards": {
+                        "resources": {
+                            "health": 12,
+                            "mana": 8
+                        }
+                    }
+                },
+                {
+                    "type": "choice",
+                    "id": "flaws",
+                    "name": "Burdens of a Cleric",
+                    "itemType": "flaw",
+                    "maxChoices": 1,
+                    "items": ["unblessed", "arrogant"]
+                }
+            ]
+        }
+    ]
+}

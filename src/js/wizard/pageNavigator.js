@@ -71,7 +71,8 @@ class PageNavigator {
    */
   _showTooltip() {
     if (this.nextBtnWrapper && this.nextBtnWrapper.classList.contains('is-disabled') && this.tooltipElement) {
-      const message = this.getCompletionError(this.currentPageName);
+      const currentState = this.stateManager.getState();
+      const message = this.getCompletionError(this.currentPageName, currentState);
       
       // MODIFICATION HERE: Replace newline characters with <br> tags for HTML rendering.
       this.tooltipElement.innerHTML = message.replace(/\n/g, '<br>');
@@ -195,16 +196,17 @@ class PageNavigator {
     this.updateNav();
   }
 
-  getCompletionError(pageName) {
+  getCompletionError(pageName, currentState) {
     const handler = this.pageHandlers[pageName];
     if (handler && typeof handler.getCompletionError === 'function') {
-      return handler.getCompletionError();
+      return handler.getCompletionError(currentState);
     }
     return `The '${pageName}' page has an unresolved validation issue.`;
   }
 
   showPageError(pageName) {
-    const message = this.getCompletionError(pageName);
+    const currentState = this.stateManager.getState();
+    const message = this.getCompletionError(pageName, currentState);
     alerter.show(message, 'error');
   }
   

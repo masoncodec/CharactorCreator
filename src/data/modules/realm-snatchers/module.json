@@ -3,19 +3,20 @@
     "name": "Realm Snatchers",
     "type": "Hope/Fear",
     "attributes": {
-        "names": ["Magic", "Reflex", "Power", "Charm", "Faith", "Body"],
-        "values": [-4, -2, 0, 0, 2, 4]
+        "names": ["Magic", "Reflex", "Power", "Charm", "Faith"],
+        "values": [-2, -1, 0, 1, 2]
     },
     "descriptions": {
         "module": "Classic medieval fantasy adventuring with swords, sorcery, and epic quests."
     },
-    "destinies": [],
-    "purposes": [],
-    "nurtures": [],
+    "destinies": ["knight", "mage", "cleric", "assassin", "bard"],
+    "purposes": ["ruler"],
+    "nurtures": ["noble"],
     "frame": {
         "name": "Realm Snatchers",
         "description": "Classic medieval fantasy adventuring with swords, sorcery, and epic quests.",
         "author": "May",
+        "complexityRating": 1,
         "pitch": [
             "An age of magic, swords, and great battles awaits you",
             "Everything is for the taking and you find yourself among those who decide it all",
@@ -23,9 +24,11 @@
         ],
         "tone": "Magical, Light-hearted",
         "theme": "Adventure, Community",
-        "inpiration": "Frieren, One Piece"
+        "inspiration": "Frieren, One Piece"
     },
     "dataFiles": {
-        
+        "abilities": "abilities.json",
+        "flaws": "flaws.json",
+        "equipmentAndLoot": "equipmentAndLoot.json"
     }
 }

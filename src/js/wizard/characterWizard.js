@@ -53,7 +53,7 @@ class CharacterWizard {
     
     const characterId = this.stateManager.get('levelUpCharacterId');
     this.informerUpdater = new InformerUpdater(this.stateManager);
-    this.characterFinisher = new CharacterFinisher(this.stateManager, this.db, alerter, EffectHandler, this.pageNavigator, this.pages, characterId);
+    this.characterFinisher = new CharacterFinisher(this.stateManager, this.db, alerter, this.pageNavigator, this.pages, characterId);
     this.activePageHandler = null;
 
     console.log('CharacterWizard: Initializing main wizard application.');

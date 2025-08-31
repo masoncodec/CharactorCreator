@@ -2,13 +2,15 @@
 // UPDATED: Now sets new characters as active and redirects to play.html. Success alerts removed.
 
 import { aggregateAllAbilities } from '../abilityAggregator.js';
+import { EffectHandler } from '../effectHandler.js';
+import { EQUIPMENT_SLOT_CONFIG } from '../play-ui.js';
 
 class CharacterFinisher {
-  constructor(stateManager, db, alerter, EffectHandler, pageNavigator, pages, characterId = null) {
+  constructor(stateManager, db, alerter, pageNavigator, pages, characterId = null) {
     this.stateManager = stateManager;
     this.db = db;
     this.alerter = alerter;
-    this.EffectHandler = EffectHandler;
+    this.EffectHandler = new EffectHandler(); 
     this.pageNavigator = pageNavigator;
     this.pages = pages;
     this.characterId = characterId;
@@ -25,7 +27,7 @@ class CharacterFinisher {
     const currentState = this.stateManager.getState();
     for (const page of this.pages) {
       if (!this.pageNavigator.isPageCompleted(page, currentState)) {
-        const errorMessage = this.pageNavigator.getCompletionError(page);
+        const errorMessage = this.pageNavigator.getCompletionError(page, currentState);
         errors.push(`${errorMessage}`);
       }
     }
@@ -51,8 +53,8 @@ class CharacterFinisher {
     const categorizedSelections = this._categorizeSelections(finalSelections, allItemDefs);
     
     const tempCharForEffects = {
-        ...categorizedSelections,
-        health: { max: 0 }
+      ...categorizedSelections,
+      resources: [{ id: 'health', displayName: 'Health', value: 0, max: 0 }]
     };
     
     // 1. Aggregate all abilities first
@@ -74,6 +76,19 @@ class CharacterFinisher {
     
     const finalInventory = this._processFinalInventory(categorizedSelections.inventory, currentState.inventory, allItemDefs);
 
+    // Generate the initial equipment slots object
+    const initialSlots = {};
+    const slotCounts = {}; // Helper to track counts like main-hand_1, main-hand_2
+
+    // Loop through the base configuration to build the slot object
+    for (const category in EQUIPMENT_SLOT_CONFIG.categories) {
+        for (const slotType of EQUIPMENT_SLOT_CONFIG.categories[category]) {
+            slotCounts[slotType] = (slotCounts[slotType] || 0) + 1;
+            const slotId = `${slotType}_${slotCounts[slotType]}`;
+            initialSlots[slotId] = null; // Set initial slots to empty
+        }
+    }
+
     const character = {
       module: currentState.module,
       level: currentState.creationLevel,
@@ -89,11 +104,8 @@ class CharacterFinisher {
       communities: categorizedSelections.communities,
       relationships: categorizedSelections.relationships,
       inventory: finalInventory,
-      health: {
-        current: modifiedCharacter.calculatedHealth.currentMax,
-        max: modifiedCharacter.calculatedHealth.currentMax,
-        temporary: 0
-      },
+      equipmentSlots: initialSlots,
+      resources: modifiedCharacter.resources
     };
     
     console.log('CharacterFinisher.finishWizard: Character object prepared for saving/updating:', character);

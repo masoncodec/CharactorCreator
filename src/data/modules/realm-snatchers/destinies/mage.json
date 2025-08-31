@@ -1,0 +1,30 @@
+{
+    "id": "mage",
+    "displayName": "Mage",
+    "description": "Casting spells and shit",
+    "levels": [
+        {
+            "level": 1,
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "mage_base_stats",
+                    "rewards": {
+                        "resources": {
+                            "health": 5,
+                            "mana": 15
+                        }
+                    }
+                },
+                {
+                    "type": "choice",
+                    "id": "flaws",
+                    "name": "Burdens of a Mage",
+                    "itemType": "flaw",
+                    "maxChoices": 1,
+                    "items": ["sickly", "arrogant"]
+                }
+            ]
+        }
+    ]
+}

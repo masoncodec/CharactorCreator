@@ -1,0 +1,49 @@
+{
+    "id": "knight",
+    "displayName": "Knight",
+    "description": "You are the shield that defends the weak and the sword that slays evil",
+    "levels": [
+        {
+            "level": 1,
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "knight_base_stats",
+                    "rewards": {
+                        "resources": {
+                            "health": 15,
+                            "mana": 5
+                        }
+                    }
+                },
+                {
+                    "type": "choice",
+                    "id": "flaws",
+                    "name": "Burdens of a Knight",
+                    "itemType": "flaw",
+                    "maxChoices": 1,
+                    "items": ["idiot", "arrow-to-the-knee"]
+                },
+                {
+                    "type": "choice",
+                    "id": "initial_abilities",
+                    "name": "Starting Abilities",
+                    "itemType": "ability",
+                    "maxChoices": 1,
+                    "items": ["beast-slayer", "man-slayer"]
+                },
+                {
+                    "type": "choice",
+                    "id": "knight_equipment",
+                    "name": "Starting Gear",
+                    "itemType": "equipment",
+                    "maxChoices": 2,
+                    "items": [
+                        "basic-greatsword",
+                        "basic-chestplate"
+                    ]
+                }
+            ]
+        }
+    ]
+}

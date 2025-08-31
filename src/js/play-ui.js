@@ -34,8 +34,8 @@ const UI_NAME_MAP = {
 
 export const EQUIPMENT_SLOT_CONFIG = {
     categories: {
-        "weapons": ["main-hand", "main-hand", "main-hand", "main-hand", "off-hand", "off-hand", "off-hand", "off-hand"],
-        "armor": ["head", "head", "chest", "hands", "legs", "feet"],
+        "weapons": ["main-hand", "off-hand"],
+        "armor": ["head", "chest", "hands", "legs", "feet"],
         "accessories": ["ring", "ring", "amulet"]
     },
     combined_slots: {

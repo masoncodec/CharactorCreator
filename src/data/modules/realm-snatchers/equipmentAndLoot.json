@@ -1,0 +1,65 @@
+{
+    "basic-greatsword": {
+        "id": "basic-greatsword",
+        "type": "equipment",
+        "category": "weapon",
+        "equip_slot": "two-hand",
+        "name": "Basic Greatsword",
+        "description": "An old worn blade that holds a certain prestige, it has a sturdy sharp cut.",
+        "rarity": "uncommon",
+        "weight": 10,
+        "abilities": {
+            "passive": [
+
+            ],
+            "active": [
+                {
+                    "id": "slash",
+                    "name": "Slash",
+                    "description": "A slashing attack",
+                    "effect": [
+                        {
+                            "type": "attack",
+                            "target": "single_enemy",
+                            "attribute_bonus": "power",
+                            "damage": [
+                                { "type": "slashing", "dice": "1d8" }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "basic-chestplate": {
+        "id": "basic-chestplate",
+        "type": "equipment",
+        "category": "armor",
+        "equip_slot": "chest",
+        "name": "A Knight's Armor",
+        "description": "Rust creeps up from the corners of this armor. Yet an unexpected lightness embraces the wearer.",
+        "rarity": "uncommon",
+        "weight": 10,
+        "abilities": {
+            "passive": [
+                {
+                    "id": "tough_armor",
+                    "name": "Tough Armor",
+                    "description": "Blocking damage is easier",
+                    "effect": [
+                        {
+                            "type": "defense",
+                            "target": "self",
+                            "attribute_bonus": "power",
+                            "resistance": [
+                                {"type": "all", "dice": "1d4"}
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "active": [
+            ]
+        }
+    }
+}

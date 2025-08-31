@@ -1,0 +1,25 @@
+{
+    "id": "noble",
+    "displayName": "Noble",
+    "description": "Rich bitch",
+    "tags": [
+        { "id": "elemental", "display": "Elemental", "color": "#ff6347", "icon": "🔥" },
+        { "id": "magic", "display": "Magic", "color": "#8A2BE2", "icon": "✨" }
+    ],
+    "levels": [
+        {
+            "level": 1,
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "noble_base_stats",
+                    "rewards": {
+                        "resources": {
+                            "gold": 2000
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}
