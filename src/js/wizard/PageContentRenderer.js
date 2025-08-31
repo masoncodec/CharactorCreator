@@ -107,11 +107,42 @@ class PageContentRenderer {
     groupContainer.appendChild(componentContainer);
     parentContainer.appendChild(groupContainer);
 
-    const itemsForGroup = (unlock.items || []).reduce((acc, itemId) => {
+    // --- START: MODIFIED LOGIC ---
+    // This reducer now intelligently handles two types of item definitions:
+    // 1. A simple string: "gold-coin"
+    // 2. An object with quantity: { id: "gold-coin", quantity: 2000 }
+    const itemsForGroup = (unlock.items || []).reduce((acc, unlockItem) => {
+        let itemId;
+        let itemQuantity = null;
+
+        // Check if the item definition is an object with an id.
+        if (typeof unlockItem === 'object' && unlockItem.id) {
+            itemId = unlockItem.id;
+            itemQuantity = unlockItem.quantity;
+        } else {
+            // Otherwise, treat it as a simple string ID.
+            itemId = unlockItem;
+        }
+        
         const itemData = allItemDefs[itemId];
-        if (itemData) acc[itemId] = { ...itemData, groupId: unlock.id };
+
+        if (itemData) {
+            // Create the final item object for the component.
+            const finalItemData = { 
+              ...itemData, 
+              groupId: unlock.id 
+            };
+            
+            // If a quantity was specified in the unlock, add it.
+            if (itemQuantity) {
+              finalItemData.quantity = itemQuantity;
+            }
+            
+            acc[itemId] = finalItemData;
+        }
         return acc;
     }, {});
+    // --- END: MODIFIED LOGIC ---
 
     const SelectorComponent = (unlock.itemType === 'equipment' || unlock.itemType === 'loot')
       ? EquipmentSelectorComponent

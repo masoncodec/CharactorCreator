@@ -105,27 +105,36 @@ class InformerContentBuilder {
     }
     
     /**
-     * Builds HTML for 'pointBuy' unlocks, showing the summary and listing items.
+     * Builds HTML for 'choice' unlocks, listing selected items.
+     * REFACTORED: Now displays the quantity for items if specified in the selection.
      */
-    _buildPointBuySection(unlock) {
-        const pointSummary = this.stateManager.getPointPoolSummary(unlock);
-        let content = `
+    _buildChoiceSection(unlock) {
+        const selectionsInGroup = this.currentState.selections.filter(
+            sel => sel.groupId === unlock.id && (sel.source === this.pageSourceId || sel.source.startsWith(this.pageSourceId))
+        );
+
+        if (selectionsInGroup.length === 0) return '';
+        
+        const itemsHtml = selectionsInGroup.map(sel => {
+            const itemDef = this.allItemDefs[sel.id];
+
+            // --- START: MODIFIED LOGIC ---
+            // Check the selection object itself for a 'quantity' property.
+            // If it exists and is greater than 1, create the display text (e.g., "(x2000)").
+            const quantityText = sel.quantity > 1 ? ` (x${sel.quantity})` : '';
+            // --- END: MODIFIED LOGIC ---
+
+            // Append the quantity text to the item's name in the list item.
+            return itemDef ? `<li class="informer-item--choice">${itemDef.name}${quantityText}</li>` : '';
+
+        }).join('');
+
+        return `
             <div class="informer-group">
-                <div class="points-summary-container">
-                    <strong>${pointSummary.name}:</strong> 
-                    <span class="points-current">${pointSummary.current}</span>
-                    ${pointSummary.total > 0 ? ` / <span class="points-total">${pointSummary.total}</span>` : ''}
-                </div>
-            </div>`;
-
-        // Also list items selected within this point-buy system
-        Object.keys(unlock.groups || {}).forEach(groupId => {
-            const groupUnlock = { id: groupId, name: unlock.groups[groupId].name };
-            // Use the choice section builder to render the items for this subgroup
-            content += this._buildChoiceSection(groupUnlock); 
-        });
-
-        return content;
+                <h5 class="informer-group-title">${unlock.name}</h5>
+                <ul class="informer-item-list">${itemsHtml}</ul>
+            </div>
+        `;
     }
 }
 

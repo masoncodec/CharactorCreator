@@ -11,13 +11,14 @@
             "level": 1,
             "unlocks": [
                 {
-                    "type": "reward",
-                    "id": "noble_base_stats",
-                    "rewards": {
-                        "resources": {
-                            "gold": 2000
-                        }
-                    }
+                    "type": "choice",
+                    "id": "dada-money",
+                    "name": "A small loan of 1 million dollars",
+                    "itemType": "equipment",
+                    "maxChoices": 1,
+                    "items": [
+                        { "id": "gold-coin", "quantity": 2000 }
+                    ]
                 }
             ]
         }

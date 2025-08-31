@@ -55,19 +55,26 @@ class ItemSelectorComponent {
     return unlockDef;
   }
 
+  /**
+   * REFACTORED: The card's HTML now includes a quantity display if the item
+   * definition from the unlock specifies a quantity.
+   */
   _createCardHTML(itemDef, selectionState, validationState) {
     const isSelected = !!selectionState;
     const isDisabled = validationState.isDisabled;
     const disabledClass = isDisabled ? 'disabled-for-selection' : '';
     const selectedClass = isSelected ? 'selected' : '';
     
-    // The 'group definition' is now the 'unlock definition'.
     const unlockDef = this._getGroupDefinition(itemDef);
-    
     const maxChoices = unlockDef?.maxChoices ?? itemDef.maxChoices;
     const inputType = (maxChoices === 1) ? 'radio' : 'checkbox';
-    
     const inputName = unlockDef ? `group-${this.source}-${unlockDef.id}` : `item-${itemDef.id}`;
+
+    // --- START: NEW LOGIC ---
+    // Check if the item definition has a quantity from the unlock rules.
+    // If so, create the text to display it (e.g., "(x2000)").
+    const quantityDisplay = itemDef.quantity ? ` (x${itemDef.quantity})` : '';
+    // --- END: NEW LOGIC ---
 
     return `
       <div class="item-container">
@@ -80,7 +87,9 @@ class ItemSelectorComponent {
                 data-action="select-parent"
                 ${isSelected ? 'checked' : ''}
                 ${isDisabled ? 'disabled' : ''}>
-              <span class="ability-name">${itemDef.name}</span>
+              
+              <span class="ability-name">${itemDef.name}${quantityDisplay}</span>
+
             </label>
             <div class="ability-types">
               <span class="type-tag">${itemDef.itemType} (${itemDef.weight || 0})</span>
@@ -122,6 +131,10 @@ class ItemSelectorComponent {
     `;
   }
 
+  /**
+   * REFACTORED: When an item is selected, this now checks if it has a
+   * predefined quantity and includes it in the payload sent to the state manager.
+   */
   _handleClick(e) {
     const card = e.target.closest('.ability-card');
     if (!card || card.classList.contains('disabled-for-selection')) {
@@ -133,29 +146,24 @@ class ItemSelectorComponent {
     if (!itemDef) return;
 
     // Case 1: Clicked inside an option's label.
+    // This logic remains unchanged as it handles nested options, not the parent item.
     const optionLabel = e.target.closest('.ability-option');
     if (optionLabel) {
       const optionInput = optionLabel.querySelector('input[data-action="select-option"]');
       if (!optionInput) return;
-
       const parentSelection = this.stateManager.itemManager.getSelection(itemId, this.source);
       const isParentSelected = !!parentSelection;
-      
       if (isParentSelected && optionInput.disabled) {
           return;
       }
-
       e.preventDefault(); 
-
       const clickedOptionValue = optionInput.value;
       const currentNestedSelections = parentSelection?.selections || [];
-
       const isRadio = itemDef.maxChoices === 1;
       let nextNestedSelections;
-
       if (isRadio) {
         nextNestedSelections = [clickedOptionValue];
-      } else { // Checkbox logic
+      } else {
         const isAlreadySelected = currentNestedSelections.includes(clickedOptionValue);
         if (isAlreadySelected) {
           nextNestedSelections = currentNestedSelections.filter(id => id !== clickedOptionValue);
@@ -163,7 +171,6 @@ class ItemSelectorComponent {
           nextNestedSelections = [...currentNestedSelections, clickedOptionValue];
         }
       }
-
       if (!isParentSelected) {
         const payload = { selections: nextNestedSelections };
         this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, payload);
@@ -174,6 +181,7 @@ class ItemSelectorComponent {
     }
 
     // Case 2: Clicked in the options box padding.
+    // This logic remains unchanged.
     if (e.target.closest('.ability-options')) {
       if (!this.stateManager.itemManager.getSelection(itemId, this.source)) {
         this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
@@ -181,8 +189,18 @@ class ItemSelectorComponent {
       return;
     }
 
+    // --- START: MODIFIED LOGIC ---
     // Case 3: Clicked on the main card body.
-    this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId);
+    // We now construct a payload object that may contain the predefined quantity.
+    const payload = {};
+    if (itemDef.quantity) {
+      payload.quantity = itemDef.quantity;
+    }
+
+    // The payload is passed to the item manager. The existing selectItem method
+    // already knows how to handle this.
+    this.stateManager.itemManager.selectItem(itemDef, this.source, itemDef.groupId, payload);
+    // --- END: MODIFIED LOGIC ---
   }
 
   cleanup() {
