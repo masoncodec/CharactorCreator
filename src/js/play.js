@@ -3,7 +3,7 @@ import { EffectHandler } from './effectHandler.js';
 import { loadGameModules, loadDataForModule } from './dataLoader.js';
 import { alerter } from './alerter.js';
 import { RollManager } from './RollManager.js';
-import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, renderSummonsPanel, EQUIPMENT_SLOT_CONFIG, getEquippedCount, findTargetSlots, renderAbilityInfoModal } from './play-ui.js';
+import { renderTopNav, renderMainTab, renderAbilitiesTab, renderProfileTab, renderInventoryTab, renderEquipmentTab, renderSummonsPanel, EQUIPMENT_SLOT_CONFIG, getEquippedCount, findTargetSlots, renderAbilityInfoModal, renderTopNavResources } from './play-ui.js';
 import { aggregateAllAbilities } from './abilityAggregator.js';
 
 // --- NEW: Central Configuration for Roll Relevance ---
@@ -264,6 +264,10 @@ async function processAndRenderAll(character) {
         
     // --- RENDER EVERYTHING ---
     renderTopNav(effectedCharacter, moduleDefinitions);
+    const resourceDisplayContainer = document.getElementById('character-resource-display');
+    if (resourceDisplayContainer) {
+        resourceDisplayContainer.innerHTML = renderTopNavResources(effectedCharacter, equipmentData);
+    }
     renderMainTab(effectedCharacter, moduleDefinitions, mainEffectHandler);
     renderAbilitiesTab(allAbilities, effectedCharacter);
     renderProfileTab(effectedCharacter, flawData, perkData);

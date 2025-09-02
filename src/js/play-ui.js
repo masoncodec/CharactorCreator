@@ -46,6 +46,65 @@ export const EQUIPMENT_SLOT_CONFIG = {
     }
 };
 
+/**
+ * NEW: Renders the resource and currency display for the top navigation bar.
+ * @param {object} character - The fully processed character object.
+ * @param {object} equipmentData - The master data for all equipment and loot.
+ * @returns {string} The inner HTML for the resource display container.
+ */
+export function renderTopNavResources(character, equipmentData) {
+    if (!character) return '';
+
+    // --- Render Currencies ---
+    const currencyItems = character.inventory
+        .map(item => ({ ...item, definition: equipmentData[item.id] }))
+        .filter(item => item.definition && item.definition.category === 'currency');
+
+    const currenciesHtml = currencyItems.map(item => `
+        <div class="top-nav-currency">
+            <span>${item.definition.name}: ${item.quantity} 🪙</span>
+        </div>
+    `).join('');
+
+    // --- Render Resources ---
+    const resourcesHtml = (character.resources || []).map(resource => {
+        const displayName = resource.displayName || resource.id;
+        const value = resource.value;
+        const max = resource.max;
+
+        if (max <= 5) {
+            // --- Circle Display ---
+            let circles = '';
+            for (let i = 1; i <= max; i++) {
+                const filledClass = i <= value ? 'filled' : '';
+                circles += `<span class="resource-circle ${filledClass}"></span>`;
+            }
+            return `
+                <div class="top-nav-resource">
+                    <span class="resource-name">${displayName}:</span>
+                    <div class="resource-circle-container">${circles}</div>
+                </div>`;
+        } else {
+            // --- Bar Display (re-uses health bar classes) ---
+            const percentage = max > 0 ? (value / max) * 100 : 0;
+            const barClass = percentage > 60 ? 'health-full' : percentage > 30 ? 'health-medium' : 'health-low';
+            return `
+                <div class="top-nav-resource">
+                    <span class="resource-name">${displayName}:</span>
+                    <div class="resource-bar-container">
+                        <div class="resource-bar ${barClass}" style="width: ${percentage}%"></div>
+                    </div>
+                    <span class="resource-numbers">${value}/${max}</span>
+                </div>`;
+        }
+    }).join('');
+
+    return `
+        <div class="top-nav-resources-container">${resourcesHtml}</div>
+        <div class="top-nav-currencies-container">${currenciesHtml}</div>
+    `;
+}
+
 // --- NEW/MODIFIED FUNCTIONS ---
 
 /**

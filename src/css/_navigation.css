@@ -140,3 +140,90 @@
         padding: 0.6rem 0.75rem;
     }
 }
+
+/* === Top Nav Resource & Currency Display === */
+#character-resource-display {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px; /* Space between the resources and currency sections */
+    margin: 0 20px;
+    padding: 5px 10px;
+    background-color: rgba(10, 20, 30, 0.4);
+    border-radius: 8px;
+    border: 1px solid #4a5568; /* A muted blue-gray border */
+}
+
+.top-nav-resources-container,
+.top-nav-currencies-container {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* Space between individual resource/currency items */
+}
+
+.top-nav-resource,
+.top-nav-currency {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9em;
+    color: #edf2f7; /* Light gray text for readability */
+}
+
+.top-nav-currency span {
+    font-weight: bold;
+}
+
+.resource-name {
+    font-weight: 500;
+    color: #a0aec0; /* A slightly dimmer gray for labels */
+}
+
+.resource-numbers {
+    font-size: 0.8em;
+    font-family: monospace, sans-serif;
+    color: #e2e8f0;
+}
+
+/* Resource Bar Styles */
+.resource-bar-container {
+    width: 100px;
+    height: 12px;
+    background-color: #2d3748; /* Darker background */
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.resource-bar {
+    height: 100%;
+    transition: width 0.3s ease-in-out;
+    border-radius: 5px; /* Slightly smaller to prevent peeking */
+}
+
+/* Assuming these exist from health component. If not, they are defined here. */
+.health-full { background: linear-gradient(to right, #48bb78, #38a169); } /* Green */
+.health-medium { background: linear-gradient(to right, #f6e05e, #ecc94b); } /* Yellow */
+.health-low { background: linear-gradient(to right, #f56565, #e53e3e); } /* Red */
+
+/* Resource Circle Styles */
+.resource-circle-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.resource-circle {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #2d3748; /* Same as bar background */
+    border: 1px solid #4a5568;
+    transition: all 0.3s ease;
+}
+
+.resource-circle.filled {
+    background-color: #63b3ed; /* A pleasant blue for mana/energy */
+    border-color: #90cdf4;
+    box-shadow: 0 0 5px #63b3ed;
+}
