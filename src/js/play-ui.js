@@ -275,7 +275,7 @@ function renderAttributeGridComponent({ attributes, entityType, entityId }) {
 
     const attributeItems = Object.entries(attributes).map(([attr, finalValue]) => {
         const isSummon = entityType === 'summon';
-        const buttonClass = isSummon ? 'summon-attribute-roll-btn' : 'hope-fear-roll-btn';
+        const buttonClass = isSummon ? 'summon-attribute-roll-btn' : 'attribute-roll-btn';
         const dataAttributes = isSummon 
             ? `data-instance-id="${entityId}" data-attribute="${attr}"`
             : `data-attribute="${attr}"`;
@@ -405,7 +405,7 @@ export function renderMainTab(character, moduleDefinitions, mainEffectHandler) {
 
     let systemType = moduleDefinitions[character.module]?.type || 'KOB';
     let attributesHtml = '';
-    if (systemType === 'Hope/Fear') {
+    if (systemType === 'Hope/Fear' || systemType === 'D20') {
         attributesHtml = renderAttributeGridComponent({
             attributes: character.calculatedAttributes,
             entityType: 'character'

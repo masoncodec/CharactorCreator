@@ -18,6 +18,12 @@
                         "name": "Modifier",
                         "attribute": "gunner",
                         "modifier": 1
+                    },
+                    {
+                        "type": "max_resource_mod", 
+                        "resource": "charged-shots",
+                        "name": "Charged Shots",
+                        "value": 3
                     }
                 ]
             }

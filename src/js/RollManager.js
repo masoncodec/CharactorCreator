@@ -3,38 +3,38 @@
 export class RollManager {
   /**
    * FINAL FIX: The constructor now sanitizes the incoming effects list once
-   * using the correct 'itemId' property. This creates a clean baseline of
-   * true passive effects and prevents all double-counting bugs with pre-toggled abilities.
-   * * // CHANGE: The constructor now accepts a single `onResourceUpdateCallback` instead of `onCostPaidCallback`.
-   * // This new callback handles a single, consolidated object of all resource changes (costs and gains).
+   * using the correct 'itemId' property.
    */
   constructor(rollDefinitions, initialToggledStates = new Set(), onResourceUpdateCallback = null, onRollCompleteCallback = null) {
     this.rollDefinitions = rollDefinitions;
     this.modalElement = null;
     this.tooltipElement = null;
     this.critOccurred = false;
-    // CHANGE: Renamed callback for clarity and new functionality.
     this.onResourceUpdate = onResourceUpdateCallback; 
     this.onRollComplete = onRollCompleteCallback;
     this.selectedCosts = {};
 
+    // CHANGE: Identify specific group types
     this.hopeFearGroup = this.rollDefinitions.find(def => def.groupType === 'hope_fear');
-    if (this.hopeFearGroup) {
+    this.d20Group = this.rollDefinitions.find(def => def.groupType === 'd20');
+    
+    // CHANGE: Determine a "Primary Group" for resource/ability initialization.
+    // This allows the shared logic (costs, toggles) to work for EITHER system.
+    this.primaryGroup = this.hopeFearGroup || this.d20Group;
+
+    if (this.primaryGroup) {
         this.toggledStates = new Set(initialToggledStates);
-        this.characterResources = this.hopeFearGroup.characterResources || [];
+        this.characterResources = this.primaryGroup.characterResources || [];
         this.allToggleableAbilities = [
-            ...(this.hopeFearGroup.availableActives || []),
-            ...(this.hopeFearGroup.availableConditionals || [])
+            ...(this.primaryGroup.availableActives || []),
+            ...(this.primaryGroup.availableConditionals || [])
         ];
         
-        const allIncomingEffects = this.hopeFearGroup.activeEffects || [];
+        const allIncomingEffects = this.primaryGroup.activeEffects || [];
         const toggleableAbilityIds = new Set(this.allToggleableAbilities.map(a => a.instancedId));
 
         this.activeEffects = allIncomingEffects.filter(effect => !toggleableAbilityIds.has(effect.itemId));
 
-        // FIX #1: This block now pre-selects the *first* cost option for any pre-toggled 
-        // abilities. The _updateModifierDisplay method will handle reconciling any 
-        // affordability issues, ensuring the first affordable option is chosen on load.
         this.toggledStates.forEach(abilityId => {
             const ability = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
             const costDef = ability?.definition.cost;
@@ -56,7 +56,8 @@ export class RollManager {
     this.tooltipElement = document.getElementById('roll-manager-tooltip');
     this._attachEventListeners();
     
-    if (this.hopeFearGroup) {
+    // CHANGE: Check primaryGroup instead of just hopeFearGroup
+    if (this.primaryGroup) {
         this._updateModifierDisplay();
     }
   }
@@ -68,19 +69,11 @@ export class RollManager {
     document.removeEventListener('keydown', this._boundCloseOnEscape);
   }
 
-  // --- NEW REFACTORED HELPER FUNCTION ---
-  /**
-   * Consolidates the logic for gathering all active effects from passive sources
-   * and currently toggled abilities. It enriches the toggled effects with their
-   * source name and ID for consistent use in tooltips and calculations.
-   * @returns {Array<object>} A comprehensive list of all currently active effects.
-   */
   _getAllActiveEffects() {
-    const allEffects = [...this.activeEffects]; // Start with passive effects
+    const allEffects = [...this.activeEffects]; 
     this.toggledStates.forEach(abilityId => {
         const toggledAbility = this.allToggleableAbilities.find(a => a.instancedId === abilityId);
         if (toggledAbility?.definition.effect) {
-            // Map over the effects to add the source ability's name and ID.
             const effectsWithName = toggledAbility.definition.effect.map(eff => ({
                 ...eff,
                 itemName: toggledAbility.definition.name,
@@ -126,46 +119,42 @@ export class RollManager {
     if (rollButton) {
       const groupId = parseInt(rollButton.dataset.groupId, 10);
       
-      // CHANGE: This is the core of the new consolidated update logic.
-      // 1. Calculate costs first.
       const costs = this._calculateCurrentCosts();
       const groupDef = this.rollDefinitions[groupId];
       let gains = {};
       let rollData = {};
 
-      // 2. Calculate the roll outcome and any resulting gains *before* updating state.
+      // CHANGE: Route logic based on groupType
       if (groupDef.groupType === 'hope_fear') {
           rollData = this._calculateHopeFearRoll(groupDef);
           gains = rollData.gains;
-          this.critOccurred = rollData.crit; // Store crit status for damage roll
+          this.critOccurred = rollData.crit; 
+      } else if (groupDef.groupType === 'd20') {
+          // CHANGE: Execute D20 Logic
+          rollData = this._calculateD20Roll(groupDef);
+          // D20 typically doesn't have built-in resource gains on roll, but we can add if needed later
+          this.critOccurred = rollData.isCritSuccess; 
       }
 
-      // 3. Combine costs and gains into a single delta object.
       const finalDeltas = {};
-      // Apply costs as negative values
       for (const resourceId in costs) {
           finalDeltas[resourceId] = (finalDeltas[resourceId] || 0) - costs[resourceId];
       }
-      // Apply gains as positive values
       for (const resourceId in gains) {
           finalDeltas[resourceId] = (finalDeltas[resourceId] || 0) + gains[resourceId];
       }
 
-      // 4. Make a single call to the resource update callback if there are any changes.
       if (Object.keys(finalDeltas).length > 0 && typeof this.onResourceUpdate === 'function') {
         const updatedResources = await this.onResourceUpdate(finalDeltas);
         if (updatedResources) {
             this.characterResources = updatedResources;
         } else {
             console.error("Resource update failed, aborting roll.");
-            return; // Abort if the update fails.
+            return; 
         }
       }
       
-      // 5. Now that state is updated, render the results to the UI.
       this._executeRoll(groupId, rollData);
-
-      // 6. Refresh the UI to show new costs and affordability after all changes.
       this._updateModifierDisplay();
 
       if (this.onRollComplete) {
@@ -174,6 +163,7 @@ export class RollManager {
       return;
     }
     
+    // ... (Tooltip and toggle logic remains unchanged) ...
     if (target.matches('[data-action="show-info-tooltip"]')) {
         e.stopPropagation(); 
         const abilityId = target.dataset.abilityId;
@@ -209,7 +199,6 @@ export class RollManager {
     }
   }
   
-  // CHANGE: `_executeRoll` now takes pre-calculated rollData to render.
   _executeRoll(groupId, rollData = {}) {
     const groupDef = this.rollDefinitions[groupId];
     const groupEl = this.modalElement.querySelector(`.roll-group[data-group-id="${groupId}"]`);
@@ -217,19 +206,100 @@ export class RollManager {
 
     switch (groupDef.groupType) {
       case 'hope_fear':
-        // Renders the results from the data calculated earlier.
         this._renderHopeFearRoll(groupDef, groupEl, rollData);
         break;
+      case 'd20':
+        // CHANGE: Render D20
+        this._renderD20Roll(groupDef, groupEl, rollData);
+        break;
       case 'damage':
-        // A damage roll depends on the hope/fear crit status, so it's executed after.
         this._executeDamageRoll(groupDef, groupEl);
         break;
     }
   }
 
-  // CHANGE: New function to calculate Hope/Fear roll results without rendering.
+  // --- D20 LOGIC START ---
+
+  /**
+   * Calculates D20 roll mechanics:
+   * Nat 1 = Auto Fail. Nat 20 = Auto Success.
+   */
+  _calculateD20Roll(groupDef) {
+    // Pass groupDef so modifiers know which attribute to check
+    const { totalNumerical, totalDiceNum } = this._calculateCurrentModifiers(groupDef);
+    
+    const d20Roll = Math.floor(Math.random() * 20) + 1;
+    let d6Modifier = 0;
+    let d6Rolls = [];
+
+    // Handle optional extra dice (e.g., Bardic Inspiration or Bless logic if mapped to dice_num)
+    if (totalDiceNum !== 0) {
+      const numD6ToRoll = Math.abs(totalDiceNum);
+      for (let i = 0; i < numD6ToRoll; i++) {
+        d6Rolls.push(Math.floor(Math.random() * 6) + 1);
+      }
+      const d6Sum = d6Rolls.reduce((sum, roll) => sum + roll, 0);
+      d6Modifier = totalDiceNum > 0 ? d6Sum : -d6Sum;
+    }
+
+    const isCritSuccess = d20Roll === 20;
+    const isCritFail = d20Roll === 1;
+    const baseValue = groupDef.baseValue || 0;
+
+    // Total ignores modifiers on Nat 1/20 conceptually in D&D for hit/miss logic,
+    // but usually you still display the math. We will display the math but highlight the result.
+    const totalValue = d20Roll + baseValue + totalNumerical + d6Modifier;
+
+    return {
+        d20Roll,
+        totalNumerical,
+        d6Modifier,
+        d6Rolls,
+        isCritSuccess,
+        isCritFail,
+        totalValue
+    };
+  }
+
+  _renderD20Roll(groupDef, groupEl, rollData) {
+    const { d20Roll, d6Modifier, d6Rolls, totalValue, isCritSuccess, isCritFail } = rollData;
+
+    // Handle D6 display if applicable
+    if (d6Rolls.length > 0) {
+        const d6ResultEl = groupEl.querySelector('.d6-roll-result');
+        const d6DetailsEl = groupEl.querySelector('.d6-roll-details');
+        if(d6ResultEl) d6ResultEl.textContent = `${d6Modifier >= 0 ? '+' : ''}${d6Modifier}`;
+        if(d6DetailsEl) d6DetailsEl.textContent = `(Rolled: ${d6Rolls.join(', ')})`;
+    }
+
+    const d20ResultEl = groupEl.querySelector('.d20-roll-result');
+    const totalResultEl = groupEl.querySelector('.total-roll-result');
+    const resultBox = totalResultEl.closest('.result-box');
+
+    d20ResultEl.textContent = d20Roll;
+    totalResultEl.textContent = totalValue;
+
+    // Reset classes
+    d20ResultEl.classList.remove('nat-20', 'nat-1');
+    resultBox.classList.remove('critical-success', 'critical-fail');
+    totalResultEl.textContent = totalValue;
+
+    if (isCritSuccess) {
+        d20ResultEl.classList.add('nat-20');
+        resultBox.classList.add('critical-success');
+        totalResultEl.textContent = "CRIT!"; 
+    } else if (isCritFail) {
+        d20ResultEl.classList.add('nat-1');
+        resultBox.classList.add('critical-fail');
+        totalResultEl.textContent = "FAIL!";
+    }
+  }
+
+  // --- D20 LOGIC END ---
+
   _calculateHopeFearRoll(groupDef) {
-    const { totalNumerical, totalDiceNum } = this._calculateCurrentModifiers();
+    // CHANGE: Explicitly pass groupDef to modifiers
+    const { totalNumerical, totalDiceNum } = this._calculateCurrentModifiers(groupDef);
     const finalValue = groupDef.baseValue + totalNumerical;
     
     const highestHope = Math.floor(Math.random() * 12) + 1;
@@ -250,7 +320,6 @@ export class RollManager {
     const hopeWin = highestHope > highestFear;
     let gains = {};
 
-    // CHANGE: Calculate gains based on the `hopeBonus` configuration.
     if (hopeWin && groupDef.hopeBonus) {
         const { resourceId, maxProperty, percentage } = groupDef.hopeBonus;
         const resource = this.characterResources.find(r => r.id === resourceId);
@@ -272,7 +341,6 @@ export class RollManager {
     };
   }
   
-  // CHANGE: This function now only handles rendering, using pre-calculated data.
   _renderHopeFearRoll(groupDef, groupEl, rollData) {
     const { highestHope, highestFear, d6Modifier, d6Rolls, finalValue, crit, hopeWin } = rollData;
 
@@ -308,7 +376,6 @@ export class RollManager {
 
   _executeDamageRoll(groupDef, groupEl) {
     let totalDamage = 0;
-    // REFACTOR: Use the new helper function.
     const allActiveEffects = this._getAllActiveEffects();
 
     groupDef.rolls.forEach((rollDef, index) => {
@@ -348,19 +415,24 @@ export class RollManager {
     if (totalValueEl) totalValueEl.textContent = totalDamage;
   }
   
-  _calculateCurrentModifiers() {
+  // CHANGE: Added `groupDef` parameter to allow context-aware calculation
+  _calculateCurrentModifiers(groupDef = null) {
     let totalNumerical = 0;
     let totalDiceNum = 0;
-    const relevantAttribute = this.hopeFearGroup.attributeName;
+    
+    // If no groupDef passed, try to default to primary (fallback)
+    const targetGroup = groupDef || this.primaryGroup;
+    const relevantAttribute = targetGroup?.attributeName;
 
-    // REFACTOR: Use the new helper function.
     const allActiveEffects = this._getAllActiveEffects();
 
     allActiveEffects.forEach(eff => {
-      if (eff.attribute === relevantAttribute) {
+      // Only apply modifiers if the attribute matches the current roll's attribute
+      if (relevantAttribute && eff.attribute === relevantAttribute) {
           if (eff.type === 'modifier') totalNumerical += eff.modifier;
           if (eff.type === 'die_num') totalDiceNum += eff.modifier;
       }
+      // We could add a 'global' modifier type here later if needed
     });
     
     return { totalNumerical, totalDiceNum };
@@ -370,9 +442,10 @@ export class RollManager {
     const totalCosts = {};
     const activeCostSources = [];
 
-    if (this.hopeFearGroup.cost) {
+    // CHANGE: Use primaryGroup for base costs
+    if (this.primaryGroup && this.primaryGroup.cost) {
         activeCostSources.push({
-            costDef: this.hopeFearGroup.cost,
+            costDef: this.primaryGroup.cost,
             id: 'base'
         });
     }
@@ -405,7 +478,6 @@ export class RollManager {
         });
     });
 
-    // REFACTOR: Use the new helper function.
     const allActiveEffects = this._getAllActiveEffects();
 
     allActiveEffects.forEach(eff => {
@@ -482,7 +554,6 @@ export class RollManager {
 
         const costDef = ability.definition.cost;
         
-        // Affordability of the main toggle button
         const remainingResources = this.characterResources.reduce((acc, res) => ({...acc, [res.id]: res.value }), {});
         for (const resourceId in totalCosts) {
             if (remainingResources[resourceId] !== undefined) remainingResources[resourceId] -= totalCosts[resourceId];
@@ -500,7 +571,6 @@ export class RollManager {
             button.classList.remove('unaffordable');
         }
         
-        // Disabling for OR cost radio buttons
         if (costDef && costDef.or) {
             const radioContainer = buttonWrapper.querySelector('.or-cost-options');
             if(!radioContainer) return;
@@ -532,7 +602,6 @@ export class RollManager {
                 radio.disabled = !isOptionAffordable;
                 radio.parentElement.classList.toggle('unaffordable-option', !isOptionAffordable);
                 
-                // Set checked state based on current selection
                 const isThisPackageSelected = JSON.stringify(this.selectedCosts[ability.instancedId]) === JSON.stringify(costPackage);
                 if (isThisPackageSelected) {
                     radio.checked = true;
@@ -543,9 +612,10 @@ export class RollManager {
   }
 
   _updateRollButtonState(totalCosts) {
-    const hopeFearGroupId = this.rollDefinitions.findIndex(def => def.groupType === 'hope_fear');
-    if (hopeFearGroupId === -1) return;
-    const rollButton = this.modalElement.querySelector(`#roll-group-${hopeFearGroupId} .roll-group-btn`);
+    // CHANGE: Find the index of the primary active roll group (HopeFear OR D20)
+    const primaryGroupIndex = this.rollDefinitions.findIndex(def => def.groupType === 'hope_fear' || def.groupType === 'd20');
+    if (primaryGroupIndex === -1) return;
+    const rollButton = this.modalElement.querySelector(`#roll-group-${primaryGroupIndex} .roll-group-btn`);
     if (!rollButton) return;
 
     let isUnaffordable = false;
@@ -564,8 +634,8 @@ export class RollManager {
   }
 
   _updateModifierDisplay() {
-    // This loop reconciles the current state. It will first try to switch OR costs to
-    // resolve a deficit, and only deselect an ability as a last resort.
+    if (!this.primaryGroup) return;
+
     while (true) {
         const totalCosts = this._calculateCurrentCosts();
         const deficientResources = new Set();
@@ -578,10 +648,9 @@ export class RollManager {
         }
 
         if (deficientResources.size === 0) {
-            break; // All costs are affordable, exit the reconciliation loop.
+            break; 
         }
 
-        // FIX #2: Prioritize switching OR costs over deselecting abilities.
         let switchedCost = false;
         const abilitiesToRecheck = this.allToggleableAbilities.filter(
             ab => this.toggledStates.has(ab.instancedId) && ab.definition.cost?.or
@@ -592,11 +661,10 @@ export class RollManager {
             const isProblematic = currentCostPackage.some(item => deficientResources.has(item.resource));
 
             if (isProblematic) {
-                // This ability's selected cost contributes to the deficit. See if we can switch it.
                 const costOfOtherThings = { ...totalCosts };
                 currentCostPackage.forEach(costItem => {
                     if (costOfOtherThings[costItem.resource] !== undefined) {
-                        costOfOtherThings[costItem.resource] -= costItem.value; // Approximate subtraction
+                        costOfOtherThings[costItem.resource] -= costItem.value; 
                     }
                 });
 
@@ -624,16 +692,15 @@ export class RollManager {
                 if (bestAlternative) {
                     this.selectedCosts[ability.instancedId] = bestAlternative;
                     switchedCost = true;
-                    break; // Exit the for-loop to restart the while-loop
+                    break; 
                 }
             }
         }
 
         if (switchedCost) {
-            continue; // An OR cost was switched, restart the main loop to recalculate everything.
+            continue; 
         }
         
-        // If no cost-switch could be made, proceed with deselecting a victim as a last resort.
         let victimFoundAndDisabled = false;
         const toggledAbilityIds = Array.from(this.toggledStates);
 
@@ -654,12 +721,14 @@ export class RollManager {
         }
 
         if (!victimFoundAndDisabled) {
-            break; // Safeguard against infinite loops.
+            break; 
         }
     }
 
-    const { totalNumerical, totalDiceNum } = this._calculateCurrentModifiers();
-    const finalValue = this.hopeFearGroup.baseValue + totalNumerical;
+    // CHANGE: Pass primaryGroup to calculate modifiers for display
+    const { totalNumerical, totalDiceNum } = this._calculateCurrentModifiers(this.primaryGroup);
+    const finalValue = this.primaryGroup.baseValue + totalNumerical;
+    
     this.modalElement.querySelector('#mod-total-numerical').textContent = `${finalValue >= 0 ? '+' : ''}${finalValue}`;
     this.modalElement.querySelector('#mod-total-dice').textContent = `${totalDiceNum >= 0 ? '+' : ''}${totalDiceNum}d6`;
 
@@ -673,17 +742,18 @@ export class RollManager {
     if (d6Box && resultsGrid) {
         const hasDiceMods = totalDiceNum !== 0;
         d6Box.style.display = hasDiceMods ? 'flex' : 'none';
+        // Logic to handle grid classes might need slight adjustment if mixing systems, 
+        // but works for single primary group view.
         resultsGrid.classList.toggle('three-col', hasDiceMods);
         resultsGrid.classList.toggle('two-col', !hasDiceMods);
     }
   }
 
   _showBreakdownTooltip(targetElement) {
-    const relevantAttribute = this.hopeFearGroup.attributeName;
+    const relevantAttribute = this.primaryGroup?.attributeName;
     let content = '<h5>Applied Effects</h5><ul>';
-    content += `<li><strong>Base Value:</strong> ${this.hopeFearGroup.baseValue}</li>`;
+    content += `<li><strong>Base Value:</strong> ${this.primaryGroup.baseValue}</li>`;
 
-    // REFACTOR: Use the new helper function.
     const allActiveEffects = this._getAllActiveEffects();
 
     allActiveEffects.forEach(eff => {
@@ -746,6 +816,9 @@ export class RollManager {
       switch (groupDef.groupType) {
         case 'hope_fear':
           return this._createHopeFearGroupHTML(groupDef, index);
+        case 'd20':
+          // CHANGE: Add case for d20
+          return this._createD20GroupHTML(groupDef, index);
         case 'damage':
           return this._createDamageGroupHTML(groupDef, index);
         default:
@@ -759,6 +832,93 @@ export class RollManager {
           <button class="roll-modal-close">&times;</button>
           ${groupHTML}
           <div id="roll-manager-tooltip" class="roll-manager-tooltip" style="display: none;"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  // CHANGE: New HTML generator for D20 layout
+  _createD20GroupHTML(groupDef, groupId) {
+    const allPotentialAbilities = [
+        ...(groupDef.passiveAbilities || []),
+        ...(groupDef.availableActives || []),
+        ...(groupDef.availableConditionals || [])
+    ];
+    const hasPotentialDiceMods = allPotentialAbilities.some(ab => 
+        ab.definition.effect?.some(eff => eff.type === 'die_num')
+    );
+    
+    let d6BoxHTML = '';
+    // We include the D6 box hidden by default, toggle it if modifiers appear
+    d6BoxHTML = `<div class="result-box d6-box" style="display: none;">
+      <span class="result-label">Bonus Dice</span>
+      <span class="result-value d6-roll-result">--</span>
+      <span class="result-details d6-roll-details"></span>
+    </div>`;
+
+    let activesHTML = '';
+    if (groupDef.availableActives && groupDef.availableActives.length > 0) {
+        activesHTML = `<div class="roll-modal-section interactive-modifiers">
+              <h5>Active Abilities</h5>
+              <div class="ability-toggle-grid">
+                ${groupDef.availableActives.map(ab => this._createToggleButtonHTML(ab)).join('')}
+              </div>
+            </div>`;
+    }
+    let conditionalsHTML = '';
+    if (groupDef.availableConditionals && groupDef.availableConditionals.length > 0) {
+        conditionalsHTML = `<div class="roll-modal-section interactive-modifiers">
+              <h5>Conditional Abilities</h5>
+              <div class="ability-toggle-list">
+                 ${groupDef.availableConditionals.map(ab => this._createToggleButtonHTML(ab, true)).join('')}
+              </div>
+            </div>`;
+    }
+
+    let baseAttributeHtml = '';
+    if (groupDef.attributeName) {
+        const capitalizedAttribute = groupDef.attributeName.charAt(0).toUpperCase() + groupDef.attributeName.slice(1);
+        baseAttributeHtml = `
+            <div class="base-attribute-display">
+                <span>Attribute:</span>
+                <strong>${capitalizedAttribute}</strong>
+            </div>
+        `;
+    }
+
+    return `
+      <div class="roll-group" id="roll-group-${groupId}" data-group-id="${groupId}">
+        <h2 class="roll-modal-header">${groupDef.label}</h2>
+        <div class="roll-modal-section modifiers-section">
+          <h4>Modifiers</h4>
+          ${baseAttributeHtml} 
+          <div class="modifier-totals" data-action="show-breakdown-tooltip" title="Click to see breakdown">
+            <span>Total Mod: <strong id="mod-total-numerical">+0</strong></span>
+            <span>Dice Num: <strong id="mod-total-dice">+0d6</strong></span>
+          </div>
+        </div>
+
+        ${activesHTML}
+        ${conditionalsHTML}
+
+        <div id="roll-cost-calculator" class="roll-modal-section"></div>
+
+        <div class="roll-modal-section roll-button-section">
+          <button class="roll-modal-roll-btn roll-group-btn" data-group-id="${groupId}">${groupDef.buttonLabel}</button>
+        </div>
+        <div class="roll-modal-section results-section">
+          <h4>Results</h4>
+          <div class="results-grid two-col">
+            <div class="result-box d20-box">
+              <span class="result-label">d20 Roll</span>
+              <span class="result-value d20-roll-result">--</span>
+            </div>
+            ${d6BoxHTML}
+            <div class="result-box total-box">
+              <span class="result-label">Total</span>
+              <span class="result-value total-roll-result">--</span>
+            </div>
+          </div>
         </div>
       </div>
     `;

@@ -23,6 +23,47 @@ const RELEVANCE_RULES = {
 // --- NEW: Functions to manage the Ability Info Modal ---
 let boundCloseAbilityModalOnEscape;
 
+// --- NEW HELPER FUNCTION ---
+function getSystemType() {
+    if (!activeCharacter || !moduleDefinitions) return 'Hope/Fear'; // Default
+    return moduleDefinitions[activeCharacter.module]?.type || 'Hope/Fear';
+}
+
+/**
+ * NEW: Factory function to generate the correct roll definition based on System Type.
+ * This ensures D20 and Hope/Fear use their own logic but share the same entry point.
+ */
+function createBaseRollDefinition(label, attributeName, baseValue, isAttack = false, extraProps = {}) {
+    const system = getSystemType();
+
+    // Shared properties
+    const commonDef = {
+        label: label,
+        attributeName: attributeName,
+        baseValue: baseValue,
+        ...extraProps
+    };
+
+    if (system === 'D20') {
+        return {
+            ...commonDef,
+            groupType: 'd20',
+            buttonLabel: 'Roll D20',
+            // D20 doesn't usually have "Hope Bonus" resource gain mechanics, 
+            // but if your system does, add them here.
+        };
+    } else {
+        // Default to Hope/Fear
+        return {
+            ...commonDef,
+            groupType: 'hope_fear',
+            buttonLabel: 'Roll Hope/Fear',
+            isAttackRoll: isAttack,
+            hopeBonus: { resourceId: 'mana', maxProperty: 'max', percentage: 10 }
+        };
+    }
+}
+
 /**
  * Removes the ability info modal from the DOM and cleans up its event listeners.
  */
@@ -678,8 +719,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 const passiveAbilities = [], availableActives = [], availableConditionals = [];
 
+                // CHANGE: Determine relevance based on the Group Type defined in baseRollDef
+                // This allows D20 rolls to filter abilities differently if we define RELEVANCE_RULES['d20'] later.
+                // For now, we assume 'hope_fear' rules apply to 'd20' for attribute mods (modifier/die_num).
+                const checkGroupType = baseRollDef.groupType === 'd20' ? 'hope_fear' : baseRollDef.groupType;
+
                 abilities.forEach(ab => {
-                    const isRelevantToAttribute = isAbilityRelevant(ab, 'hope_fear', attributeContext);
+                    const isRelevantToAttribute = isAbilityRelevant(ab, checkGroupType, attributeContext);
                     const isRelevantToDamage = damageDef && isAbilityRelevant(ab, 'damage', damageContext);
                     if (!isRelevantToAttribute && !isRelevantToDamage) return;
 
@@ -716,13 +762,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     processAndRenderAll(activeCharacter);
                 };
                 
-                // FIX: Pass the correctly named callback to the RollManager.
                 const rollManager = new RollManager(rollDefinitions, activeAbilityStates, onResourceUpdateCallback, onRollComplete);
                 rollManager.show();
             };
 
-            // --- EVENT HANDLERS (All call sites are corrected) ---
+            // --- UPDATED EVENT HANDLERS ---
 
+            // 1. Ability Roll Button (Attacks)
             const abilityRollButton = target.closest('.btn-ability-roll');
             if (abilityRollButton) {
                 const abilityId = abilityRollButton.dataset.abilityId;
@@ -731,51 +777,52 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (!attackEffect) return;
                 
                 const characterAbilities = getCharacterRollAbilities(allAbilities);
+                
+                // CHANGE: Use factory to get D20 or Hope/Fear definition
+                const baseRollDef = createBaseRollDefinition(
+                    `${ability.definition.name} - Attack Roll`,
+                    attackEffect.attribute_bonus,
+                    activeCharacter.attributes[attackEffect.attribute_bonus] || 0,
+                    true, // isAttack
+                    { cost: ability.definition.cost }
+                );
+
                 const rollContext = {
                     abilities: characterAbilities,
                     damageDef: attackEffect,
                     characterResources: activeCharacter.resources,
                     activeEffects: mainEffectHandler.activeEffects,
-                    baseRollDef: {
-                        groupType: 'hope_fear',
-                        label: `${ability.definition.name} - Attack Roll`,
-                        buttonLabel: 'Roll Attack',
-                        attributeName: attackEffect.attribute_bonus,
-                        baseValue: activeCharacter.attributes[attackEffect.attribute_bonus] || 0,
-                        isAttackRoll: true,
-                        cost: ability.definition.cost,
-                        // CHANGE: Added hopeBonus configuration
-                        hopeBonus: { resourceId: 'mana', maxProperty: 'max', percentage: 10 }
-                    }
+                    baseRollDef: baseRollDef
                 };
-                // FIX: Pass the new handleResourceUpdate function.
                 setupAndLaunchRoll(rollContext, handleResourceUpdate);
                 return;
             }
             
-            const hopeFearButton = target.closest('.hope-fear-roll-btn');
-            if(hopeFearButton) {
-                const attributeName = hopeFearButton.dataset.attribute;
+            // 2. Attribute Roll Button (Main Attributes)
+            // CHANGE: Listening for generic 'attribute-roll-btn' now
+            const attributeRollButton = target.closest('.attribute-roll-btn');
+            if(attributeRollButton) {
+                const attributeName = attributeRollButton.dataset.attribute;
                 const characterAbilities = getCharacterRollAbilities(allAbilities);
+
+                // CHANGE: Use factory
+                const baseRollDef = createBaseRollDefinition(
+                    `${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
+                    attributeName,
+                    activeCharacter.attributes[attributeName] || 0
+                );
+
                 const rollContext = {
                     abilities: characterAbilities,
                     characterResources: activeCharacter.resources,
                     activeEffects: mainEffectHandler.activeEffects,
-                    baseRollDef: {
-                        groupType: 'hope_fear',
-                        label: `${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
-                        buttonLabel: 'Roll Check',
-                        attributeName: attributeName,
-                        baseValue: activeCharacter.attributes[attributeName] || 0,
-                        // CHANGE: Added hopeBonus configuration
-                        hopeBonus: { resourceId: 'mana', maxProperty: 'max', percentage: 10 }
-                    }
+                    baseRollDef: baseRollDef
                 };
-                // FIX: Pass the new handleResourceUpdate function.
                 setupAndLaunchRoll(rollContext, handleResourceUpdate);
                 return;
             }
 
+            // 3. Summon Attribute Roll Button
             const summonAttrRollBtn = target.closest('.summon-attribute-roll-btn');
             if (summonAttrRollBtn) {
                 const instanceId = summonAttrRollBtn.dataset.instanceId;
@@ -789,25 +836,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                     ...(summonDef.abilities?.passive || []).map(p => ({ definition: p, itemType: 'passive' })),
                     ...(summonDef.abilities?.active || []).map(a => ({ definition: a, itemType: 'active' }))
                 ];
+
+                // CHANGE: Use factory
+                const baseRollDef = createBaseRollDefinition(
+                    `${summonDef.name} - ${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
+                    attributeName,
+                    summonDef.attributes[attributeName] || 0
+                );
+
                 const rollContext = {
                     abilities: allSummonAbilities,
                     characterResources: activeCharacter.resources,
                     activeEffects: mainEffectHandler.activeEffects,
-                    baseRollDef: {
-                        groupType: 'hope_fear',
-                        label: `${summonDef.name} - ${attributeName.charAt(0).toUpperCase() + attributeName.slice(1)} Check`,
-                        buttonLabel: 'Roll Check',
-                        attributeName: attributeName,
-                        baseValue: summonDef.attributes[attributeName] || 0,
-                        // CHANGE: Added hopeBonus configuration for summon rolls as well.
-                        hopeBonus: { resourceId: 'mana', maxProperty: 'max', percentage: 10 }
-                    }
+                    baseRollDef: baseRollDef
                 };
-                // FIX: Pass the new handleResourceUpdate function.
                 setupAndLaunchRoll(rollContext, handleResourceUpdate);
                 return;
             }
 
+            // 4. Summon Action Button (Attacks)
             const actionButton = target.closest('.btn-action');
             if (actionButton) {
                 const instanceId = actionButton.dataset.instanceId;
@@ -823,24 +870,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     ...(summonDef.abilities?.passive || []).map(p => ({ definition: p, itemType: 'passive' })),
                     ...(summonDef.abilities?.active || []).map(a => ({ definition: a, itemType: 'active' }))
                 ];
+
+                // CHANGE: Use factory
+                const baseRollDef = createBaseRollDefinition(
+                    `${abilityDef.name} - Attack Roll`,
+                    attackEffect.attribute_bonus,
+                    summonDef.attributes[attackEffect.attribute_bonus] || 0,
+                    true,
+                    { cost: abilityDef.cost }
+                );
+
                 const rollContext = {
                     abilities: allSummonAbilities,
                     damageDef: attackEffect,
                     characterResources: activeCharacter.resources, 
                     activeEffects: mainEffectHandler.activeEffects,
-                    baseRollDef: {
-                        groupType: 'hope_fear',
-                        label: `${abilityDef.name} - Attack Roll`,
-                        buttonLabel: 'Roll Attack',
-                        attributeName: attackEffect.attribute_bonus,
-                        baseValue: summonDef.attributes[attackEffect.attribute_bonus] || 0,
-                        isAttackRoll: true,
-                        cost: abilityDef.cost,
-                        // CHANGE: Added hopeBonus configuration
-                        hopeBonus: { resourceId: 'mana', maxProperty: 'max', percentage: 10 }
-                    }
+                    baseRollDef: baseRollDef
                 };
-                // FIX: Pass the new handleResourceUpdate function.
                 setupAndLaunchRoll(rollContext, handleResourceUpdate);
                 return;
             }
