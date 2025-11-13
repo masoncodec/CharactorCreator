@@ -42,6 +42,17 @@
                         "basic-greatsword",
                         "basic-chestplate"
                     ]
+                },
+                {
+                    "type": "choice",
+                    "id": "pledge",
+                    "name": "Pledge of Fealty",
+                    "itemType": "community",
+                    "maxChoices": 1,
+                    "items": [
+                        "valor",
+                        "baroth-knight"
+                    ]
                 }
             ]
         }

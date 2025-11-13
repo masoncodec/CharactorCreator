@@ -29,6 +29,7 @@
     "dataFiles": {
         "abilities": "abilities.json",
         "flaws": "flaws.json",
-        "equipmentAndLoot": "equipmentAndLoot.json"
+        "equipmentAndLoot": "equipmentAndLoot.json",
+        "communities": "communities.json"
     }
 }
