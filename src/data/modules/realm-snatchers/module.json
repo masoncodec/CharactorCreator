@@ -9,12 +9,9 @@
     "descriptions": {
         "module": "Classic medieval fantasy adventuring with swords, sorcery, and epic quests."
     },
-    "destinies": ["knight", "mage", "cleric", "assassin", "bard"],
-    "purposes": ["ruler"],
-    "nurtures": ["noble"],
     "frame": {
         "name": "Realm Snatchers",
-        "description": "Classic medieval fantasy adventuring with swords, sorcery, and epic quests.",
+        "description": "333Classic medieval fantasy adventuring with swords, sorcery, and epic quests.",
         "author": "May",
         "complexityRating": 1,
         "pitch": [
@@ -27,9 +24,5 @@
         "inspiration": "Frieren, One Piece"
     },
     "dataFiles": {
-        "abilities": "abilities.json",
-        "flaws": "flaws.json",
-        "equipmentAndLoot": "equipmentAndLoot.json",
-        "communities": "communities.json"
     }
 }

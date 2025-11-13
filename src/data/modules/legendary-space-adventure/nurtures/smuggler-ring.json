@@ -1,0 +1,45 @@
+{
+    "id": "smuggler-ring",
+    "displayName": "Smuggler Ring",
+    "description": "You were taken in at a young age by a Smuggler's Ring. The leader, \"Ruby\", looked after you and made sure other Smuggler's didn't fuck with you too hard. She always worked you like hell.",
+    "tags": [
+        { "id": "elemental", "display": "Elemental", "color": "#ff6347", "icon": "🔥" },
+        { "id": "magic", "display": "Magic", "color": "#8A2BE2", "icon": "✨" }
+    ],
+    "levels": [
+        {
+            "level": 1,
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "smuggler_ring_base_stats",
+                    "rewards": {
+                        "attributes": {
+                            "salesperson": 2
+                        }
+                    }
+                },
+                {
+                    "type": "choice",
+                    "id": "smuggler-ring-leader",
+                    "name": "Smuggler Ring's Leader",
+                    "itemType": "relationship",
+                    "maxChoices": 1,
+                    "items": [
+                        "ruby"
+                    ]
+                },
+                {
+                    "type": "choice",
+                    "id": "smuggler-ring",
+                    "name": "Smuggler Ring",
+                    "itemType": "community",
+                    "maxChoices": 1,
+                    "items": [
+                        "indica-tiara"
+                    ]
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,11 @@
+{
+    "id": "gold-coin",
+    "type": "loot",
+    "category": "currency",
+    "name": "Gold Coin",
+    "description": "Standard unit of currency.",
+    "rarity": "common",
+    "value": 1,
+    "stackable": true,
+    "effect": []
+}

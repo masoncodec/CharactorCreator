@@ -1,3 +1,10 @@
+### Add Stuff
+
+#### Module
+
+1. Add module name to `module_list.json`
+2. Fully define module
+
 ### Current TODO
 
 firstly: effecthandler morez

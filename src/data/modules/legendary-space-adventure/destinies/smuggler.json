@@ -1,0 +1,38 @@
+{
+    "id": "smuggler",
+    "displayName": "Smuggler",
+    "description": "Transporter of illegal goods",
+    "levels": [
+        {
+            "level": 1,
+            "unlocks": [
+                {
+                    "type": "reward",
+                    "id": "smuggler_base_stats",
+                    "rewards": {
+                        "resources": {
+                            "health": 15,
+                            "mana": 5
+                        }
+                    }
+                },
+                {
+                    "type": "choice",
+                    "id": "flaws",
+                    "name": "Tragic Past",
+                    "itemType": "flaw",
+                    "maxChoices": 1,
+                    "items": ["divorced-parents", "sibling-competition"]
+                },
+                {
+                    "type": "choice",
+                    "id": "gun",
+                    "name": "Gun",
+                    "itemType": "equipment",
+                    "maxChoices": 1,
+                    "items": ["lazer-pistol"]
+                }
+            ]
+        }
+    ]
+}

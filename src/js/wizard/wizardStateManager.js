@@ -465,46 +465,78 @@ class WizardStateManager {
     this.set('inventory', this.state.inventory);
   }
 
+  /**
+   * --- UPDATED: Now handles the 'effect' array structure for modifiers ---
+   * Looks for { type: "modifier", attribute: "X", modifier: Y } inside the item's effect array.
+   */
   getCombinedAttributeBonuses() {
     const attributeBonuses = {};
-    const sources = ['destiny', 'purpose', 'nurture'];
     const level = this.get('creationLevel');
 
+    // 1. Get bonuses from Level-based sources (Destiny, Purpose, Nurture)
+    const sources = ['destiny', 'purpose', 'nurture'];
     for (const sourceType of sources) {
         const sourceId = this.get(sourceType);
         if (!sourceId) continue;
 
         const definition = this[`get${sourceType.charAt(0).toUpperCase() + sourceType.slice(1)}`](sourceId);
-        // The check should be for definition.levels
         if (!definition || !Array.isArray(definition.levels)) continue;
 
-        // Iterate through each level object (e.g., level 1, level 2)
         for (const levelData of definition.levels) {
             if (levelData.level > level) continue;
 
-            // --- START FIX ---
-            // If the level has no unlocks, skip it
             if (!levelData.unlocks || !Array.isArray(levelData.unlocks)) continue;
 
-            // Now, iterate through the UNLOCKS within that level
             for (const unlock of levelData.unlocks) {
-              // Check if this unlock is a reward AND if it has attribute bonuses
               if (unlock.type === 'reward' && unlock.rewards?.attributes) {
-                
-                // Sum the attribute bonuses from this unlock
                 for (const attr in unlock.rewards.attributes) {
-                  const value = unlock.rewards.attributes[attr];
-                  if (attributeBonuses[attr]) {
-                      attributeBonuses[attr] += value;
-                  } else {
-                      attributeBonuses[attr] = value;
+                  const value = Number(unlock.rewards.attributes[attr]);
+                  if (!isNaN(value)) {
+                      const key = attr.toLowerCase();
+                      attributeBonuses[key] = (attributeBonuses[key] || 0) + value;
                   }
                 }
               }
             }
-            // --- END FIX ---
         }
     }
+
+    // 2. Get bonuses from Selected Items (Flaws, Perks, etc.)
+    const selections = this.get('selections') || [];
+    const allItems = this.getItemData();
+
+    selections.forEach(sel => {
+        const itemDef = allItems[sel.id];
+        
+        if (itemDef) {
+            // Check if the item has an 'effect' array
+            if (Array.isArray(itemDef.effect)) {
+                itemDef.effect.forEach(eff => {
+                    // Check if the effect is a modifier type
+                    if (eff.type === 'modifier' && eff.attribute && eff.modifier !== undefined) {
+                        const val = Number(eff.modifier);
+                        if (!isNaN(val)) {
+                            const key = eff.attribute.toLowerCase();
+                            attributeBonuses[key] = (attributeBonuses[key] || 0) + val;
+                            console.log(`[Bonus Calc] Applied modifier: ${key} += ${val} from item '${itemDef.name}'`);
+                        }
+                    }
+                });
+            }
+            
+            // Fallback: Keep support for direct 'attributes' property just in case other items use it
+            else if (itemDef.attributes) {
+                for (const attr in itemDef.attributes) {
+                    const val = Number(itemDef.attributes[attr]);
+                    if (!isNaN(val)) {
+                        const key = attr.toLowerCase();
+                        attributeBonuses[key] = (attributeBonuses[key] || 0) + val;
+                    }
+                }
+            }
+        }
+    });
+
     return attributeBonuses;
   }
 

@@ -1,0 +1,33 @@
+{
+    "id": "basic-greatsword",
+    "type": "equipment",
+    "category": "weapon",
+    "equip_slot": "two-hand",
+    "name": "Basic Greatsword",
+    "description": "An old worn blade that holds a certain prestige, it has a sturdy sharp cut.",
+    "rarity": "uncommon",
+    "weight": 10,
+    "abilities": {
+        "passive": [],
+        "active": [
+            {
+                "id": "slash",
+                "name": "Slash",
+                "description": "A slashing attack",
+                "effect": [
+                    {
+                        "type": "attack",
+                        "target": "single_enemy",
+                        "attribute_bonus": "power",
+                        "damage": [
+                            {
+                                "type": "slashing",
+                                "dice": "1d8"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

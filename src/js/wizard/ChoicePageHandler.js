@@ -1,5 +1,5 @@
 // js/wizard/ChoicePageHandler.js
-// FINAL VERSION: Correctly scopes completion validation to the specific page.
+// FINAL VERSION: Correctly finds options from loaded data instead of module.json lists.
 
 import { InformerContentBuilder } from './InformerContentBuilder.js';
 import { PageContentRenderer } from './PageContentRenderer.js';
@@ -144,6 +144,7 @@ class ChoicePageHandler {
     if (!container) return;
     container.innerHTML = '';
     
+    // 1. Level Up Mode: Use strict getters (unchanged)
     if (this.stateManager.get('isLevelUpMode')) {
         const selectedId = this.stateManager.get(this.config.stateKey);
         if (selectedId) {
@@ -155,16 +156,36 @@ class ChoicePageHandler {
         return;
     }
 
-    const moduleData = this.stateManager.getModule(this.stateManager.get('module'));
-    const options = moduleData ? moduleData[this.config.getOptionsKey] : [];
+    // --- NEW LOGIC START ---
+    // 2. Map the Config Key to the Data Key
+    const dataKeyMap = {
+        'destinies': 'destinies', // WizardStateManager stores it as 'destinies' (plural)
+        'purposes': 'purposes',
+        'nurtures': 'nurtures'
+    };
+    
+    const actualDataKey = dataKeyMap[this.config.getOptionsKey] || this.config.getOptionsKey;
+    const dataSet = this.stateManager.data[actualDataKey];
+
+    // 3. Get Options directly from the loaded data set
+    const options = dataSet ? Object.keys(dataSet) : [];
+    // --- NEW LOGIC END ---
+
     if (!options || options.length === 0) {
         container.innerHTML = `<p>No ${this.config.pageName}s available for this module.</p>`;
         return;
     }
+    
     options.forEach(optionId => {
-        const optionDef = this.stateManager[this.config.getDataMethodName](optionId);
+        // FIX: Retrieve the definition from the State Manager's loaded data
+        let optionDef = dataSet[optionId];
+        
+        if (!optionDef && typeof this.stateManager[this.config.getDataMethodName] === 'function') {
+             optionDef = this.stateManager[this.config.getDataMethodName](optionId);
+        }
+
         if (optionDef) {
-            container.innerHTML += `<div class="${this.config.optionClassName.substring(1)}" ${this.config.dataAttribute}="${optionId}"><span class="${this.config.stateKey}-name">${optionDef.displayName}</span></div>`;
+            container.innerHTML += `<div class="${this.config.optionClassName.substring(1)}" ${this.config.dataAttribute}="${optionId}"><span class="${this.config.stateKey}-name">${optionDef.displayName || optionDef.name}</span></div>`;
         }
     });
   }
@@ -186,7 +207,6 @@ class ChoicePageHandler {
       return false;
     }
     
-    // --- FIX: Filter selections to only those relevant to THIS page ---
     const selectionsForThisPage = currentState.selections.filter(
       sel => sel.source === this.config.stateKey
     );
@@ -197,7 +217,6 @@ class ChoicePageHandler {
       if (unlock.type !== 'choice' || !unlock.maxChoices || unlock.maxChoices <= 0) {
         return true;
       }
-      // Use the filtered selections array for this check
       const selectionsInGroup = selectionsForThisPage.filter(
         sel => sel.groupId === unlock.id
       );
@@ -208,7 +227,6 @@ class ChoicePageHandler {
       return false;
     }
 
-    // Use the filtered selections array for the nested options check as well
     if (!this.stateManager.itemManager.hasAllNestedOptionsSelected(selectionsForThisPage)) {
       return false;
     }
@@ -219,7 +237,6 @@ class ChoicePageHandler {
   getCompletionError(currentState) {
     const errors = [];
     
-    // --- FIX: Filter selections to only those relevant to THIS page ---
     const selectionsForThisPage = currentState.selections.filter(
       sel => sel.source === this.config.stateKey
     );
@@ -230,7 +247,6 @@ class ChoicePageHandler {
       if (unlock.type !== 'choice' || !unlock.maxChoices || unlock.maxChoices <= 0) {
         return;
       }
-      // Use the filtered selections array for this check
       const selectionsInGroup = selectionsForThisPage.filter(
         sel => sel.groupId === unlock.id
       );
@@ -244,7 +260,6 @@ class ChoicePageHandler {
       }
     });
     
-    // Use the filtered selections array for the nested options check
     const nestedOptionErrors = this.stateManager.itemManager.getNestedOptionsCompletionErrors(selectionsForThisPage);
     errors.push(...nestedOptionErrors);
     

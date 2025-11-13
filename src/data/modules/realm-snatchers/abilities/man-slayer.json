@@ -1,0 +1,15 @@
+{
+    "type": "active",
+    "condition": "If you are attacking a humanoid",
+    "name": "Man Slayer",
+    "description": "You played a part in a territory dispute where you were forced to kill an enemy soldier",
+    "effect": [
+        {
+            "type": "modifier",
+            "name": "Modifier",
+            "attribute": "power",
+            "modifier": 3
+        }
+    ],
+    "id": "man-slayer"
+}

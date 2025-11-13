@@ -1,0 +1,15 @@
+{
+    "type": "flaw",
+    "name": "Idiot",
+    "description": "You are quite dumb",
+    "weight": 10,
+    "effect": [
+        {
+            "type": "modifier",
+            "name": "Modifier",
+            "attribute": "magic",
+            "modifier": -3
+        }
+    ],
+    "id": "idiot"
+}

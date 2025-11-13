@@ -1,0 +1,15 @@
+{
+    "type": "active",
+    "condition": "If you are attacking a non-humanoid",
+    "name": "Beast Slayer",
+    "description": "The border patrols you did while in training strengthened your ability to cut down beasts",
+    "effect": [
+        {
+            "type": "modifier",
+            "name": "Modifier",
+            "attribute": "power",
+            "modifier": 3
+        }
+    ],
+    "id": "beast-slayer"
+}

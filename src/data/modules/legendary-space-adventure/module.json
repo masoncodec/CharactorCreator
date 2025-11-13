@@ -1,0 +1,27 @@
+{
+    "id": "legendary-space-adventure",
+    "name": "Legendary Space Adventure",
+    "type": "D20",
+    "attributes": {
+        "names": ["Pilot", "Engineer", "Medic", "Gunner", "Salesperson", "Scientist"],
+        "values": [-3, -2, -1, 1, 2, 3]
+    },
+    "descriptions": {
+        "module": "Travel through cold dark space and face mighty mysterious foes."
+    },
+    "frame": {
+        "name": "Legendary Space Adventure",
+        "description": "333Travel through cold dark space and face mighty mysterious foes.",
+        "author": "May",
+        "complexityRating": 2,
+        "pitch": [
+            "An age of chaos",
+            "Everything is for the taking and you find yourself among those who can take it all for themselves"
+        ],
+        "tone": "Heroic, Monstrous, Funny",
+        "theme": "Treasure, Varied Lifeforms",
+        "inspiration": "Star Trek, ASO: 2001, Interstellar"
+    },
+    "dataFiles": {
+    }
+}

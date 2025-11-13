@@ -1,0 +1,15 @@
+{
+    "type": "flaw",
+    "name": "Sibling Competitions",
+    "description": "You were forced to compete over your parents love with your siblings.",
+    "weight": 10,
+    "effect": [
+        {
+            "type": "modifier",
+            "name": "Modifier",
+            "attribute": "medic",
+            "modifier": -1
+        }
+    ],
+    "id": "sibling-competition"
+}

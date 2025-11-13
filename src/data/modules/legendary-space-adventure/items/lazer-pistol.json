@@ -1,0 +1,63 @@
+{
+    "id": "lazer-pistol",
+    "type": "equipment",
+    "category": "weapon",
+    "equip_slot": "main-hand",
+    "name": "Lazer Pistol",
+    "description": "L.azy A.sshole Z.apping E.verything R.emotely (effected by environment, e.g wind). An energy bolt slowly charges within the pistol dissapting as it travels.",
+    "rarity": "rare",
+    "weight": 10,
+    "abilities": {
+        "passive": [
+            {
+                "id": "gunner-with-a-gun",
+                "name": "Gunner with a gun",
+                "effect": [
+                    {
+                        "type": "modifier",
+                        "name": "Modifier",
+                        "attribute": "gunner",
+                        "modifier": 1
+                    }
+                ]
+            }
+        ],
+        "active": [
+            {
+                "id": "uncharged-shot",
+                "name": "Uncharged Shot",
+                "description": "Base Lazer Pistol attack",
+                "effect": [
+                    {
+                        "type": "attack",
+                        "target": "single_enemy",
+                        "attribute_bonus": "gunner",
+                        "range": "20 feet",
+                        "damage": [
+                            { "type": "lethal", "distance": "2 feet"},
+                            { "type": "flick", "distance": "~20 feet"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "charged-shot",
+                "name": "Charged Shot",
+                "description": "Gun opens, excess energy roiling out the sides, bright loud and hot.",
+                "effect": [
+                    {
+                        "type": "attack",
+                        "target": "single_enemy",
+                        "attribute_bonus": "gunner",
+                        "charge": "5 seconds",
+                        "range": "100 feet",
+                        "damage": [
+                            { "type": "lethal", "distance": "10 feet"},
+                            { "type": "flick", "distance": "~100 feet"}
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

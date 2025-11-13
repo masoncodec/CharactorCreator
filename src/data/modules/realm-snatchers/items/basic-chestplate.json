@@ -1,0 +1,33 @@
+{
+    "id": "basic-chestplate",
+    "type": "equipment",
+    "category": "armor",
+    "equip_slot": "chest",
+    "name": "A Knight's Armor",
+    "description": "Rust creeps up from the corners of this armor. Yet an unexpected lightness embraces the wearer.",
+    "rarity": "uncommon",
+    "weight": 10,
+    "abilities": {
+        "passive": [
+            {
+                "id": "tough_armor",
+                "name": "Tough Armor",
+                "description": "Blocking damage is easier",
+                "effect": [
+                    {
+                        "type": "defense",
+                        "target": "self",
+                        "attribute_bonus": "power",
+                        "resistance": [
+                            {
+                                "type": "all",
+                                "dice": "1d4"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "active": []
+    }
+}

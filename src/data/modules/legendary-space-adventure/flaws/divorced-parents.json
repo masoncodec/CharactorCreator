@@ -1,0 +1,15 @@
+{
+    "type": "flaw",
+    "name": "Divorced Parents",
+    "description": "You're parents had a nasty split up while you were 5.",
+    "weight": 10,
+    "effect": [
+        {
+            "type": "modifier",
+            "name": "Modifier",
+            "attribute": "pilot",
+            "modifier": -1
+        }
+    ],
+    "id": "divorced-parents"
+}

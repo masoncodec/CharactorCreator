@@ -1,0 +1,35 @@
+{
+    "nurtures": [
+        "noble"
+    ],
+    "perks": [],
+    "bestiary": [],
+    "communities": [
+        "baroth-knight",
+        "valor"
+    ],
+    "purposes": [
+        "ruler"
+    ],
+    "destinies": [
+        "cleric",
+        "bard",
+        "knight",
+        "mage",
+        "assassin"
+    ],
+    "items": [
+        "basic-greatsword",
+        "gold-coin",
+        "basic-chestplate"
+    ],
+    "relationships": [],
+    "abilities": [
+        "beast-slayer",
+        "man-slayer"
+    ],
+    "flaws": [
+        "arrow-to-the-knee",
+        "idiot"
+    ]
+}

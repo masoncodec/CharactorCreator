@@ -114,9 +114,9 @@ class CharacterWizard {
         // --- START OF FIX ---
         // This mapping corrects the 'destiny' vs 'destinies' typo and makes the code more robust.
         const pluralMap = {
-          destiny: 'destinies',
-          purpose: 'purposes',
-          nurture: 'nurtures'
+          destiny: 'destinyData',
+          purpose: 'purposeData',
+          nurture: 'nurtureData'
         };
         const dataKey = pluralMap[pageKey];
         const dataSet = this.stateManager.data[dataKey];

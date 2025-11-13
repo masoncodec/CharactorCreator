@@ -1,0 +1,15 @@
+{
+    "type": "flaw",
+    "name": "Arrow to the Knee",
+    "description": "You used to be young and spry before taking an arrow to the knee in a training accident",
+    "weight": 10,
+    "effect": [
+        {
+            "type": "modifier",
+            "name": "Modifier",
+            "attribute": "reflex",
+            "modifier": -3
+        }
+    ],
+    "id": "arrow-to-the-knee"
+}
